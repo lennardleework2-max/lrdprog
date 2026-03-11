@@ -1,0 +1,113 @@
+ALTER TABLE tranfile1
+ADD COLUMN po_qr_id VARCHAR(25) NULL,
+ADD COLUMN po_qr_date_scanned DATE NULL;
+
+ALTER TABLE tranfile2
+ADD COLUMN purnum_recid VARCHAR(25) NULL,
+ADD COLUMN so_recid VARCHAR(25) NULL,
+ADD COLUMN order_status VARCHAR(100) NULL;
+
+
+SET NAMES utf8mb4;
+
+INSERT INTO `menus` (`recid`, `mencap`, `menprogram`, `menlogo`, `menidx`, `mennum`, `mensub`, `mengrp`, `is_removed`, `is_disabled`, `has_crud`) VALUES
+(1,	'Home',	'main.php',	'fas fa-home',	'1.00',	0.00,	'',	'1',	'1',	'',	''),
+(2,	'Sample MF Program',	'employeefile.php',	'fab fa-adversal',	'2.00',	0.00,	'',	'1',	'1',	'',	'N'),
+(3,	'Utilities',	'',	'fas fa-cogs',	'3.01',	1.00,	'UTL',	'3',	'',	'',	''),
+(4,	'Users',	'utl_users.php',	'fas fa-users-cog',	'x',	1.00,	'',	'UTL',	'',	'',	'N'),
+(5,	'Password',	'utl_password.php',	'fas fa-key',	'x',	2.00,	'',	'UTL',	'',	'',	'N'),
+(6,	'User Activity Log',	'utl_useractivitylog.php',	'fas fa-file-contract',	'x',	1.00,	'',	'UTL',	'',	'',	'N'),
+(7,	'Items',	'mf_itemfile.php',	'fas fa-box',	'.01',	NULL,	'',	'1',	'',	'',	'Y'),
+(8,	'Shop Name',	'mf_cusfile.php',	'fas fa-user-tag',	'.02',	NULL,	'',	'1',	'',	'',	'Y'),
+(9,	'Transactions',	'',	'fas fa-comments-dollar',	'2.5',	1.00,	'TRN',	'4',	'1',	'',	''),
+(10,	'Sales',	'',	'fas fa-coins',	'2.22',	0.00,	'SAL-MAIN',	'1',	'',	'',	'Y'),
+(13,	'Sales Transaction',	'trn_salesfile1.php',	'fas fa-receipt',	'x',	1.00,	'',	'SAL-MAIN',	'',	'',	'Y'),
+(14,	'Sales Reports',	'',	'fas fa-file-pdf',	'x',	2.00,	'SAL-REP',	'SAL-MAIN',	'',	'',	''),
+(15,	'Sales by Doc. Num',	'sales_docnum_rep.php',	'fas fa-list-ol',	'x',	1.00,	'',	'SAL-REP',	'',	'',	'N'),
+(18,	'Sales by Tran. Date',	'sales_trndate_rep.php',	'fas fa-calendar-alt',	'x',	2.00,	'',	'SAL-REP',	'',	'',	'N'),
+(19,	'Sales by Date',	'sales_trndate_rep.php',	'fas fa-user-tag',	'x',	3.00,	'',	'SAL-REP',	'1',	'',	'N'),
+(21,	'Sales by Item',	'sales_item_rep.php',	'fas fa-box',	'x',	4.00,	'',	'SAL-REP',	'',	'',	'N'),
+(22,	'Sales Return',	'',	'fas fa-wallet',	'2.23',	0.00,	'SALRET-MAIN',	'1',	'',	'',	''),
+(23,	'Sales Return Transaction',	'trn_salesretfile1.php',	'fas fa-receipt',	'x',	1.00,	'',	'SALRET-MAIN',	'',	'',	'Y'),
+(24,	'Sales Return Reports',	'',	'fas fa-file-pdf',	'x',	2.00,	'SALRET-REP',	'SALRET-MAIN',	'',	'',	''),
+(25,	'Sales Ret. by Doc. Num',	'salesret_docnum_rep.php',	'fas fa-list-ol',	'x',	1.00,	'',	'SALRET-REP',	'',	'',	''),
+(26,	'Sales Ret. by Tran. Date',	'salesret_trndate_rep.php',	'fas fa-calendar-alt',	'x',	2.00,	'',	'SALRET-REP',	'',	'',	''),
+(27,	'Sales Ret. by Item',	'salesret_item_rep.php',	'fas fa-box',	'x',	3.00,	'',	'SALRET-REP',	'',	'',	''),
+(29,	'Purchases',	'',	'fas fa-shopping-cart',	'2.21',	0.00,	'PUR-MAIN',	'1',	'',	'',	'N'),
+(30,	'Purchases Transaction',	'trn_purchasefile1.php',	'fas fa-receipt',	'x',	1.00,	'',	'PUR-MAIN',	'',	'',	'Y'),
+(31,	'Purchases Reports',	'',	'fas fa-file-pdf',	'x',	2.00,	'PUR-REP',	'PUR-MAIN',	'',	'',	''),
+(32,	'Purchases by Doc. Num',	'purchase_docnum_rep.php',	'fas fa-list-ol',	'x',	1.00,	'',	'PUR-REP',	'',	'',	''),
+(33,	'Purchases by Tran. Date',	'purchase_trndate_rep.php',	'fas fa-calendar-alt',	'x',	2.00,	'',	'PUR-REP',	'',	'',	''),
+(34,	'Purchases by Item',	'purchase_item_rep.php',	'fas fa-box',	'x',	3.00,	'',	'PUR-REP',	'',	'',	''),
+(35,	'Supplier',	'mf_supplierfile.php',	'fas fa-industry',	'2.1',	0.00,	'',	'1',	'',	'',	''),
+(36,	'Inventory Balance',	'inventory_balance.php',	'fas fa-balance-scale',	'2.98',	0.00,	'',	'1',	'',	'',	''),
+(37,	'Stock Card',	'stock_card.php',	'fas fa-cubes',	'2.99',	0.00,	'',	'1',	'',	'',	''),
+(39,	'Inventory Adjustments',	'',	'fas fa-sort-amount-down-alt',	'2.34',	0.00,	'ADJ-MAIN',	'1',	'',	'',	''),
+(40,	'Inven. Adjust. Transaction',	'trn_invadjfile1.php',	'fas fa-receipt',	'x',	1.00,	'',	'ADJ-MAIN',	'',	'',	'Y'),
+(41,	'Inven. Adjust. Reports',	'',	'fas fa-file-pdf',	'x',	2.00,	'ADJ-REP',	'ADJ-MAIN',	'',	'',	''),
+(42,	'Inven. Adjust. by Doc. Num',	'invadj_docnum_rep.php',	'fas fa-list-ol',	'x',	1.00,	'',	'ADJ-REP',	'',	'',	'N'),
+(43,	'Inven. Adjust. by Tran. Date',	'invadj_trndate_rep.php',	'fas fa-calendar-alt',	'x',	2.00,	'',	'ADJ-REP',	'',	'',	'N'),
+(46,	'Inven. Adjust. by Item',	'invadj_item_rep.php',	'fas fa-box',	'x',	4.00,	'',	'ADJ-REP',	'',	'',	'N'),
+(47,	'Costing Reports',	'',	'fas fa-file-pdf',	'x',	2.00,	'SAL-COST',	'SAL-MAIN',	'',	'',	''),
+(48,	'Costing by Tran. Date',	'sales_cost_trndate_rep.php',	'fas fa-calendar-alt',	'x',	2.00,	'',	'SAL-COST',	'',	'',	'N'),
+(49,	'Costing by Item',	'sales_cost_item_rep.php',	'fas fa-box',	'x',	4.00,	'',	'SAL-COST',	'',	'',	'N'),
+(50,	'Sales by Tran. Date (Item)',	'sales_trndate_witem_rep.php',	'fas fa-calendar-alt',	'x',	3.00,	'',	'SAL-REP',	'',	'',	'N'),
+(51,	'Purchases by Tran. Date (Item)',	'purchase_trndate_witem_rep.php',	'fas fa-calendar-alt',	'x',	2.10,	'',	'PUR-REP',	'',	'',	''),
+(52,	'Sales Ret. by Tran. Date (Item)',	'salesret_trndate_witem_rep.php',	'fas fa-calendar-alt',	'x',	2.10,	'',	'SALRET-REP',	'',	'',	''),
+(53,	'Inven. Adjust. by Tran. Date (item)',	'invadj_trndate_witem_rep.php',	'fas fa-calendar-alt',	'x',	2.10,	'',	'ADJ-REP',	'',	'',	'N'),
+(54,	'Stock Card (With Filter)',	'stock_card2.php',	'fas fa-cubes',	'3.00',	0.00,	'',	'1',	'',	'',	''),
+(55,	'Deilvery Receipt (PDF)',	'dr_rep.php',	'fas fa-truck-loading',	'3.01',	0.00,	'',	'1',	'1',	'',	''),
+(56,	'Stock Card (With Filter and Price)',	'stock_card3.php',	'fas fa-cubes',	'3.00',	0.00,	'',	'1',	'',	'',	''),
+(57,	'Critical PDF',	'critical_pdf.php',	'fas fa-exclamation-triangle',	'3.00',	0.00,	'',	'1',	'',	'',	''),
+(58,	'Buyers Profile',	'mf_buyersfile.php',	'far fa-user-circle',	'1.00',	0.00,	'',	'1',	'',	'',	'Y'),
+(59,	'Declaration Form Default',	'declaration_form.php',	'far fa-address-card',	'1.00',	0.00,	'',	'1',	'',	'',	'Y'),
+(60,	'Fixes',	'utl_fixes.php',	'fas fa-wrench',	'x',	2.01,	'',	'UTL',	'',	'',	'N'),
+(62,	'Salesman',	'mf_salesman.php',	'fas fa-male',	'2.03',	0.00,	'',	'1',	'',	'',	''),
+(63,	'Sales by Salesman',	'sales_salesman_rep.php',	'fas fa-box',	'x',	5.00,	'',	'SAL-REP',	'',	'',	'N'),
+(80,	'Sales Order Transaction',	'trn_salesorderfile1.php',	'fas fa-receipt',	'x',	1.00,	'',	'SOR-MAIN',	'',	'',	'Y'),
+(81,	'Purchases Order',	'',	'fas fa-money-check-alt',	'2.20',	0.00,	'POR-MAIN',	'1',	'',	'',	'Y'),
+(82,	'Purchases Order Transaction',	'trn_purchasesorderfile1.php',	'fas fa-receipt',	'x',	1.00,	'',	'POR-MAIN',	'',	'',	'Y'),
+(83,	'Sales Order Reports',	'',	'fas fa-file-pdf',	'x',	2.00,	'SOR-REP',	'SOR-MAIN',	'',	'',	''),
+(84,	'Sales Order by Doc. Num',	'salesorder_docnum_rep.php',	'fas fa-list-ol',	'x',	1.00,	'',	'SOR-REP',	'1',	'',	'N'),
+(85,	'Sales Order by Upload Date',	'salesorder_trndate_rep.php',	'fas fa-calendar-alt',	'x',	2.00,	'',	'SOR-REP',	'1',	'',	'N'),
+(86,	'Sales Order by Upload Date (With Item)',	'salesorder_trndate_witem_rep.php',	'fas fa-calendar-alt',	'x',	3.00,	'',	'SOR-REP',	'1',	'',	'N'),
+(87,	'Sales Order by Item (Upload Date)',	'salesorder_item_rep.php',	'fas fa-box',	'x',	4.00,	'',	'SOR-REP',	'',	'',	'N'),
+(88,	'Purchases Order Reports',	'',	'fas fa-file-pdf',	'x',	2.00,	'POR-REP',	'POR-MAIN',	'',	'',	''),
+(89,	'Purchases Order by Doc. Num',	'purchasesorder_docnum_rep.php',	'fas fa-list-ol',	'x',	1.00,	'',	'POR-REP',	'',	'',	''),
+(90,	'Purchases Order by Tran. Date',	'purchasesorder_trndate_rep.php',	'fas fa-calendar-alt',	'x',	2.00,	'',	'POR-REP',	'',	'',	''),
+(91,	'Purchases Order by Tran. Date (With Item)',	'purchasesorder_trndate_witem_rep.php',	'fas fa-calendar-alt',	'x',	2.10,	'',	'POR-REP',	'',	'',	''),
+(92,	'Purchases Order by Item',	'purchasesorder_item_rep.php',	'fas fa-box',	'x',	3.00,	'',	'POR-REP',	'',	'',	''),
+(93,	'Purchases/ Purchases Order Defaults',	'mf_purchasesdefault.php',	'far fa-map',	'x',	1.03,	'',	'MASTERFILE-MAIN',	'',	'',	''),
+(94,	'Sales Order Matching',	'sales_so_rep.php',	'fas fa-share',	'x',	9.00,	'',	'SOR-REP',	'',	'',	''),
+(95,	'Sales Order by Ordered Date',	'salesorder_ordered_date_rep.php',	'fas fa-calendar-alt',	'x',	2.00,	'',	'SOR-REP',	'',	'',	'N'),
+(96,	'Sales Order by Ordered Date (With Item)',	'salesorder_ordered_date_witem_',	'fas fa-calendar-alt',	'x',	3.00,	'',	'SOR-REP',	'',	'',	'N'),
+(97,	'Sales Order by Item (Ordered Date)',	'salesorder_item_ordered_date_r',	'fas fa-box',	'x',	4.00,	'',	'SOR-REP',	'',	'',	'N'),
+(221,	'Sales Order',	'',	'fas fa-money-check-alt',	'2.21',	0.00,	'SOR-MAIN',	'1',	'',	'',	'Y'),
+(222,	'Purchase Order Matching',	'purchase_po_rep.php',	'fas fa-share',	'x',	4.00,	'',	'POR-REP',	'',	'',	''),
+(223,	'Purchases Matching',	'purchaseorder_p_rep.php',	'fas fa-share',	'x',	3.01,	'',	'PUR-REP',	'',	'',	''),
+(224,	'Sales Matching',	'salesorder_sales_rep.php',	'fas fa-share',	'x',	4.01,	'',	'SAL-REP',	'',	'',	'N');
+
+DROP TABLE IF EXISTS `mf_salesman`;
+CREATE TABLE `mf_salesman` (
+  `recid` int(11) NOT NULL AUTO_INCREMENT,
+  `salesman_id` varchar(100) NOT NULL,
+  `salesman_name` varchar(100) NOT NULL,
+  `commission` decimal(10,2) NOT NULL,
+  PRIMARY KEY (`recid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO `mf_salesman` (`recid`, `salesman_id`, `salesman_name`, `commission`) VALUES
+(2,	'tesu',	'juan',	12.75),
+(4,	'tesw',	'Jerry',	15.26),
+(5,	'tesu',	'juan',	12.75),
+(6,	'tesw',	'Jerry',	15.00);
+
+ALTER TABLE tranfile1
+ADD COLUMN salesman_id VARCHAR(100) NULL;
+
+ALTER TABLE salesorderfile2
+ADD wholesaleprc DOUBLE NULL;	
+
+ALTER TABLE mf_buyers
+ADD COLUMN salesman_id VARCHAR(100) NULL;
+

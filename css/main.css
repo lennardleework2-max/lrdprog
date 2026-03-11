@@ -1,0 +1,343 @@
+/* OBVIOUSLY */
+/* FOR ALL TAGS/MEDIA QUERYS */
+* {
+    margin:0;
+    padding:0;
+}
+html{
+    min-height:100vh;
+    max-width: 100vw;
+    /* width:100vw; */
+}
+body{
+    background-color:#f2f2f2;    
+    /* overflow:hidden; */
+}
+
+tr{height:auto;}
+
+/* Optional: show position indicator in red */
+::-webkit-scrollbar-thumb {
+    background: #FF0000;
+}
+/* td{height:100%} */
+
+#data_table {
+    border-radius:0.75rem;
+}
+
+#data_table tr:first-child th:first-child {
+    border-top-left-radius: 0.75rem;
+}
+#data_table tr:first-child th:last-child {
+    border-top-right-radius: 0.75rem;
+}
+#data_table tr:last-child td:first-child {
+    border-bottom-left-radius: 0.75rem;
+}
+
+#data_table tr:last-child td:last-child {
+    border-bottom-right-radius: 0.75rem;
+}
+
+#data_table tbody > tr:last-child > td {
+    border-bottom: 0;
+}
+
+@media screen and (max-width: 320px) {
+    #pager{font-size:12px!important}
+    #search_input{width:60%}
+    #search_dd{width:40%!important}
+}
+
+@media screen and (max-width: 576px) {
+
+    #tbody_main{
+        display:none;
+    }
+
+    #data_table thead{
+        display:none;
+    } 
+
+    .big_container_main{
+        max-width:100vw;
+    }
+
+    #data_table tr td:last-child{
+        text-align:right;
+    }
+    #data_table tr:first-child td:first-child {
+        border-top-left-radius: 0.75rem;
+    }
+
+    #data_table tr:first-child td:last-child {
+        border-top-right-radius: 0.75rem;
+    }
+    #data_table tr:last-child td:first-child {
+        border-bottom-left-radius: 0.75rem;
+
+    }
+    #data_table tr:last-child td:last-child {
+        border-bottom-right-radius: 0.75rem;
+    }
+    #data_table tr:last-child {
+        border-bottom:none!important;
+    }
+}        
+
+@media screen and (min-width: 320px) {
+    #search_input{width:50%}
+    #search_dd{width:50%!important}
+}
+
+@media screen and (min-width: 576px) {
+
+    #tbody_main_mobile{
+        display:none;
+    }
+    .main_br_div {
+        width:90%
+    }
+}
+
+@media screen and (min-width: 800px) {
+    #search_dd{
+        width:auto!important;
+    }
+}
+
+
+
+
+
+#data_table{
+    table-layout: fixed;
+}
+
+#data_table td{
+    white-space: normal !important; 
+    word-wrap: break-word;  
+}
+/* FOR MENU */
+.td_bl{
+    height:400px;
+    width:110px;
+    padding-left:3px;  
+    vertical-align:top;
+}
+/* FOR MAIN HEADER */
+.menu-toggle:focus, .menu-toggle:active:focus, .menu-toggle.active:focus{
+    outline:none;
+    box-shadow:none;
+}
+.arrow_toggle{
+    transform:rotate(0deg);
+    transition: all 0.5s linear;
+}
+.arrow_toggle.open{
+    transform:rotate(-180deg);
+    transition: all 0.5s linear;
+}
+
+/* FOR MODAL */
+
+.modal-open[style] {
+    padding-right: 0px !important;
+}
+
+
+@keyframes rotation {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(359deg);
+    }
+  }
+
+.menu-toggle:hover{
+    opacity:0.5;
+}
+.secondrow_secondcoloumn, .secondrow_thirdcoloumn{
+    width:100%;
+    text-align:right;
+    overflow:hidden;
+    white-space: nowrap;
+}
+@media screen and (max-width: 1100px) {
+    .logout_icon{
+        display:none;
+    }
+  }
+/* FOR GENERAL USE AND NOT THE HEADER NOR MENU*/
+.big_table{
+    border-collapse:collapse;
+    width:100%;
+    height:100%;   
+}
+.dd_text:hover{
+    cursor:default;
+}
+.main_action_dd:hover{
+    cursor:pointer;
+}
+
+.main_br_div{
+    max-width:100vw;
+}
+/* PAGER CSS*/
+#pager li:hover{
+    cursor:pointer;
+}
+.page-item:first-child .page-link {
+    
+    background-color: #0d6efd;
+    text-shadow: 0 0 0 white;
+    color:white;
+    border:2px solid white;
+    border-right:none;
+}
+.page-item:last-child .page-link {
+    background-color: #0d6efd;
+    text-shadow: 0 0 0 white;
+    color:white;
+    border:2px solid white;
+    border-left:none;
+}
+#previous_pager:hover , #next_pager:hover{
+    cursor:pointer;
+
+}
+#previous_pager{
+    background-color: #0d6efd;
+    text-shadow: 0 0 0 white;
+    color:white;
+    border:2px solid white;
+    border-left:none;
+    border-right:none;
+}
+
+
+.page-item:not(:first-child) .page-link {
+    margin-left:0;
+}
+
+#txt_pager_pageno{
+    background-color: #0d6efd;
+    border:2px solid white;
+    color:white;
+
+}
+#next_pager{
+    background-color: #0d6efd;
+    text-shadow: 0 0 0 white;
+    color:white;
+    border:2px solid white;
+    border-left:none;
+    border-right:none;
+}
+
+
+#previous_pager, #next_pager{
+    font-family:arial;
+    width:120px;
+    text-align:center;
+}
+
+.tabbable:focus{
+    z-index:2;
+    color: #212529;
+    background-color: #fff;
+    border-color: #86b7fe;
+    outline: 0;
+    box-shadow: 0 0 0 0.25rem rgb(13 110 253 / 25%);
+}
+/* RELATED TO JQUERY DATEPICKER */
+/* .clearable-input {
+    position: relative;
+} */
+.date_picker {
+    z-index: 1600 !important; /* has to be larger than 1050 */
+}
+.ui-datepicker {
+    background-color: #fff;
+}
+    
+.ui-datepicker-header {
+    background-color: #616eff;
+}
+    
+.ui-datepicker-title {
+        color: white;
+}
+
+.ui-widget-content .ui-state-default {
+    border: 0px;
+    text-align: center;
+    background: #fff;
+    font-weight: normal;
+    color: #000;
+}
+
+.ui-widget-content .ui-state-default:hover {
+    border: 0px;
+    text-align: center;
+    background: #616eff;
+    font-weight: normal;
+    color: #fff;
+}
+
+.ui-widget-content .ui-state-active {
+    border: 0px;
+    background: #616eff;
+    color: #fff;
+}
+
+.clearable-input > .clear_date_btn {
+    position: absolute;
+    top: 0;
+    right: 0;
+    font-weight: bold;
+    font-size: 1.4em;
+    margin-right:10px;
+    cursor: pointer;
+}
+.clearable-input > input::-ms-clear {
+    display: none;
+}
+
+#display_data_hidden{
+    display:none!important;
+}
+
+::-webkit-calendar-picker-indicator{
+    margin-left: 0px;
+}
+.initialD{
+    top:initial!important;
+}
+/* FOR LOADING SCREEN ANIMATION*/
+/* SOURCE FOR THIS:https://stackoverflow.com/questions/1964839/how-can-i-create-a-please-wait-loading-animation-using-jquery */
+
+.onloading_element {
+
+    display:    none;
+    position:   fixed;
+    z-index:    1200;
+    top:        0;
+    left:       0;
+    height:     100%;
+    width:      100%;
+    backdrop-filter: blur(0px);
+    background: rgba(0,0,0,.35)
+                url('../images/257.png') 
+                50% 50% 
+                no-repeat!important;
+}
+
+body.loading .onloading_element {
+    overflow: hidden;   
+    display: block;
+}
+

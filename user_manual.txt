@@ -1,0 +1,428 @@
+!!IMPORTANT THINGS(SETUP)
+- all table should  include a field called `recid`(PRIMARY KEY)
+- multiple DB's db_name should have the following fields
+    - comp_desc
+    - comp_code
+    - db_dbname
+    - db_db_username
+    - db_pass
+    - db_host
+- not allowed to have a record in the db_appsystem with a dbname that doesnt exist
+- max of 7-8 fields per table at display
+- DO NOT USE function page_click(),onchange_search_dd(),ajaxFunc(),print_txt(),print_txt() in javascript
+- when using decimals (whole number > decimal number) (2,3 - WRONG),  (3,3 - WRONG) (4,3 - right)
+-allowed field data types
+    - varchar
+    - char
+    - text
+    - tinyext
+    - mediumtext
+    - longtext
+    - tinyint
+    - smallint
+    - mediumint
+    - bigint
+    - double
+    - float
+    - decimal
+    - date
+- add Y on has_crud(user_menus) if you want crud(standard) on user access
+- N or empty if you dont want crud(standard) on user access
+- MENGRP cannot be empty reccomended to have '1' as the standard
+- MAKE SURE menidx 'x' when it is a submenu
+- steps
+    1. copy and rename pager_template_v1.5
+    2. set db_name and import the sql_init.sql
+    3. change the db settings in resources/db_init.php
+-if you hahve DECIMAL and want (10 max digit) (ADD 2) so that it can account for it in input, (NO NEED for INTS only for those with decimals)
+-is_removed and is_dsiabled is either '1' true or '0' false
+-if you have a submenu the 'Utilities' like should have MENGRP any number as long as it doesnt already exist 
+-all menus record CANNOT have NO mengrp 
+PAGER HOW TO USE
+-values are either 'Y' or 'N'
+
+-$table = new pager(Main Name , Main Tablename , link (connection to DB));
+    $table = new pager("Sample Page Name" , "employeefile"  ,$link);
+
+- if you dont want crud and only want view and search 
+    $table->display_only = "Y";
+
+-this is for user access and is needed for all pagers - REQUIRED
+    $table->add_crud = $add_crud;
+    $table->edit_crud = $edit_crud;
+    $table->delete_crud = $delete_crud;
+    $table->view_crud = $view_crud;
+
+-field_code (tablename of field code , uses LNexts)
+-field_code_init (what you want fieldcode value to start with) // only works when there is no records yet
+
+    $table->field_code = "advisorID";
+    $table->field_code_init = "ADMN-0000001";
+
+-table_order_by["field"] (fieldname of what you want to order)
+-table_order_by["type"] (order of what you want to order (ASC or DESC))
+    $table->table_order_by["field"] = "advisorname";
+    $table->table_order_by["type"] = "ASC";
+
+HOW TO SHOW DATA
+-(NOTE)orders are by how you place them not by the index of the arrays
+-(NOTE)limit of input is dependent on the fields maxlength
+-(NOTE)best to be consistent with the crud settings
+
+-The 3 basic components(minimum requirements to show data)
+
+    field_name_dis["fieldname"] - what is the field name you want to display?
+    field_header_dis["fieldname"] - what is the field header you want to appear(similar to placeholder but for a field)?
+    field_type_dis["fieldname"] - what field type is it?
+        - text
+            - this is a simple textbox
+        - number
+            - this will only accept numbers and/or decimals(based on db)
+        - date
+            - this will add a datepicker (mm/dd/yyyy)
+        - checkbox
+            - creates a checkbox (0 for unchecked, 1 for checked)
+        - textarea
+            - similar to text but just has a bigger input(textarea)
+        - dropdown_custom - has 3 more extra settings(links to another table)
+            - field_dropdown_tablename_dis["fieldname"]
+                - the table name to other table
+            - field_dropdown_field_name_dis["fieldname"]
+                - (NOTE) all settings in db must be the same
+                - if same data is being linked DO NOTE USE dropdown_custom
+                - use text instead
+                - ONLY use at crud do not use at display 
+                - code for table with codes 
+            - field_dropdown_field_name_value_dis["fieldname"](optional)
+                - the code if you are only linking code to the other table
+                - (NOTE) cannot have this without field_dropdown_field_name_dis
+
+-Extra settings(optional)
+    field_font_weight_dis["fieldname"] = "bold";
+        -displayed output will be bold
+    field_decimal_place_dis["salary"] = 2;
+        - this will number_format to what you set it to
+        - this will automatically text-align:right
+        - (NOTE) follow decimal place wiht db to be consistent
+HOW TO ADD DATA TO CRUD
+
+-(NOTE)orders are by how you place them not by the index
+-(NOTE)limit of input is dependent on the fields maxlength
+-(NOTE)best to be consistent with the display settings
+
+-The 3 basic components(minimum requirements to crud)
+
+    field_name_crud["fieldname"] - what is the field name you want to crud?
+    field_header_crud["fieldname"] - what is the field header you want to appear in modal(similar to placeholder but for a field)?
+    field_type_crud["fieldname"] - what field type is it?
+        - text
+            - this is a simple textbox
+        - number
+            - this will only accept numbers and/or decimals(based on db)
+            - (NOTE) if number is int and has no decimals 0 is equal to empty 
+        - date
+            - this will disable the checkbox and add a datepicker (mm/dd/yyyy)
+        - checkbox
+            - creates a checkbox (0 for unchecked, 1 for checked)
+        - textarea
+            - similar to text but just has a bigger input(textarea)
+        - dropdown_normal
+            -field_dropdown_list_crud["fieldname"] = array('a' , 'b', 'c')
+                - makes a dropdown for crud modal
+            -field_dropdown_selected_crud["fieldname"] = 'b'
+                - what will be the default selected(onyl applicable to add)
+        - dropdown_custom - has 3 more extra settings(links to another table)
+            - field_dropdown_tablename_crud["fieldname"]
+                - the table name to other table
+            - field_dropdown_field_name_crud["fieldname"]
+                - (NOTE) all settings in db must be the same
+                - basic dd to other table and fieldname,desc for direct, code for table with codes 
+            - field_dropdown_field_name_value_crud["fieldname"](optional)
+                - the code if you are only linkning code to the other table
+                - (NOTE) cannot have this without field_dropdown_field_name_crud
+
+-Extra settings(optional)
+    field_is_required["fieldname"] = "Y"
+        - This will not submit modal if it is empty
+    field_is_unique["fieldname"] = "Y"
+        - This will not allow 2 of the same records
+
+-(NOTE) settings should be same for crud and display BUT 
+you can have more crud fields than display fields vice versa and different orders as well
+
+EXTRA SETTINGS
+
+//paginations & extra features
+-show_pager = "Y"; - OPTIONAL
+    -will this show pagination or not 
+-pager_xlimit = 100; - REQUIRED
+    - the pagination field limit
+    - if no pagination set it to 1000000
+-show_export = "Y"; - OPTIONAL
+    - will this show export or not
+-show_search = "Y"; - OPTIONAL
+    - will this show search or not
+
+//user acces recording
+-ua_field1  = "advisorname"; - OPTIONAL
+    - the fieldname of the tables _desc
+-ua_field2  = "advisorID"; - OPTIONAL
+    - the fieldname of the tables UNIQUE KEY 
+    or the table's code 
+    - (NOTE) cannot have ua_field2 without 
+    ua_field1
+
+//alert on delete $logo_dir,$logo_width,$logo_height - comes from main_header
+
+-(NOTE) when setting height and with make sure to add unit 
+-(NOTE) reccomended using height/width auto when setting own dimensions
+-alert_del = "Y" - OPTIONAL
+    - will this alert when deleting records or not
+-alert_del_logo_dir = $logo_dir; - OPTIONAL
+    - the path of logo/image(if you want to include logo)
+-alert_del_logo_w = $logo_width - OPTIONAL;
+    - the logos width 
+-alert_del_logo_h = $logo_height - OPTIONAL;
+    - the logos height
+
+//export pdf settings
+-(NOTE) if none set default will be in use
+-exp_pdf = "exp_pdf_pagename.php";
+-exp_txt = "exp_txt_pagename.php";
+
+ADDING CUSTOM BUTTONS
+
+//setup 
+    $table1->btn_header = array('Sample Name');
+    $table1->btn_logo   = array('<i class="fas fa-trash-alt"></i>');
+    $table1->btn_function = array('sample_func()');
+    $table1->btn_color = array('red');
+
+-(NOTE) if no logo or color or function can leave as blank
+
+//correct way
+    $table1->btn_header = array('Sample Name');
+    $table1->btn_logo   = array('');
+    $table1->btn_function = array('');
+    $table1->btn_color = array('');
+
+//wrong way
+    $table1->btn_header = array('Sample Name');
+    $table1->btn_logo   = array();
+    $table1->btn_function = array();
+    $table1->btn_color = array();
+
+-(NOTE) if want more than one additional button continue the array
+
+    $table1->btn_header = array('Sample Name', 'Sample Name 2');
+    $table1->btn_logo   = array('<i class="fas fa-trash-alt"></i>', '');
+    $table1->btn_function = array('sample_func()', 'sample_func2()');
+    $table1->btn_color = array('red','blue');
+
+CUSTOMIZE FUNCTION (NOT USING PAGER BUILT IN FUNCTIONS)
+
+//$tablename->customize_function_name = "functionname";
+-(NOTE) customize_function_name should not include '()'
+
+-pressing add record
+    -functionname("openInsert")
+-pressing delete record
+    -functionname("delete",record's id)
+-pressing edit record
+    -functionname("getEdit",record's id)
+
+function functionname(event, id){
+}
+
+//how to use dropdown normal crud
+$table1->field_type_crud[1] = "dropdown_normal";
+$table1->field_name_crud[1] = "position";
+$table1->field_header_crud[1] = "Position";
+$table1->field_dropdown_list_crud[1] = array("John" , "Dave" ,"David");
+$table1->field_dropdown_selected_crud[1] = "Dave";
+$table1->field_is_required[1] = "Y"; 
+$table1->field_is_unique[1] = "N";
+
+
+
+
+//sample
+<?php 
+//ini_set('display_errors', '1');
+//ini_set('display_startup_errors', '1');
+//error_reporting(E_ALL);
+
+include "includes/main_header.php";
+require "pager/pager_main.class.php";
+?>
+
+    <form name='myforms' id="myforms" method="post" target="_self"> 
+        <table class='big_table'> 
+
+            <tr colspan=1>
+
+                <td colspan=1 class='td_bl'>
+                                            
+                    <?php
+                        include 'includes/main_menu.php';
+                    ?>
+                </td>
+ 
+                <td colspan=1 class="td_br" id="td_br">
+
+                    <div class="container mt-2">
+
+                        <?php 
+                            $table1 = new pager("Sample Name" , "employeefile"  ,$link);
+                            
+                            $table1->add_crud = $add_crud;
+                            $table1->edit_crud = $edit_crud;
+                            $table1->delete_crud = $delete_crud;
+                            $table1->view_crud = $view_crud;
+                            $table1->export_crud = $export_crud;
+
+
+                            //$table1->customize_function_name = 'sample_func';
+                            //$table1->display_only = "Y";
+
+                            $table1->field_code = "advisorID";
+                            $table1->field_code_init = "BADMN-0000001";
+
+                            //ORDER (table ORDER BY)
+                            $table1->table_order_by["field"] = "employee_birthday";
+                            $table1->table_order_by["type"] = "DESC";
+
+                            //FIELDS  DISPLAY
+                            $table1->field_type_dis["advisorname"] = "text";
+                            $table1->field_name_dis["advisorname"] = "advisorname";
+                            $table1->field_header_dis["advisorname"] = "Employee Name";
+                            $table1->field_font_weight_dis["advisorname"] = "bold";
+
+                            $table1->field_type_dis["employee_birthday"] = "date";
+                            $table1->field_name_dis["employee_birthday"] = "employee_birthday";
+                            $table1->field_header_dis["employee_birthday"] = "Birhtday";
+                            
+                            $table1->field_type_dis["position_code"] = "dropdown_custom";
+                            $table1->field_name_dis["position_code"] = "position_code";
+                            $table1->field_header_dis["position_code"] = "Position";
+                            $table1->field_dropdown_field_name_value_dis["position_code"] = "position_desc";
+                            $table1->field_dropdown_field_name_dis["position_code"] = "position_code";
+                            $table1->field_dropdown_tablename_dis["position_code"] = "mf_positionfile";
+
+                            $table1->field_type_dis["salary"] = "number";
+                            $table1->field_name_dis["salary"] = "salary";
+                            $table1->field_header_dis["salary"] = "Salary";
+                            $table1->field_decimal_place_dis["salary"] = 2;
+
+                            $table1->field_type_dis["is_vaccinated"] = "checkbox";
+                            $table1->field_name_dis["is_vaccinated"] = "is_vaccinated";
+                            $table1->field_header_dis["is_vaccinated"] = "Vaccinated";
+
+                            $table1->field_type_dis["telnum"] = "number";
+                            $table1->field_name_dis["telnum"] = "telnum";
+                            $table1->field_header_dis["telnum"] = "Tel Num.";
+
+                            $table1->field_type_dis["address"] = "text";
+                            $table1->field_name_dis["address"] = "address";
+                            $table1->field_header_dis["address"] = "Address";
+
+
+                            //FIELDS  CRUD(create,read,update,delete)
+                            $table1->field_type_crud["advisorname"] = "text";
+                            $table1->field_name_crud["advisorname"] = "advisorname";
+                            $table1->field_header_crud["advisorname"] = "Employee";
+                            $table1->field_is_required["advisorname"] = "Y"; 
+                            $table1->field_is_unique["advisorname"] = "N";
+
+                            $table1->field_type_crud["birthday"] = "date";
+                            $table1->field_name_crud["birthday"] = "employee_birthday";
+                            $table1->field_header_crud["birthday"] = "Birhtday";
+                            $table1->field_is_required["birthday"] = "Y"; 
+                            $table1->field_is_unique["birthday"] = "N";
+
+                            $table1->field_type_crud["position_code"] = "dropdown_custom";
+                            $table1->field_name_crud["position_code"] = "position_code";
+                            $table1->field_header_crud["position_code"] = "Position";
+                            $table1->field_dropdown_field_name_crud["position_code"] = "position_code";
+                            $table1->field_dropdown_field_name_value_crud["position_code"] = "position_desc";
+                            $table1->field_dropdown_tablename_crud["position_code"] = "mf_positionfile";
+                            $table1->field_is_required["position_code"] = "Y";
+                            $table1->field_is_unique["position_code"] = "N";
+
+                            $table1->field_type_crud["is_vaccinated"] = "checkbox";
+                            $table1->field_name_crud["is_vaccinated"] = "is_vaccinated";
+                            $table1->field_header_crud["is_vaccinated"] = "Vaccinated";
+
+                            $table1->field_type_crud["telnum"] = "number";
+                            $table1->field_name_crud["telnum"] = "telnum";
+                            $table1->field_header_crud["telnum"] = "Tel Num.";
+                            $table1->field_is_unique["telnum"] = "N";
+                            $table1->field_is_required["telnum"] = "N";
+
+                            $table1->field_type_crud["address"] = "text";
+                            $table1->field_name_crud["address"] = "address";
+                            $table1->field_header_crud["address"] = "Address";
+                            $table1->field_is_required["address"] = "N"; 
+                            $table1->field_is_unique["address"] = "N";
+
+                            $table1->field_type_crud["salary"] = "number";
+                            $table1->field_name_crud["salary"] = "salary";
+                            $table1->field_header_crud["salary"] = "Salary";
+                            $table1->field_is_required["salary"] = "N"; 
+                            $table1->field_is_unique["salary"] = "N";
+
+                            //export settings
+                            //$table1->exp_pdf = "pdf_page.php";
+                            //$table1->exp_txt = "export_page.php";
+
+                            //pager
+                            $table1->show_pager = "Y";
+                            $table1->pager_xlimit = 1000;
+
+                            //export
+                            $table1->show_export = "Y";
+
+                            //search
+                             $table1->show_search = "N";
+
+                            //alert
+                            $table1->alert_del = "Y";
+                            $table1->alert_del_logo_dir = $logo_dir;
+                            
+                            $table1->alert_del_logo_w = $logo_width;
+                            $table1->alert_del_logo_h = $logo_height;
+
+                            //user activity log
+                            $table1->ua_field1  = "advisorname";
+                            $table1->ua_field2  = "advisorID";
+                            
+
+
+                            //CRUD
+                            $table1->display_table();
+                        ?>
+
+                    </div>
+                </td>
+
+            </tr>
+        </table>
+    </form>
+    <?php 
+        // displays modal outside form to avoid confusion
+        $table1->display_modal();
+    ?>
+
+
+   
+
+<!-- PAGER JS -->   
+<script src="pager/pager_js.class.js"> </script>
+<?php 
+include "includes/main_footer.php";
+?>
+
+-sample custom date
+-(NOTE) it must have different id with others
+    <label for="">Date:</label>
+    <input type="text" class="form-control date_picker"  name="trndate" id="trndate">
