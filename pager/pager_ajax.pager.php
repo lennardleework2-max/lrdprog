@@ -10,6 +10,20 @@
     require "../resources/stdfunc100.php";
     require "../resources/lx2.pdodb.php";
 
+    if(!function_exists('extract_pager_field_name')){
+        function extract_pager_field_name($raw_name){
+            if(!is_string($raw_name)){
+                return '';
+            }
+
+            if(preg_match('/^fields\[(.+?)_displayData\]\[fname\]$/', $raw_name, $matches)){
+                return $matches[1];
+            }
+
+            return trim(remove_xfields($raw_name, "fname"));
+        }
+    }
+
 /*
     $stmt	= $link->prepare("select * from itemfile order by itmdsc");
     $stmt->execute();
@@ -20,20 +34,21 @@
     die();
 */
 
-    $fields_count = 0;
+    $fields_arr = array();
 
     foreach($_POST["xfields"] as $key_select => $value_select){
+        $name_select = extract_pager_field_name($value_select[0]["name"]);
 
-        $name_select = remove_xfields($value_select[0]["name"],"fname");
-            if($fields_count == 0){
-                $fields = $name_select;
-            }else{
-                $fields .= ",".$name_select;
-            }
-
-        $fields_count++;
+        if($name_select !== ""){
+            $fields_arr[] = $name_select;
+        }
     }
-    $fields.=",recid";
+
+    if(!in_array("recid", $fields_arr)){
+        $fields_arr[] = "recid";
+    }
+
+    $fields = implode(",", $fields_arr);
 
     //TO CHANGE
     $xlimit = $_POST["xlimit"];
@@ -236,21 +251,21 @@
         }
         else if($_POST["search_data_type"] == "dropdown_custom"){
 
-            $fields_count_search = 0;
+            $fields_search_arr = array();
 
             foreach($_POST["xfields"] as $key_select => $value_select_search){
+                $value_select_name = extract_pager_field_name($value_select_search[0]["name"]);
 
-                $value_select_name = remove_xfields($value_select_search[0]["name"],"fname");
-        
-                    if($fields_count_search == 0){
-                        $fields_search = $_POST["tablename"].".".$value_select_name;
-                    }else{
-                        $fields_search .= ",".$_POST["tablename"].".".$value_select_name;
-                    }
-
-                $fields_count_search++;
+                if($value_select_name !== ""){
+                    $fields_search_arr[] = $_POST["tablename"].".".$value_select_name;
+                }
             }
-            $fields_search.=",".$_POST["tablename"]."."."recid";
+
+            if(!in_array($_POST["tablename"].".recid", $fields_search_arr)){
+                $fields_search_arr[] = $_POST["tablename"].".recid";
+            }
+
+            $fields_search = implode(",", $fields_search_arr);
 
 
             $dropdown_field_name_value_search = (isset($_POST["field_name_value"]))?($_POST["field_name_value"]) : "";
@@ -287,21 +302,21 @@
     if(!isset($_POST["search_data_type"]) || $_POST["search_data_type"] !== "dropdown_custom"){
         $select_db_fields="SELECT ".$fields." FROM ".$_POST['tablename']."  WHERE true ".$filter." ".$filter_order." LIMIT ".$xlimit." OFFSET ".$xoffset;
     }else if($_POST["search_data_type"] == "dropdown_custom" && (isset($_POST["first_load"]) && $_POST["first_load"] == "Y")){
-        $fields_count_search = 0;
+        $fields_search_arr = array();
 
         foreach($_POST["xfields"] as $key_select => $value_select_search){
+            $value_select_name = extract_pager_field_name($value_select_search[0]["name"]);
 
-            $value_select_name = remove_xfields($value_select_search[0]["name"],"fname");
-    
-                if($fields_count_search == 0){
-                    $fields_search = $_POST["tablename"].".".$value_select_name;
-                }else{
-                    $fields_search .= ",".$_POST["tablename"].".".$value_select_name;
-                }
-
-            $fields_count_search++;
+            if($value_select_name !== ""){
+                $fields_search_arr[] = $_POST["tablename"].".".$value_select_name;
+            }
         }
-        $fields_search.=",".$_POST["tablename"]."."."recid";
+
+        if(!in_array($_POST["tablename"].".recid", $fields_search_arr)){
+            $fields_search_arr[] = $_POST["tablename"].".recid";
+        }
+
+        $fields_search = implode(",", $fields_search_arr);
 
         $dropdown_field_name_value_search = (isset($_POST["field_name_value"]))?($_POST["field_name_value"]) : "";
         $dropdown_field_name_search       = $_POST["field_name"];
@@ -331,7 +346,7 @@
 
             foreach($_POST["xfields"] as $xfields_arr_key => $xfields_arr_val){
 
-                $field_name = remove_xfields($xfields_arr_val[0]["name"], "fname");
+                $field_name = extract_pager_field_name($xfields_arr_val[0]["name"]);
                 $field_type = $xfields_arr_val[1]["data-field-type"];
                 if($field_type !== "dropdown_custom"){
                     $field_decimal_place = $xfields_arr_val[4]["data-field-decimal-place"];
@@ -485,7 +500,7 @@
 
             $xret["html_mobile"] .= "<tr style='".$xstyle."'>";
 
-            $field_name = remove_xfields($xfields_arr_val[0]["name"], "fname");
+            $field_name = extract_pager_field_name($xfields_arr_val[0]["name"]);
             $field_type = $xfields_arr_val[1]["data-field-type"];
 
             $field_fw = (

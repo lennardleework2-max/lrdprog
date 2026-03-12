@@ -304,3 +304,9 @@ Migrate all docnum values to 9-digit format:
 - `trn_salesfile2_ajax.php`: restored safe handling of `txt_com_pay` (initialize + sanitize posted value, numeric formatting, fallback compute from `sel_salesman_id` + transaction total).
 - `trn_salesfile2_ajax.php`: during `tranfile1` total recalculation after line-item add/edit/delete, also updates `com_pay` when provided so commission payment is persisted consistently.
 - `trn_salesfile2.php`: prevented unintended UI overwrite of saved/manual `txt_com_pay` by running `fetchSalesmanDetails()` only when `#txt_com_pay` is empty (on page load and after total refresh).
+
+## Pager Template SQL Field Parsing Fix (2026-03-12)
+- `pager/pager_ajax.pager.php`: fixed field-name parsing used to build dynamic `SELECT` lists for shared pager modules.
+- Root cause: legacy `remove_xfields(..., "fname")` stripping could erase real columns containing `fname` (e.g., `fname`), producing invalid SQL like `SELECT ,lname,...`.
+- Added explicit parser for field names in the format `fields[<column>_displayData][fname]`, with fallback to legacy parsing for compatibility.
+- Query field-list builders now include only non-empty parsed fields and ensure `recid` is included once.

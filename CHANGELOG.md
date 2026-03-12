@@ -1,6 +1,8 @@
 # Changelog
 
 ## 2026-03-12
+- Fixed shared pager SQL field parsing in `pager/pager_ajax.pager.php` to prevent malformed `SELECT` clauses when a real column is named `fname`.
+- Replaced `remove_xfields(..., "fname")` in pager field extraction with explicit `fields[<column>_displayData][fname]` parsing and non-empty field-list assembly for safer template-wide behavior.
 - Recovered `trn_salesfile2_ajax.php` from corrupted state to a clean lint-valid file.
 - Fixed undefined `txt_com_pay` handling in `trn_salesfile2_ajax.php` and normalized posted commission payment parsing.
 - Ensured `com_pay` is persisted during `tranfile1` total updates triggered by add/edit/delete item flows.
