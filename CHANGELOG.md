@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-12
+- Recovered `trn_salesfile2_ajax.php` from corrupted state to a clean lint-valid file.
+- Fixed undefined `txt_com_pay` handling in `trn_salesfile2_ajax.php` and normalized posted commission payment parsing.
+- Ensured `com_pay` is persisted during `tranfile1` total updates triggered by add/edit/delete item flows.
+- Prevented frontend commission-payment overwrite in `trn_salesfile2.php` by auto-fetching salesman commission only when `txt_com_pay` is empty.
+
 ## 2026-03-03
 - Updated revert behavior for DOCNUM normalization in `revert_to_original_docnum.php`.
 - New rule: for `SAL-`/`SAM-` values with numeric suffix longer than 5 digits, keep only the last 5 digits.

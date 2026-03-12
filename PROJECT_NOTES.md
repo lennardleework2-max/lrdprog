@@ -292,10 +292,15 @@ Migrate all docnum values to 9-digit format:
 
 ---
 
-*Last updated: 2026-03-10*
+*Last updated: 2026-03-12*
 
 
 ## Schema Compatibility Updates (2026-03-10)
 - `trn_salesfile2_ajax.php`: removed all active `waybill_number` / `waybill_num1` checks because `tranfile1` in this deployment has no `waybill_number` column.
 - `trn_salesfile2_ajax.php`: prevented empty `PDO_UpdateRecord` payload for `tranfile2` during save/edit flow to avoid SQL like `UPDATE tranfile2 SET WHERE recid = ?`.
 - `partial_payment_ajax.php`: removed dependency on `tranfile1.is_partial_payment` column.
+
+## Sales Commission Payment Save Fix (2026-03-12)
+- `trn_salesfile2_ajax.php`: restored safe handling of `txt_com_pay` (initialize + sanitize posted value, numeric formatting, fallback compute from `sel_salesman_id` + transaction total).
+- `trn_salesfile2_ajax.php`: during `tranfile1` total recalculation after line-item add/edit/delete, also updates `com_pay` when provided so commission payment is persisted consistently.
+- `trn_salesfile2.php`: prevented unintended UI overwrite of saved/manual `txt_com_pay` by running `fetchSalesmanDetails()` only when `#txt_com_pay` is empty (on page load and after total refresh).

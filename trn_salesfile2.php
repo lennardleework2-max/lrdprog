@@ -1546,7 +1546,10 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
 
 
         $(document).ready(function(){
-            fetchSalesmanDetails();
+            // Keep saved commission payment for existing records; auto-compute only when empty.
+            if($.trim($("#txt_com_pay").val()) === ''){
+                fetchSalesmanDetails();
+            }
         });
 
         function search_so_edit(xevent_action,xdocnum,xrecid){
@@ -1947,7 +1950,9 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
 
                         if(typeof xdata["trntot"] !== "undefined" && xdata["trntot"] !== null){
                             $("#trntot_1").val(xdata["trntot"]);
-                            fetchSalesmanDetails();
+                            if($.trim($("#txt_com_pay").val()) === ''){
+                                fetchSalesmanDetails();
+                            }
                         }
                         if(typeof loadPartialPayments === "function"){
                             loadPartialPayments();
