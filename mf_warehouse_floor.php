@@ -6,7 +6,7 @@ error_reporting(E_ALL);
 require "includes/main_header.php";
 require "pager/pager_main.class.php";
 
-$warehouse_id = isset($_GET['warehouse_id']) ? trim($_GET['warehouse_id']) : '';
+$warehouse_id = isset($_POST['warehouse_id']) ? trim($_POST['warehouse_id']) : '';
 $warehouse_name = '';
 
 if($warehouse_id !== ''){
@@ -78,10 +78,6 @@ $has_valid_warehouse = ($warehouse_id !== '' && $warehouse_name !== '');
                             $table1->table_filter_field = "warehouse_id";
                             $table1->table_filter_value = $warehouse_id;
 
-                            $table1->field_type_dis["warehouse_floor_id"] = "text";
-                            $table1->field_name_dis["warehouse_floor_id"] = "warehouse_floor_id";
-                            $table1->field_header_dis["warehouse_floor_id"] = "Warehouse Floor ID";
-
                             $table1->field_type_dis["floor_name"] = "text";
                             $table1->field_name_dis["floor_name"] = "floor_name";
                             $table1->field_header_dis["floor_name"] = "Floor Name";
@@ -89,14 +85,6 @@ $has_valid_warehouse = ($warehouse_id !== '' && $warehouse_name !== '');
                             $table1->field_type_dis["floor_no"] = "number";
                             $table1->field_name_dis["floor_no"] = "floor_no";
                             $table1->field_header_dis["floor_no"] = "Floor No";
-
-                            $table1->field_type_crud["warehouse_id"] = "dropdown_normal";
-                            $table1->field_name_crud["warehouse_id"] = "warehouse_id";
-                            $table1->field_header_crud["warehouse_id"] = "Warehouse";
-                            $table1->field_dropdown_list_crud["warehouse_id"] = array($warehouse_id);
-                            $table1->field_dropdown_selected_crud["warehouse_id"] = $warehouse_id;
-                            $table1->field_is_required["warehouse_id"] = "Y";
-                            $table1->field_is_unique["warehouse_id"] = "N";
 
                             $table1->field_type_crud["floor_name"] = "text";
                             $table1->field_name_crud["floor_name"] = "floor_name";

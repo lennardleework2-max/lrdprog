@@ -12,6 +12,9 @@
   - fixed table filtering (`table_filter_field`, `table_filter_value`)
   - row-value placeholder rendering in custom action functions (e.g., `{warehouse_id}`)
 - Fixed pager custom-button hidden attribute escaping so raw fragments like `btn-function='goWarehouseFloors('{warehouse_id}')'` no longer render below the table.
+- Changed warehouse -> floors navigation to `POST` (no querystring `warehouse_id`).
+- Removed `Warehouse` field from floor CRUD modal because warehouse context is already fixed from selected warehouse.
+- Removed `warehouse_floor_id` from floor list display so users only see/search relevant floor fields.
 
 ## 2026-03-12
 - Fixed shared pager SQL field parsing in `pager/pager_ajax.pager.php` to correctly handle columns named `fname` (and similar patterns) without producing malformed `SELECT ,...` queries.

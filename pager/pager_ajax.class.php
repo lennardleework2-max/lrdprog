@@ -273,6 +273,16 @@ else if($_POST["event_action"] == "insert")
 
     if($xret["status"] == 1){
 
+        if(
+            isset($_POST["table_filter_field"]) &&
+            isset($_POST["table_filter_value"]) &&
+            preg_match('/^[a-zA-Z0-9_]+$/', $_POST["table_filter_field"]) &&
+            $_POST["table_filter_field"] !== '' &&
+            $_POST["table_filter_value"] !== ''
+        ){
+            $arr_record_data[$_POST["table_filter_field"]] = $_POST["table_filter_value"];
+        }
+
         $fieldcode_innit  = "";
 
         if(!empty($_POST["fieldcode"])){

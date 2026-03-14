@@ -132,6 +132,8 @@ function ajaxFunc(event ,recid, custom_param){
     var tablename         = $("#tablename_hidden").val();
     var fieldcode         = $("#field_code_hidden").val();
     var fieldcode_init    = $("#field_code_init_hidden").val(); 
+    var table_filter_field = $("#table_filter_field_hidden").val();
+    var table_filter_value = $("#table_filter_value_hidden").val();
 
     if((typeof fieldcode_init === 'undefined' || fieldcode_init === null || fieldcode_init === '') &&
        (typeof fieldcode_init !== 'undefined' && fieldcode_init !== null && fieldcode_init !== '')){
@@ -340,6 +342,8 @@ function ajaxFunc(event ,recid, custom_param){
             recid:recid,
             xdata:xdata,
             tablename:tablename,
+            table_filter_field:table_filter_field,
+            table_filter_value:table_filter_value,
 
         },
         dataType:"json",
@@ -664,5 +668,4 @@ function print_pdf(){
 function alert_delete_bom(xmsg){
     alert(xmsg);
 }
-
 

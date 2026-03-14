@@ -321,7 +321,9 @@ Migrate all docnum values to 9-digit format:
   - Editable fields: `warehouse_id`, `floor_name`, `floor_no`
 - `mf_warehouse.php` remains warehouse-only, with a row-level `Floors` action in the Action dropdown.
 - `mf_warehouse_floor.php` is opened via selected warehouse and scoped by `warehouse_id` context.
-- Floor CRUD warehouse selector is locked to the selected warehouse (single-option dropdown), ensuring floor records are added under an existing warehouse.
+- Warehouse-to-floor navigation uses `POST` and no longer passes `warehouse_id` in querystring.
+- Floor CRUD no longer shows a warehouse selector; `warehouse_id` is enforced from selected warehouse context.
+- Floor list hides `warehouse_floor_id` and searches only user-relevant floor fields.
 
 ## Pager Enhancements for Warehouse Flow (2026-03-14)
 - Added optional fixed filter support in pager:
@@ -330,3 +332,4 @@ Migrate all docnum values to 9-digit format:
 - Added row-placeholder support for custom action button functions in pager AJAX rendering.
   - Example placeholder usage: `{warehouse_id}` in custom button function strings.
 - Escaped custom button hidden-input attributes in `pager/pager_main.class.php` (`btn-header`, `btn-color`, `btn-logo`, `btn-function`) to avoid raw broken-attribute text appearing under the pager.
+- Fixed filter context is now passed to CRUD AJAX save calls as well, so inserts keep enforced parent context without needing visible parent dropdown fields.

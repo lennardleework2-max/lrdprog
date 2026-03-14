@@ -25,7 +25,18 @@ require "pager/pager_main.class.php";
             if(!warehouseId){
                 return;
             }
-            window.location.href = "mf_warehouse_floor.php?warehouse_id=" + encodeURIComponent(warehouseId);
+            var form = document.createElement("form");
+            form.method = "POST";
+            form.action = "mf_warehouse_floor.php";
+
+            var input = document.createElement("input");
+            input.type = "hidden";
+            input.name = "warehouse_id";
+            input.value = warehouseId;
+
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
         }
     </script>
 
