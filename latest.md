@@ -1,5 +1,15 @@
 # Latest
 
+## 2026-03-14
+- Added new page `mf_warehouse.php` with CRUD support for:
+  - `warehouse` table
+  - `warehouse_floor` table
+- Kept the page on the existing pager/master-file layout, with a simple in-page switch:
+  - `Warehouse` view
+  - `Warehouse Floor` view
+- Configured `warehouse_floor.warehouse_id` as a dropdown linked to `warehouse` (`warehouse_name` shown in UI).
+- Enabled search, export, pager, and user-activity fields for both views, consistent with current master-file behavior.
+
 ## 2026-03-12
 - Fixed shared pager SQL field parsing in `pager/pager_ajax.pager.php` to correctly handle columns named `fname` (and similar patterns) without producing malformed `SELECT ,...` queries.
 - Replaced brittle `remove_xfields(..., "fname")` usage in the pager template with explicit parsing of `fields[<column>_displayData][fname]` input names, and now builds `SELECT` lists from non-empty validated field names.

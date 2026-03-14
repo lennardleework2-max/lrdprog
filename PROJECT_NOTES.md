@@ -292,7 +292,7 @@ Migrate all docnum values to 9-digit format:
 
 ---
 
-*Last updated: 2026-03-12*
+*Last updated: 2026-03-14*
 
 
 ## Schema Compatibility Updates (2026-03-10)
@@ -310,3 +310,14 @@ Migrate all docnum values to 9-digit format:
 - Root cause: legacy `remove_xfields(..., "fname")` stripping could erase real columns containing `fname` (e.g., `fname`), producing invalid SQL like `SELECT ,lname,...`.
 - Added explicit parser for field names in the format `fields[<column>_displayData][fname]`, with fallback to legacy parsing for compatibility.
 - Query field-list builders now include only non-empty parsed fields and ensure `recid` is included once.
+
+## Warehouse Master File (2026-03-14)
+- Added new page: `mf_warehouse.php`.
+- Implemented CRUD for `warehouse`:
+  - Auto code field: `warehouse_id` (`WHS-0001` seed)
+  - Editable fields: `warehouse_name`, `location`
+- Implemented CRUD for `warehouse_floor`:
+  - Auto code field: `warehouse_floor_id` (`WFL-0001` seed)
+  - Editable fields: `warehouse_id`, `floor_name`, `floor_no`
+- `warehouse_floor.warehouse_id` uses `dropdown_custom` from `warehouse` with `warehouse_name` as display text.
+- Page keeps existing master-file/pager structure and uses a minimal in-page switch between Warehouse and Warehouse Floor.
