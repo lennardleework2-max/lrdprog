@@ -481,6 +481,8 @@ function page_click(xbtn , xcheck ,xfieldnum){
 
     //variables
     var tablename  = $("#tablename_hidden").val();
+    var table_filter_field = $("#table_filter_field_hidden").val();
+    var table_filter_value = $("#table_filter_value_hidden").val();
     var xcounter_fields = 0;
     //Pager limit
     var xlimit     = $("#pager_xlimit").val(); 
@@ -596,6 +598,8 @@ function page_click(xbtn , xcheck ,xfieldnum){
               //pager vairables
               xlimit:xlimit,
               tablename:tablename,
+              table_filter_field:table_filter_field,
+              table_filter_value:table_filter_value,
               xfields:xfields,
               event_action:xbtn,
               table_order_field:table_order_field,
@@ -660,6 +664,5 @@ function print_pdf(){
 function alert_delete_bom(xmsg){
     alert(xmsg);
 }
-
 
 

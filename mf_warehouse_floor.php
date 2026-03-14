@@ -5,6 +5,21 @@ error_reporting(E_ALL);
 
 require "includes/main_header.php";
 require "pager/pager_main.class.php";
+
+$warehouse_id = isset($_GET['warehouse_id']) ? trim($_GET['warehouse_id']) : '';
+$warehouse_name = '';
+
+if($warehouse_id !== ''){
+    $select_db_wh = "SELECT warehouse_name FROM warehouse WHERE warehouse_id=?";
+    $stmt_wh = $link->prepare($select_db_wh);
+    $stmt_wh->execute(array($warehouse_id));
+    $rs_wh = $stmt_wh->fetch();
+    if(!empty($rs_wh)){
+        $warehouse_name = $rs_wh["warehouse_name"];
+    }
+}
+
+$has_valid_warehouse = ($warehouse_id !== '' && $warehouse_name !== '');
 ?>
 
     <style>
@@ -19,12 +34,6 @@ require "pager/pager_main.class.php";
         }
 
     </style>
-
-    <script>
-        function john(event2, id){
-            alert(event2+","+id);
-        }
-    </script>
 
     <form name='myforms' id="myforms" method="post" target="_self"> 
 
@@ -47,8 +56,12 @@ require "pager/pager_main.class.php";
                             <a href="mf_warehouse.php" class="btn btn-sm btn-outline-primary">Back to Warehouse</a>
                         </div>
 
+                        <?php if(!$has_valid_warehouse): ?>
+                            <div class="alert alert-warning">Please choose a warehouse first, then click <b>Floors</b> from its Action menu.</div>
+                        <?php else: ?>
+
                         <?php
-                            $table1 = new pager("Warehouse Floor" , "warehouse_floor"  ,$link);
+                            $table1 = new pager("Warehouse Floors - ".$warehouse_name , "warehouse_floor"  ,$link);
 
                             $table1->add_crud = $add_crud;
                             $table1->edit_crud = $edit_crud;
@@ -57,21 +70,17 @@ require "pager/pager_main.class.php";
                             $table1->export_crud = $export_crud;
 
                             $table1->field_code = "warehouse_floor_id";
-                            $table1->field_code_init = "WFL-0001";
+                            $table1->field_code_init = "WHFID-0000001";
 
                             $table1->table_order_by["field"] = "floor_no";
                             $table1->table_order_by["type"] = "ASC";
 
+                            $table1->table_filter_field = "warehouse_id";
+                            $table1->table_filter_value = $warehouse_id;
+
                             $table1->field_type_dis["warehouse_floor_id"] = "text";
                             $table1->field_name_dis["warehouse_floor_id"] = "warehouse_floor_id";
                             $table1->field_header_dis["warehouse_floor_id"] = "Warehouse Floor ID";
-
-                            $table1->field_type_dis["warehouse_id"] = "dropdown_custom";
-                            $table1->field_name_dis["warehouse_id"] = "warehouse_id";
-                            $table1->field_header_dis["warehouse_id"] = "Warehouse";
-                            $table1->field_dropdown_field_name_dis["warehouse_id"] = "warehouse_id";
-                            $table1->field_dropdown_field_name_value_dis["warehouse_id"] = "warehouse_name";
-                            $table1->field_dropdown_tablename_dis["warehouse_id"] = "warehouse";
 
                             $table1->field_type_dis["floor_name"] = "text";
                             $table1->field_name_dis["floor_name"] = "floor_name";
@@ -81,13 +90,11 @@ require "pager/pager_main.class.php";
                             $table1->field_name_dis["floor_no"] = "floor_no";
                             $table1->field_header_dis["floor_no"] = "Floor No";
 
-                            $table1->field_type_crud["warehouse_id"] = "dropdown_custom";
+                            $table1->field_type_crud["warehouse_id"] = "dropdown_normal";
                             $table1->field_name_crud["warehouse_id"] = "warehouse_id";
                             $table1->field_header_crud["warehouse_id"] = "Warehouse";
-                            $table1->field_dropdown_field_name_crud["warehouse_id"] = "warehouse_id";
-                            $table1->field_dropdown_field_name_value_crud["warehouse_id"] = "warehouse_name";
-                            $table1->field_dropdown_tablename_crud["warehouse_id"] = "warehouse";
-                            $table1->field_dropdown_orderby_field_crud["warehouse_id"] = "warehouse_name";
+                            $table1->field_dropdown_list_crud["warehouse_id"] = array($warehouse_id);
+                            $table1->field_dropdown_selected_crud["warehouse_id"] = $warehouse_id;
                             $table1->field_is_required["warehouse_id"] = "Y";
                             $table1->field_is_unique["warehouse_id"] = "N";
 
@@ -120,6 +127,8 @@ require "pager/pager_main.class.php";
                             $table1->display_table();
                         ?>
 
+                        <?php endif; ?>
+
                     </div>
                 </td>
 
@@ -131,16 +140,19 @@ require "pager/pager_main.class.php";
 
     
     <?php 
-        // displays modal outside form to avoid confusion
-        $table1->display_modal();
+        if($has_valid_warehouse){
+            // displays modal outside form to avoid confusion
+            $table1->display_modal();
+        }
     ?>
 
 
    
 
 <!-- PAGER JS -->   
+<?php if($has_valid_warehouse): ?>
 <script src="pager/pager_js.class.js"> </script>
+<?php endif; ?>
 <?php 
 require "includes/main_footer.php";
 ?>
-

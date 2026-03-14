@@ -24,6 +24,22 @@
         }
     }
 
+    if(!function_exists('render_pager_btn_function')){
+        function render_pager_btn_function($template, $row){
+            if(!is_string($template) || $template === ''){
+                return '';
+            }
+
+            return preg_replace_callback('/\{([a-zA-Z0-9_]+)\}/', function($matches) use ($row){
+                $field_name = $matches[1];
+                if(isset($row[$field_name])){
+                    return addslashes((string)$row[$field_name]);
+                }
+                return '';
+            }, $template);
+        }
+    }
+
 /*
     $stmt	= $link->prepare("select * from itemfile order by itmdsc");
     $stmt->execute();
@@ -90,6 +106,20 @@
         $search_text_input_dd = $_POST["search_text_input_hidden_dd"];
         $xret["hidden_value_search_dd"] = $_POST['search_text_input_hidden_dd'];
     }
+
+    $fixed_filter = "";
+    if(isset($_POST["table_filter_field"]) && isset($_POST["table_filter_value"])){
+        $table_filter_field = trim($_POST["table_filter_field"]);
+        $table_filter_value = (string)$_POST["table_filter_value"];
+
+        if(
+            $table_filter_field !== "" &&
+            $table_filter_value !== "" &&
+            preg_match('/^[a-zA-Z0-9_]+$/', $table_filter_field)
+        ){
+            $fixed_filter = " AND ".$_POST["tablename"].".".$table_filter_field." = ".$link->quote($table_filter_value);
+        }
+    }
 //ar_dump('step 1');
     if(
         (isset($_POST["search_hidden"]) && $_POST["search_hidden"] == "Y") &&
@@ -118,9 +148,9 @@
 
                 $select_db_xtotal="SELECT count(*) as rec_count FROM ".$_POST["tablename"]." INNER JOIN ".$dropdown_tablename_search
                 ." ON ".$_POST["tablename"].'.'.$dropdown_field_name_search.'  = '.$dropdown_tablename_search.'.'.$dropdown_field_name_search."
-                    WHERE ".$dropdown_field_name_value_search." LIKE '%".$dropdown_txt_value."%'";
+                    WHERE true ".$fixed_filter." AND ".$dropdown_field_name_value_search." LIKE '%".$dropdown_txt_value."%'";
             }else{
-                $select_db_xtotal = "SELECT count(*) as rec_count FROM ".$_POST['tablename']." WHERE ".$dropdown_field_name_search." LIKE '%".$dropdown_txt_value."%'";
+                $select_db_xtotal = "SELECT count(*) as rec_count FROM ".$_POST['tablename']." WHERE true ".$fixed_filter." AND ".$dropdown_field_name_search." LIKE '%".$dropdown_txt_value."%'";
             }
 
         }
@@ -138,7 +168,7 @@
 
 
     if(!isset($_POST["search_data_type"]) || $_POST["search_data_type"] !== "dropdown_custom"){
-        $select_db_xtotal="SELECT count(*) as rec_count FROM ".$_POST['tablename']." WHERE true ".$filter."";
+        $select_db_xtotal="SELECT count(*) as rec_count FROM ".$_POST['tablename']." WHERE true ".$fixed_filter." ".$filter."";
     }else{
 
         $dropdown_field_name_value_search = (isset($_POST["field_name_value"]))?($_POST["field_name_value"]) : "";
@@ -150,9 +180,9 @@
 
             $select_db_xtotal="SELECT count(*) as rec_count FROM ".$_POST["tablename"]." INNER JOIN ".$dropdown_tablename_search
             ." ON ".$_POST["tablename"].'.'.$dropdown_field_name_search.'  = '.$dropdown_tablename_search.'.'.$dropdown_field_name_search."
-                WHERE ".$dropdown_field_name_value_search." LIKE '%".$dropdown_txt_value."%'";
+                WHERE true ".$fixed_filter." AND ".$dropdown_field_name_value_search." LIKE '%".$dropdown_txt_value."%'";
         }else{
-            $select_db_xtotal = "SELECT count(*) as rec_count FROM ".$_POST['tablename']." WHERE ".$dropdown_field_name_search." LIKE '%".$dropdown_txt_value."%'";
+            $select_db_xtotal = "SELECT count(*) as rec_count FROM ".$_POST['tablename']." WHERE true ".$fixed_filter." AND ".$dropdown_field_name_search." LIKE '%".$dropdown_txt_value."%'";
         }
 
     }
@@ -277,9 +307,9 @@
 
                 $select_db_fields="SELECT ".$fields_search." FROM ".$_POST["tablename"]." INNER JOIN ".$dropdown_tablename_search
                 ." ON ".$_POST["tablename"].'.'.$dropdown_field_name_search.'  = '.$dropdown_tablename_search.'.'.$dropdown_field_name_search."
-                    WHERE ".$dropdown_field_name_value_search." LIKE '%".$dropdown_txt_value."%'"." ORDER BY ".$dropdown_tablename_search.".".$dropdown_field_name_value_search." ASC LIMIT ".$xlimit." OFFSET ".$xoffset;
+                    WHERE true ".$fixed_filter." AND ".$dropdown_field_name_value_search." LIKE '%".$dropdown_txt_value."%'"." ORDER BY ".$dropdown_tablename_search.".".$dropdown_field_name_value_search." ASC LIMIT ".$xlimit." OFFSET ".$xoffset;
             }else{
-                $select_db_fields = "SELECT ".$fields." FROM ".$_POST['tablename']." WHERE ".$dropdown_field_name_search." LIKE '%".$dropdown_txt_value."%' ORDER BY ".$dropdown_field_name_search." ASC";
+                $select_db_fields = "SELECT ".$fields." FROM ".$_POST['tablename']." WHERE true ".$fixed_filter." AND ".$dropdown_field_name_search." LIKE '%".$dropdown_txt_value."%' ORDER BY ".$dropdown_field_name_search." ASC";
             }
 
         }
@@ -300,7 +330,7 @@
 //ar_dump($filter);
 
     if(!isset($_POST["search_data_type"]) || $_POST["search_data_type"] !== "dropdown_custom"){
-        $select_db_fields="SELECT ".$fields." FROM ".$_POST['tablename']."  WHERE true ".$filter." ".$filter_order." LIMIT ".$xlimit." OFFSET ".$xoffset;
+        $select_db_fields="SELECT ".$fields." FROM ".$_POST['tablename']."  WHERE true ".$fixed_filter." ".$filter." ".$filter_order." LIMIT ".$xlimit." OFFSET ".$xoffset;
     }else if($_POST["search_data_type"] == "dropdown_custom" && (isset($_POST["first_load"]) && $_POST["first_load"] == "Y")){
         $fields_search_arr = array();
 
@@ -327,9 +357,9 @@
 
             $select_db_fields="SELECT ".$fields_search." FROM ".$_POST["tablename"]." INNER JOIN ".$dropdown_tablename_search
             ." ON ".$_POST["tablename"].'.'.$dropdown_field_name_search.'  = '.$dropdown_tablename_search.'.'.$dropdown_field_name_search."
-                WHERE ".$dropdown_field_name_value_search." LIKE '%".$dropdown_txt_value."%'"." ORDER BY ".$_POST["tablename"].".".$_POST["table_order_field"]." ".$_POST["table_order_type"]." LIMIT ".$xlimit." OFFSET ".$xoffset;
+                WHERE true ".$fixed_filter." AND ".$dropdown_field_name_value_search." LIKE '%".$dropdown_txt_value."%'"." ORDER BY ".$_POST["tablename"].".".$_POST["table_order_field"]." ".$_POST["table_order_type"]." LIMIT ".$xlimit." OFFSET ".$xoffset;
         }else{
-            $select_db_fields = "SELECT ".$fields." FROM ".$_POST['tablename']." WHERE ".$dropdown_field_name_search." LIKE '%".$dropdown_txt_value."%' ORDER BY ".$dropdown_field_name_search." ASC";
+            $select_db_fields = "SELECT ".$fields." FROM ".$_POST['tablename']." WHERE true ".$fixed_filter." AND ".$dropdown_field_name_search." LIKE '%".$dropdown_txt_value."%' ORDER BY ".$dropdown_field_name_search." ASC";
         }
     }
 //var_dump($select_db_fields);
@@ -472,8 +502,9 @@
                                     $btn_color  = $xdata_btn_value[1]["btn-color"];
                                     $btn_logo = $xdata_btn_value[2]["btn-logo"];
                                     $btn_function = $xdata_btn_value[3]["btn-function"];
+                                    $btn_function_render = render_pager_btn_function($btn_function, $row);
 
-                                    $xret["html"].= "<li onclick=\"$btn_function\">";
+                                    $xret["html"].= "<li onclick=\"$btn_function_render\">";
                                         $xret["html"].= "<a class='dropdown-item' style='color:".$btn_color."'>".$btn_logo."<span style='margin-left:7px;font-size:17px;font-family:arial'>".$btn_header."</span></a>";
                                     $xret["html"].= "</li>";
                                 }
@@ -633,8 +664,9 @@
                                     $btn_color  = $xdata_btn_value[1]["btn-color"];
                                     $btn_logo = $xdata_btn_value[2]["btn-logo"];
                                     $btn_function = $xdata_btn_value[3]["btn-function"];
+                                    $btn_function_render = render_pager_btn_function($btn_function, $row);
 
-                                    $xret["html_mobile"].= "<li onclick=\"$btn_function\">";
+                                    $xret["html_mobile"].= "<li onclick=\"$btn_function_render\">";
                                         $xret["html_mobile"].= "<a class='dropdown-item' style='color:".$btn_color."'>".$btn_logo."<span style='margin-left:7px;font-size:17px;font-family:arial'>".$btn_header."</span></a>";
                                     $xret["html_mobile"].= "</li>";
                                 }

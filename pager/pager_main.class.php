@@ -43,6 +43,8 @@ Class pager extends db_init{
     public $field_dropdown_list_crud = array();
     public $field_dropdown_selected_crud = array();
     public $field_dropdown_orderby_field_crud = array();
+    public $table_filter_field;
+    public $table_filter_value;
     
     //Pager settings
     public $show_pager; 
@@ -656,6 +658,8 @@ Class pager extends db_init{
 
         //table name
         echo "<input type='hidden' name='tablename_hidden' id='tablename_hidden' value='".$this->table."'>";
+        echo "<input type='hidden' name='table_filter_field_hidden' id='table_filter_field_hidden' value='".$this->table_filter_field."'>";
+        echo "<input type='hidden' name='table_filter_value_hidden' id='table_filter_value_hidden' value='".$this->table_filter_value."'>";
 
 
         //display only

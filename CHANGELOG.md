@@ -4,9 +4,13 @@
 - Added `mf_warehouse.php` as a new master-file page for warehouse maintenance.
 - Implemented CRUD for `warehouse` with fields: `warehouse_id` (auto code), `warehouse_name`, `location`.
 - Added `mf_warehouse_floor.php` for `warehouse_floor` CRUD with fields: `warehouse_floor_id` (auto code), `warehouse_id`, `floor_name`, `floor_no`.
-- Removed in-page warehouse/floor tabs and changed to page navigation via `Edit Floors` button in `mf_warehouse.php`.
-- Added `Back to Warehouse` button in `mf_warehouse_floor.php`.
-- Kept `warehouse_floor.warehouse_id` as `dropdown_custom` sourced from `warehouse` (`warehouse_name` display).
+- Removed in-page warehouse/floor tabs and kept `mf_warehouse.php` as warehouse-only CRUD.
+- Added row-level `Floors` action in warehouse Action menu, linking to floor maintenance for that specific `warehouse_id`.
+- Scoped `mf_warehouse_floor.php` records to the selected warehouse context and locked CRUD warehouse selection to that warehouse.
+- Updated warehouse code seeds for LNexts/pager generation:
+  - `warehouse_id`: `WHS-0000001`
+  - `warehouse_floor_id`: `WHFID-0000001`
+- Added pager support for fixed table filtering (`table_filter_field`, `table_filter_value`) and row-placeholder resolution in custom action button functions.
 
 ## 2026-03-12
 - Fixed shared pager SQL field parsing in `pager/pager_ajax.pager.php` to prevent malformed `SELECT` clauses when a real column is named `fname`.

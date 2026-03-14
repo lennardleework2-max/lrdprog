@@ -1,14 +1,16 @@
 # Latest
 
 ## 2026-03-14
-- Added new page `mf_warehouse.php` with CRUD support for:
-  - `warehouse` table only
-- Added new page `mf_warehouse_floor.php` for CRUD of `warehouse_floor`.
-- Removed the in-page tab switch and changed the flow to:
-  - click `Edit Floors` in `mf_warehouse.php`
-  - navigate to `mf_warehouse_floor.php` for floor CRUD
-- Added `Back to Warehouse` button in `mf_warehouse_floor.php`.
-- Kept search, export, pager, and user-activity behavior aligned with existing master-file pages.
+- Updated `mf_warehouse.php` to remove separate warehouse/floor tabs and keep a single Warehouse CRUD view.
+- Added `Floors` action inside each warehouse row Action menu (with distinct icon/color) to open floor maintenance for that specific warehouse.
+- Updated `mf_warehouse_floor.php` to require `warehouse_id` from the selected warehouse action, and scoped the floor list/CRUD to that warehouse only.
+- Locked floor insert/edit warehouse selection to the current warehouse context (single-option dropdown), so floors are added under an existing selected warehouse.
+- Updated ID seeds used by pager/LNexts generation:
+  - `warehouse_id` seed: `WHS-0000001`
+  - `warehouse_floor_id` seed: `WHFID-0000001`
+- Extended pager internals to support:
+  - fixed table filtering (`table_filter_field`, `table_filter_value`)
+  - row-value placeholder rendering in custom action functions (e.g., `{warehouse_id}`)
 
 ## 2026-03-12
 - Fixed shared pager SQL field parsing in `pager/pager_ajax.pager.php` to correctly handle columns named `fname` (and similar patterns) without producing malformed `SELECT ,...` queries.

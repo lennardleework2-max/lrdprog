@@ -21,8 +21,11 @@ require "pager/pager_main.class.php";
     </style>
 
     <script>
-        function john(event2, id){
-            alert(event2+","+id);
+        function goWarehouseFloors(warehouseId){
+            if(!warehouseId){
+                return;
+            }
+            window.location.href = "mf_warehouse_floor.php?warehouse_id=" + encodeURIComponent(warehouseId);
         }
     </script>
 
@@ -43,10 +46,6 @@ require "pager/pager_main.class.php";
 
                     <div class="container-fluid pt-2 main_br_div">
 
-                        <div class="mb-2">
-                            <a href="mf_warehouse_floor.php" class="btn btn-sm btn-outline-primary">Edit Floors</a>
-                        </div>
-
                         <?php
                             $table1 = new pager("Warehouse" , "warehouse"  ,$link);
 
@@ -57,7 +56,7 @@ require "pager/pager_main.class.php";
                             $table1->export_crud = $export_crud;
 
                             $table1->field_code = "warehouse_id";
-                            $table1->field_code_init = "WHS-0001";
+                            $table1->field_code_init = "WHS-0000001";
 
                             $table1->table_order_by["field"] = "warehouse_name";
                             $table1->table_order_by["type"] = "ASC";
@@ -91,6 +90,11 @@ require "pager/pager_main.class.php";
 
                             $table1->show_export = "Y";
                             $table1->show_search = "Y";
+
+                            $table1->btn_header[0] = "Floors";
+                            $table1->btn_logo[0] = "<i class='fas fa-layer-group'></i>";
+                            $table1->btn_function[0] = "goWarehouseFloors('{warehouse_id}')";
+                            $table1->btn_color[0] = "#ff8c00";
 
                             $table1->alert_del = "N";
                             $table1->alert_del_logo_dir = $logo_dir;

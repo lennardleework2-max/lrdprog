@@ -314,10 +314,18 @@ Migrate all docnum values to 9-digit format:
 ## Warehouse Master File (2026-03-14)
 - Added new page: `mf_warehouse.php`.
 - Implemented CRUD for `warehouse`:
-  - Auto code field: `warehouse_id` (`WHS-0001` seed)
+  - Auto code field: `warehouse_id` (`WHS-0000001` seed)
   - Editable fields: `warehouse_name`, `location`
 - Added separate page: `mf_warehouse_floor.php` for `warehouse_floor` CRUD:
-  - Auto code field: `warehouse_floor_id` (`WFL-0001` seed)
+  - Auto code field: `warehouse_floor_id` (`WHFID-0000001` seed)
   - Editable fields: `warehouse_id`, `floor_name`, `floor_no`
-- `warehouse_floor.warehouse_id` uses `dropdown_custom` from `warehouse` with `warehouse_name` as display text.
-- Removed in-page tabs; flow is now `mf_warehouse.php` -> `Edit Floors` -> `mf_warehouse_floor.php`.
+- `mf_warehouse.php` remains warehouse-only, with a row-level `Floors` action in the Action dropdown.
+- `mf_warehouse_floor.php` is opened via selected warehouse and scoped by `warehouse_id` context.
+- Floor CRUD warehouse selector is locked to the selected warehouse (single-option dropdown), ensuring floor records are added under an existing warehouse.
+
+## Pager Enhancements for Warehouse Flow (2026-03-14)
+- Added optional fixed filter support in pager:
+  - `table_filter_field`
+  - `table_filter_value`
+- Added row-placeholder support for custom action button functions in pager AJAX rendering.
+  - Example placeholder usage: `{warehouse_id}` in custom button function strings.
