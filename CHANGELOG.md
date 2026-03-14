@@ -21,6 +21,12 @@
   - if `warehouse_id` is missing in insert payload for `warehouse_floor`, fallback to session context (`warehouse_floor_context_id`)
   - if still missing, return user-facing validation message instead of throwing DB FK exception
 - Updated `mf_warehouse_floor.php` to persist selected warehouse context in session for floor CRUD continuity.
+- Enabled warehouse delete confirmation in `mf_warehouse.php` by turning on pager alert delete modal.
+- Updated delete flow in `pager/pager_ajax.class.php` for `warehouse` to run in transaction and delete related data in order:
+  - `warehouse_stock_movement` rows tied to the warehouse floors
+  - `warehouse_floor` rows tied to the warehouse
+  - `warehouse` row
+- Added safe JSON error handling for delete failures to prevent PDO fatal output in the UI.
 
 ## 2026-03-12
 - Fixed shared pager SQL field parsing in `pager/pager_ajax.pager.php` to prevent malformed `SELECT` clauses when a real column is named `fname`.

@@ -17,6 +17,12 @@
 - Removed `warehouse_floor_id` from floor list display so users only see/search relevant floor fields.
 - Added server-side fallback for floor inserts to enforce `warehouse_id` from selected floor context (`$_SESSION['warehouse_floor_context_id']`) when needed.
 - Added explicit context-missing validation message for floor insert: user must reopen Floors from Warehouse action if context is missing.
+- Enabled delete confirmation modal for warehouse records in `mf_warehouse.php`.
+- Added transactional warehouse delete handling in `pager/pager_ajax.class.php`:
+  - deletes `warehouse_stock_movement` rows linked by floor first
+  - deletes `warehouse_floor` rows for the warehouse
+  - deletes the warehouse record last
+  - returns safe JSON validation messages on delete failure (no fatal crash)
 
 ## 2026-03-12
 - Fixed shared pager SQL field parsing in `pager/pager_ajax.pager.php` to correctly handle columns named `fname` (and similar patterns) without producing malformed `SELECT ,...` queries.

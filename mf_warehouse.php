@@ -107,7 +107,7 @@ require "pager/pager_main.class.php";
                             $table1->btn_function[0] = "goWarehouseFloors('{warehouse_id}')";
                             $table1->btn_color[0] = "#ff8c00";
 
-                            $table1->alert_del = "N";
+                            $table1->alert_del = "Y";
                             $table1->alert_del_logo_dir = $logo_dir;
                             $table1->alert_del_logo_w = $logo_width;
                             $table1->alert_del_logo_h = $logo_height;

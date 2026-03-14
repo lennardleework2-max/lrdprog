@@ -337,3 +337,11 @@ Migrate all docnum values to 9-digit format:
   - `mf_warehouse_floor.php` stores selected `warehouse_id` into `$_SESSION['warehouse_floor_context_id']`
   - `pager/pager_ajax.class.php` uses this session context as fallback during `warehouse_floor` insert when `warehouse_id` is absent from payload
   - if no context is available, insert is blocked with a clear validation message instead of a foreign key crash
+
+## Warehouse Delete Cascade Fix (2026-03-14)
+- `mf_warehouse.php` now uses pager delete confirmation (`alert_del = "Y"`) before warehouse deletion.
+- `pager/pager_ajax.class.php` delete flow for `warehouse` now uses a transaction and deletes in this order:
+  - `warehouse_stock_movement` rows joined through `warehouse_floor.floor_id`
+  - `warehouse_floor` rows by `warehouse_id`
+  - target `warehouse` row
+- Added graceful delete-failure response (`status=0` JSON message) so FK-related issues no longer show raw PDO fatal output.

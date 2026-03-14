@@ -46,6 +46,14 @@ if($_POST["event_action"] == "delete"){
 	$stmt_delete->execute(array($delete_id));
     $rs_delete = $stmt_delete->fetch();
 
+    if(!$rs_delete){
+        $xret["status"] = 0;
+        $xret["msg"] = "Record not found.";
+        header('Content-Type: application/json');
+        echo json_encode($xret);
+        return;
+    }
+
     if(isset($_POST['ua_field1']) && !empty($_POST["ua_field1"])){
         $ua_field1 = $rs_delete["".$_POST['ua_field1'].""];
     }
@@ -59,9 +67,52 @@ if($_POST["event_action"] == "delete"){
         $xdocnum = $rs_delete[$_POST['fieldcode']];
     }
 
-	$delete_query="DELETE  FROM ".$_POST['tablename']." WHERE recid=?";
-	$xstmt=$link->prepare($delete_query);
-	$xstmt->execute(array($delete_id));
+    try{
+        if($_POST['tablename'] == "warehouse"){
+            $warehouse_id = isset($rs_delete["warehouse_id"]) ? $rs_delete["warehouse_id"] : "";
+            if($warehouse_id === ""){
+                throw new Exception("Warehouse ID is missing.");
+            }
+
+            $link->beginTransaction();
+
+            $delete_movement_query = "DELETE wsm
+                                      FROM warehouse_stock_movement wsm
+                                      INNER JOIN warehouse_floor wf
+                                        ON wf.warehouse_floor_id = wsm.floor_id
+                                      WHERE wf.warehouse_id = ?";
+            $stmt_delete_movement = $link->prepare($delete_movement_query);
+            $stmt_delete_movement->execute(array($warehouse_id));
+
+            $delete_floor_query = "DELETE FROM warehouse_floor WHERE warehouse_id = ?";
+            $stmt_delete_floor = $link->prepare($delete_floor_query);
+            $stmt_delete_floor->execute(array($warehouse_id));
+
+            $delete_warehouse_query = "DELETE FROM warehouse WHERE recid = ?";
+            $stmt_delete_warehouse = $link->prepare($delete_warehouse_query);
+            $stmt_delete_warehouse->execute(array($delete_id));
+
+            $link->commit();
+        }else{
+	        $delete_query="DELETE FROM ".$_POST['tablename']." WHERE recid=?";
+	        $xstmt=$link->prepare($delete_query);
+	        $xstmt->execute(array($delete_id));
+        }
+    }catch(Exception $e){
+        if($link->inTransaction()){
+            $link->rollBack();
+        }
+
+        $xret["status"] = 0;
+        if($_POST['tablename'] == "warehouse"){
+            $xret["msg"] = "Unable to delete warehouse. Please try again.";
+        }else{
+            $xret["msg"] = "Unable to delete record. It may be linked to other records.";
+        }
+        header('Content-Type: application/json');
+        echo json_encode($xret);
+        return;
+    }
 
     $xactivity = "delete";
     if(isset($_POST['ua_field1_header_hidden'])){
