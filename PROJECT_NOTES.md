@@ -329,3 +329,4 @@ Migrate all docnum values to 9-digit format:
   - `table_filter_value`
 - Added row-placeholder support for custom action button functions in pager AJAX rendering.
   - Example placeholder usage: `{warehouse_id}` in custom button function strings.
+- Escaped custom button hidden-input attributes in `pager/pager_main.class.php` (`btn-header`, `btn-color`, `btn-logo`, `btn-function`) to avoid raw broken-attribute text appearing under the pager.

@@ -11,6 +11,7 @@
   - `warehouse_id`: `WHS-0000001`
   - `warehouse_floor_id`: `WHFID-0000001`
 - Added pager support for fixed table filtering (`table_filter_field`, `table_filter_value`) and row-placeholder resolution in custom action button functions.
+- Fixed pager custom-button hidden-input attribute escaping in `pager/pager_main.class.php` to prevent leaked raw attribute text under the pager.
 
 ## 2026-03-12
 - Fixed shared pager SQL field parsing in `pager/pager_ajax.pager.php` to prevent malformed `SELECT` clauses when a real column is named `fname`.

@@ -716,14 +716,19 @@ Class pager extends db_init{
             $btn_logo     = $this->btn_logo[$btn_header_key];
             $btn_function = $this->btn_function[$btn_header_key];
 
+            $btn_header_esc = htmlspecialchars($btn_header, ENT_QUOTES, 'UTF-8');
+            $btn_color_esc = htmlspecialchars($btn_color, ENT_QUOTES, 'UTF-8');
+            $btn_logo_esc = htmlspecialchars($btn_logo, ENT_QUOTES, 'UTF-8');
+            $btn_function_esc = htmlspecialchars($btn_function, ENT_QUOTES, 'UTF-8');
+
             echo "<input 
                    type='hidden' 
-                   name='".$btn_header."_btn' 
-                   id='".$btn_header."_btn' 
-                   btn-header='".$btn_header."' 
-                   btn-color='".$btn_color."'
-                   btn-logo='".$btn_logo."'
-                   btn-function='".$btn_function."'
+                   name='".$btn_header_esc."_btn' 
+                   id='".$btn_header_esc."_btn' 
+                   btn-header='".$btn_header_esc."' 
+                   btn-color='".$btn_color_esc."'
+                   btn-logo='".$btn_logo_esc."'
+                   btn-function='".$btn_function_esc."'
                 >";
         }
         echo "<div>";
