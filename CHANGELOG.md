@@ -3,9 +3,10 @@
 ## 2026-03-14
 - Added `mf_warehouse.php` as a new master-file page for warehouse maintenance.
 - Implemented CRUD for `warehouse` with fields: `warehouse_id` (auto code), `warehouse_name`, `location`.
-- Implemented CRUD for `warehouse_floor` with fields: `warehouse_floor_id` (auto code), `warehouse_id`, `floor_name`, `floor_no`.
-- Added in-page view switching between `Warehouse` and `Warehouse Floor`, while keeping the existing pager design and behavior.
-- Configured `warehouse_floor.warehouse_id` as `dropdown_custom` sourced from `warehouse` (`warehouse_name` display).
+- Added `mf_warehouse_floor.php` for `warehouse_floor` CRUD with fields: `warehouse_floor_id` (auto code), `warehouse_id`, `floor_name`, `floor_no`.
+- Removed in-page warehouse/floor tabs and changed to page navigation via `Edit Floors` button in `mf_warehouse.php`.
+- Added `Back to Warehouse` button in `mf_warehouse_floor.php`.
+- Kept `warehouse_floor.warehouse_id` as `dropdown_custom` sourced from `warehouse` (`warehouse_name` display).
 
 ## 2026-03-12
 - Fixed shared pager SQL field parsing in `pager/pager_ajax.pager.php` to prevent malformed `SELECT` clauses when a real column is named `fname`.

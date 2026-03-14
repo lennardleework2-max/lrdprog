@@ -316,8 +316,8 @@ Migrate all docnum values to 9-digit format:
 - Implemented CRUD for `warehouse`:
   - Auto code field: `warehouse_id` (`WHS-0001` seed)
   - Editable fields: `warehouse_name`, `location`
-- Implemented CRUD for `warehouse_floor`:
+- Added separate page: `mf_warehouse_floor.php` for `warehouse_floor` CRUD:
   - Auto code field: `warehouse_floor_id` (`WFL-0001` seed)
   - Editable fields: `warehouse_id`, `floor_name`, `floor_no`
 - `warehouse_floor.warehouse_id` uses `dropdown_custom` from `warehouse` with `warehouse_name` as display text.
-- Page keeps existing master-file/pager structure and uses a minimal in-page switch between Warehouse and Warehouse Floor.
+- Removed in-page tabs; flow is now `mf_warehouse.php` -> `Edit Floors` -> `mf_warehouse_floor.php`.

@@ -2,13 +2,13 @@
 
 ## 2026-03-14
 - Added new page `mf_warehouse.php` with CRUD support for:
-  - `warehouse` table
-  - `warehouse_floor` table
-- Kept the page on the existing pager/master-file layout, with a simple in-page switch:
-  - `Warehouse` view
-  - `Warehouse Floor` view
-- Configured `warehouse_floor.warehouse_id` as a dropdown linked to `warehouse` (`warehouse_name` shown in UI).
-- Enabled search, export, pager, and user-activity fields for both views, consistent with current master-file behavior.
+  - `warehouse` table only
+- Added new page `mf_warehouse_floor.php` for CRUD of `warehouse_floor`.
+- Removed the in-page tab switch and changed the flow to:
+  - click `Edit Floors` in `mf_warehouse.php`
+  - navigate to `mf_warehouse_floor.php` for floor CRUD
+- Added `Back to Warehouse` button in `mf_warehouse_floor.php`.
+- Kept search, export, pager, and user-activity behavior aligned with existing master-file pages.
 
 ## 2026-03-12
 - Fixed shared pager SQL field parsing in `pager/pager_ajax.pager.php` to correctly handle columns named `fname` (and similar patterns) without producing malformed `SELECT ,...` queries.
