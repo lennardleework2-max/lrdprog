@@ -333,3 +333,7 @@ Migrate all docnum values to 9-digit format:
   - Example placeholder usage: `{warehouse_id}` in custom button function strings.
 - Escaped custom button hidden-input attributes in `pager/pager_main.class.php` (`btn-header`, `btn-color`, `btn-logo`, `btn-function`) to avoid raw broken-attribute text appearing under the pager.
 - Fixed filter context is now passed to CRUD AJAX save calls as well, so inserts keep enforced parent context without needing visible parent dropdown fields.
+- Added session-backed floor context hardening:
+  - `mf_warehouse_floor.php` stores selected `warehouse_id` into `$_SESSION['warehouse_floor_context_id']`
+  - `pager/pager_ajax.class.php` uses this session context as fallback during `warehouse_floor` insert when `warehouse_id` is absent from payload
+  - if no context is available, insert is blocked with a clear validation message instead of a foreign key crash

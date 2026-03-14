@@ -6,7 +6,13 @@ error_reporting(E_ALL);
 require "includes/main_header.php";
 require "pager/pager_main.class.php";
 
-$warehouse_id = isset($_POST['warehouse_id']) ? trim($_POST['warehouse_id']) : '';
+$warehouse_id = '';
+if(isset($_POST['warehouse_id'])){
+    $warehouse_id = trim($_POST['warehouse_id']);
+    $_SESSION['warehouse_floor_context_id'] = $warehouse_id;
+}else if(isset($_SESSION['warehouse_floor_context_id'])){
+    $warehouse_id = trim($_SESSION['warehouse_floor_context_id']);
+}
 $warehouse_name = '';
 
 if($warehouse_id !== ''){

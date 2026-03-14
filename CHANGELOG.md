@@ -17,6 +17,10 @@
 - Removed warehouse selector field from floor CRUD modal; warehouse is now enforced by fixed page context.
 - Removed `warehouse_floor_id` from floor display/search fields in `mf_warehouse_floor.php`.
 - Updated `pager/pager_js.class.js` + `pager/pager_ajax.class.php` so fixed table filter values are also applied during insert.
+- Added floor-insert backend safeguard in `pager/pager_ajax.class.php`:
+  - if `warehouse_id` is missing in insert payload for `warehouse_floor`, fallback to session context (`warehouse_floor_context_id`)
+  - if still missing, return user-facing validation message instead of throwing DB FK exception
+- Updated `mf_warehouse_floor.php` to persist selected warehouse context in session for floor CRUD continuity.
 
 ## 2026-03-12
 - Fixed shared pager SQL field parsing in `pager/pager_ajax.pager.php` to prevent malformed `SELECT` clauses when a real column is named `fname`.

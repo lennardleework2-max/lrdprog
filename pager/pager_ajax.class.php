@@ -283,6 +283,27 @@ else if($_POST["event_action"] == "insert")
             $arr_record_data[$_POST["table_filter_field"]] = $_POST["table_filter_value"];
         }
 
+        if($_POST["tablename"] == "warehouse_floor"){
+            if(
+                (!isset($arr_record_data["warehouse_id"]) || $arr_record_data["warehouse_id"] === "" || $arr_record_data["warehouse_id"] === NULL) &&
+                isset($_SESSION["warehouse_floor_context_id"]) &&
+                $_SESSION["warehouse_floor_context_id"] !== ""
+            ){
+                $arr_record_data["warehouse_id"] = $_SESSION["warehouse_floor_context_id"];
+            }
+
+            if(!isset($arr_record_data["warehouse_id"]) || $arr_record_data["warehouse_id"] === "" || $arr_record_data["warehouse_id"] === NULL){
+                $xret["status"] = 0;
+                $xret["msg"] = "Warehouse context is missing. Please go back to Warehouse and click Floors again.";
+            }
+        }
+
+        if($xret["status"] != 1){
+            header('Content-Type: application/json');
+            echo json_encode($xret);
+            return;
+        }
+
         $fieldcode_innit  = "";
 
         if(!empty($_POST["fieldcode"])){
