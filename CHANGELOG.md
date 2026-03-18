@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-03-18
+- Updated `mf_warehouse_transaction.php` to simplify the list-page chrome by removing the old top Warehouse Transactions header/action strip.
+- Reworked the stock-movement entry layout in `mf_warehouse_transaction.php`:
+  - removed the separate warehouse-selection card
+  - moved transaction type to the top of the warehouse selection area
+  - renamed warehouse/floor selectors to `Source Warehouse` and `Source Floor`
+  - added conditional `Destination Warehouse` and `Destination Floor` selectors for `TRANSFER STOCK`
+  - removed the duplicate lower `Selected Floor` display
+  - removed the Back to Transactions button from the entry page
+  - changed the cancel button styling to red
+- Added cascading warehouse/floor behavior on the entry form so floor dropdowns refresh immediately when source or destination warehouse changes.
+- Fixed the item-search trigger in `mf_warehouse_transaction.php` so the search icon opens the item modal and item selection updates the form.
+- Updated quantity stock guidance in `mf_warehouse_transaction.php` + `mf_warehouse_transaction_ajax.php`:
+  - current stock now renders below quantity for remove/transfer flows
+  - quantity `max` is set from available source-floor stock
+  - stock preview excludes the edited movement row(s) during edit mode for more accurate transfer/remove limits
+
 ## 2026-03-14
 - Added `mf_warehouse.php` as a new master-file page for warehouse maintenance.
 - Implemented CRUD for `warehouse` with fields: `warehouse_id` (auto code), `warehouse_name`, `location`.

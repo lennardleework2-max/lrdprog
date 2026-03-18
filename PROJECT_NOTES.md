@@ -1,5 +1,19 @@
 # LRD Program - Project Notes
 
+## Warehouse Transactions UX Updates (2026-03-18)
+
+- `mf_warehouse_transaction.php`
+  - The stock-movement entry page now treats warehouse selection as part of the main form instead of a separate pre-selection step.
+  - Transaction type is selected first, followed by source warehouse/floor.
+  - `TRANSFER STOCK` now exposes a second destination warehouse/floor row; non-transfer actions keep a single source row only.
+  - The old duplicate `Selected Floor` display was removed because source/destination context is already shown at the top of the form.
+  - Item search now opens the dedicated item modal from the search icon and returns the selected item to the form.
+  - Current source-floor stock is displayed below quantity for remove/transfer flows and also sets the input `max` value.
+
+- `mf_warehouse_transaction_ajax.php`
+  - `stock_preview` now accepts optional `exclude_recids[]` so edit-mode stock previews can ignore the movement row(s) currently being edited.
+  - Stock-preview responses now also return `available_stock` for client-side quantity-limit enforcement.
+
 ## Database Tables
 
 ### `useractivitylogfile` Table
