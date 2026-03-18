@@ -130,18 +130,8 @@ if ($_POST['event_action'] === 'stock_preview') {
     $stock_class = ($current_stock >= 0) ? 'text-success' : 'text-danger';
     $response["available_stock"] = $current_stock;
 
-    $response["html"] = ""
-        . "<div class='small text-muted mb-1'>"
-        . "As of " . h_ajax(date('Y-m-d H:i', strtotime($movement_date_db)))
-        . "</div>"
-        . "<div><strong>" . h_ajax(!empty($item_row) ? (string)$item_row['itmdsc'] : $itmcde) . "</strong></div>"
-        . "<div class='small text-muted'>" . h_ajax($floor_label) . "</div>"
-        . "<div class='" . $stock_class . " fw-bold mt-2'>"
-        . "Current Stock: " . number_format($current_stock, 2)
-        . "</div>"
-        . "<div class='small text-muted mt-1'>"
-        . "Maximum allowed quantity: " . number_format(max($current_stock, 0), 2)
-        . "</div>";
+    $response["message"] = "Current Available Stock: " . number_format($current_stock, 2);
+    $response["html"] = $response["message"];
 
     echo json_encode($response);
     return;

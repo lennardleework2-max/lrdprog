@@ -4,11 +4,12 @@
 
 - `mf_warehouse_transaction.php`
   - The stock-movement entry page now treats warehouse selection as part of the main form instead of a separate pre-selection step.
-  - Transaction type is selected first, followed by source warehouse/floor.
-  - `TRANSFER STOCK` now exposes a second destination warehouse/floor row; non-transfer actions keep a single source row only.
+  - Transaction type and movement date are now in a separate top section.
+  - Source warehouse/floor stay in the main section, and `TRANSFER STOCK` exposes an additional destination warehouse/floor row below them.
   - The old duplicate `Selected Floor` display was removed because source/destination context is already shown at the top of the form.
-  - Item search now opens the dedicated item modal from the search icon and returns the selected item to the form.
-  - Current source-floor stock is displayed below quantity for remove/transfer flows and also sets the input `max` value.
+  - Warehouse floor dropdowns are rebuilt from `warehouse_floor` using the selected `warehouse_id`, and dropdown labels use `floor_no`.
+  - Item search now uses the same Select2 searchable picker pattern as `inventory_balance.php`, inside the item modal opened from the search icon.
+  - Current source-floor stock is displayed below quantity as a small light-gray note for remove/transfer flows and also sets the input `max` value.
 
 - `mf_warehouse_transaction_ajax.php`
   - `stock_preview` now accepts optional `exclude_recids[]` so edit-mode stock previews can ignore the movement row(s) currently being edited.

@@ -12,13 +12,16 @@
 - Added dynamic warehouse-floor cascading on the stock-movement entry form:
   - changing source warehouse rebuilds source floors
   - changing destination warehouse rebuilds destination floors
+  - floor dropdown labels now show the linked `warehouse_floor.floor_no` value for the selected warehouse
 - Updated transfer/remove stock preview behavior:
   - stock now shows directly below quantity
   - quantity max is synchronized to current available source-floor stock
   - stock preview supports edit-mode exclusion of the current movement row(s)
 - Fixed item lookup on the stock-movement form:
-  - search button now reliably opens `#itemSearchModal`
-  - modal search results allow selecting an item back into the form
+  - search button now opens `#itemSearchModal` with the same Select2 searchable item-picker pattern used in `inventory_balance.php`
+  - item selection updates the form and refreshes source-floor stock preview
+- Split the stock-movement entry page into a separate top section for transaction type/date and a lower warehouse-details section.
+- `TRANSFER STOCK` now shows an additional destination row below the source warehouse/floor row.
 
 ## 2026-03-14
 - Updated `mf_warehouse.php` to remove separate warehouse/floor tabs and keep a single Warehouse CRUD view.

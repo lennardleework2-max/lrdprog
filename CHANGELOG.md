@@ -3,17 +3,17 @@
 ## 2026-03-18
 - Updated `mf_warehouse_transaction.php` to simplify the list-page chrome by removing the old top Warehouse Transactions header/action strip.
 - Reworked the stock-movement entry layout in `mf_warehouse_transaction.php`:
+  - split the entry screen into a top transaction-type/date section and a lower warehouse-details section
   - removed the separate warehouse-selection card
-  - moved transaction type to the top of the warehouse selection area
   - renamed warehouse/floor selectors to `Source Warehouse` and `Source Floor`
-  - added conditional `Destination Warehouse` and `Destination Floor` selectors for `TRANSFER STOCK`
+  - added a transfer-only destination row below the source warehouse/floor row
   - removed the duplicate lower `Selected Floor` display
   - removed the Back to Transactions button from the entry page
   - changed the cancel button styling to red
-- Added cascading warehouse/floor behavior on the entry form so floor dropdowns refresh immediately when source or destination warehouse changes.
-- Fixed the item-search trigger in `mf_warehouse_transaction.php` so the search icon opens the item modal and item selection updates the form.
+- Added cascading warehouse/floor behavior on the entry form so floor dropdowns refresh immediately from `warehouse_floor` by selected `warehouse_id`; floor option labels now use `floor_no`.
+- Replaced the custom AJAX item-search table in `mf_warehouse_transaction.php` with the same Select2 searchable item picker pattern used in `inventory_balance.php`, inside the item modal.
 - Updated quantity stock guidance in `mf_warehouse_transaction.php` + `mf_warehouse_transaction_ajax.php`:
-  - current stock now renders below quantity for remove/transfer flows
+  - current available stock now renders as a smaller light-gray note below quantity for remove/transfer flows
   - quantity `max` is set from available source-floor stock
   - stock preview excludes the edited movement row(s) during edit mode for more accurate transfer/remove limits
 
