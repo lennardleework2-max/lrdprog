@@ -15,6 +15,28 @@
   - `stock_preview` now accepts optional `exclude_recids[]` so edit-mode stock previews can ignore the movement row(s) currently being edited.
   - Stock-preview responses now also return `available_stock` for client-side quantity-limit enforcement.
 
+### Entry Form Final Requirements Applied (2026-03-18)
+
+- Section 1 now uses exactly three columns:
+  - Transaction Type
+  - Source Warehouse
+  - Source Floor
+- For `TRANSFER STOCK`, a second row appears below section 1:
+  - empty first column
+  - Destination Warehouse
+  - Destination Floor
+- Section 2 now starts with Movement Date as the first column.
+- Item selection now follows `stock_card.php` pattern directly:
+  - inline Select2 searchable dropdown (`#open_item_search`)
+  - no item modal flow for create/edit entry.
+- Warehouse-floor onchange behavior is enforced from FK relationship:
+  - selecting a warehouse rebuilds floor options from `warehouse_floor` where `warehouse_id` matches
+  - floor option labels use `floor_no` only.
+- Save blocking rules:
+  - required: source warehouse, source floor, item, movement date, warehouse staff, quantity
+  - transfer-required: destination warehouse and destination floor
+  - enforced client-side and server-side.
+
 ## Database Tables
 
 ### `useractivitylogfile` Table

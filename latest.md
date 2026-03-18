@@ -22,6 +22,18 @@
   - item selection updates the form and refreshes source-floor stock preview
 - Split the stock-movement entry page into a separate top section for transaction type/date and a lower warehouse-details section.
 - `TRANSFER STOCK` now shows an additional destination row below the source warehouse/floor row.
+- Finalized entry layout based on latest requirements:
+  - top section now has exactly 3 columns: `Transaction Type | Source Warehouse | Source Floor`
+  - movement date was moved to section 2 and is now the first column there
+  - transfer-only row now appears below the top row as: `empty | Destination Warehouse | Destination Floor`
+- Replaced item modal flow with a direct Select2 searchable item field (ID: `open_item_search`) using the same pattern as `stock_card.php` (`-- Select Item --`, searchable, clearable).
+- Enforced floor filtering on warehouse change:
+  - selecting a source warehouse immediately rebuilds source-floor options from `warehouse_floor` by matching `warehouse_id`
+  - floor labels now show `floor_no` only
+- Added hard save-blocking for required fields:
+  - source warehouse, source floor, item, movement date, warehouse staff, quantity
+  - plus destination warehouse/floor when transaction type is transfer
+  - enforced in both client-side checks and backend validation.
 
 ## 2026-03-14
 - Updated `mf_warehouse.php` to remove separate warehouse/floor tabs and keep a single Warehouse CRUD view.

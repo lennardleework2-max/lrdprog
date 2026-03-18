@@ -16,6 +16,13 @@
   - current available stock now renders as a smaller light-gray note below quantity for remove/transfer flows
   - quantity `max` is set from available source-floor stock
   - stock preview excludes the edited movement row(s) during edit mode for more accurate transfer/remove limits
+- Applied final entry-page structure and validation updates:
+  - section 1 fixed to three columns: transaction type, source warehouse, source floor
+  - movement date moved to section 2 as first column
+  - transfer destination controls moved to a second row (`empty | destination warehouse | destination floor`)
+  - removed modal-based item search and switched to inline Select2 searchable dropdown using `#open_item_search`, matching `stock_card.php` behavior
+  - fixed warehouse-floor onchange refresh to rebuild floor options from `warehouse_floor` by selected `warehouse_id` and show `floor_no` labels
+  - added required-field save blocking on client side and backend for warehouse, floor, item, movement date, staff, and transfer destination fields.
 
 ## 2026-03-14
 - Added `mf_warehouse.php` as a new master-file page for warehouse maintenance.

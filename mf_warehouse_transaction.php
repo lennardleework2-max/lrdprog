@@ -77,12 +77,7 @@ function floor_dropdown_label($row)
     if (isset($row['floor_no']) && trim((string)$row['floor_no']) !== '') {
         return trim((string)$row['floor_no']);
     }
-
-    if (isset($row['floor_name']) && trim((string)$row['floor_name']) !== '') {
-        return trim((string)$row['floor_name']);
-    }
-
-    return '';
+    return '-';
 }
 
 function warehouse_id_from_floor($floor_map, $floor_id)
@@ -457,7 +452,9 @@ if (isset($_POST['form_action']) && ($_POST['form_action'] === 'create' || $_POS
         $errors[] = 'Quantity must be greater than zero.';
     }
 
-    if ($warehouse_staff_id !== null && !isset($staff_by_id[$warehouse_staff_id])) {
+    if ($warehouse_staff_id === null) {
+        $errors[] = 'Warehouse staff is required.';
+    } elseif (!isset($staff_by_id[$warehouse_staff_id])) {
         $errors[] = 'Select a valid warehouse staff member.';
     }
 
@@ -1314,13 +1311,13 @@ $show_form = $is_entry_page;
                             </div>
 
                             <div class="row g-3">
-                                <div class="col-12 col-lg-6">
+                                <div class="col-12 col-lg-4">
                                     <label class="form-label fw-bold">Transaction Type</label>
                                     <?php if ($mode === 'edit'): ?>
                                         <input type="hidden" id="movement_action" name="movement_action" value="<?php echo h($form_state['movement_action']); ?>">
                                         <div class="form-control bg-light"><?php echo h($form_state['movement_action']); ?></div>
                                     <?php else: ?>
-                                        <select class="form-select" id="movement_action" name="movement_action">
+                                        <select class="form-select" id="movement_action" name="movement_action" required>
                                             <option value="ADD" <?php echo ($form_state['movement_action'] === 'ADD') ? 'selected' : ''; ?>>ADD STOCK</option>
                                             <option value="REMOVE" <?php echo ($form_state['movement_action'] === 'REMOVE') ? 'selected' : ''; ?>>REMOVE STOCK</option>
                                             <option value="TRANSFER" <?php echo ($form_state['movement_action'] === 'TRANSFER') ? 'selected' : ''; ?>>TRANSFER STOCK</option>
@@ -1328,80 +1325,75 @@ $show_form = $is_entry_page;
                                     <?php endif; ?>
                                 </div>
 
-                                <div class="col-12 col-lg-6">
-                                    <label class="form-label fw-bold" for="movement_date">Movement Date</label>
-                                    <input type="datetime-local" class="form-control" id="movement_date" name="movement_date" value="<?php echo h($form_state['movement_date']); ?>" required>
+                                <div class="col-12 col-lg-4">
+                                    <label class="form-label fw-bold" for="warehouse_id">Source Warehouse</label>
+                                    <select class="form-select" id="warehouse_id" name="warehouse_id" required>
+                                        <option value="">Select Source Warehouse</option>
+                                        <?php foreach ($warehouse_options as $warehouse_option): ?>
+                                            <option value="<?php echo h($warehouse_option['warehouse_id']); ?>" <?php echo ($warehouse_id === $warehouse_option['warehouse_id']) ? 'selected' : ''; ?>>
+                                                <?php echo h($warehouse_option['warehouse_name']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+
+                                <div class="col-12 col-lg-4">
+                                    <label class="form-label fw-bold" for="floor_id">Source Floor</label>
+                                    <select class="form-select" id="floor_id" name="floor_id" required>
+                                        <option value="">Select Source Floor</option>
+                                        <?php foreach ($source_floors as $floor_option): ?>
+                                            <option value="<?php echo h($floor_option['warehouse_floor_id']); ?>" <?php echo ($floor_id === $floor_option['warehouse_floor_id']) ? 'selected' : ''; ?>>
+                                                <?php echo h(floor_dropdown_label($floor_option)); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row g-3 mt-1" id="transfer_row_wrap" style="display:none;">
+                                <div class="col-12 col-lg-4"></div>
+                                <div class="col-12 col-lg-4">
+                                    <label class="form-label fw-bold" for="destination_warehouse_id">Destination Warehouse</label>
+                                    <select class="form-select" id="destination_warehouse_id" name="destination_warehouse_id">
+                                        <option value="">Select Destination Warehouse</option>
+                                        <?php foreach ($warehouse_options as $warehouse_option): ?>
+                                            <option value="<?php echo h($warehouse_option['warehouse_id']); ?>" <?php echo ($destination_warehouse_id_form === $warehouse_option['warehouse_id']) ? 'selected' : ''; ?>>
+                                                <?php echo h($warehouse_option['warehouse_name']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-12 col-lg-4">
+                                    <label class="form-label fw-bold" for="destination_floor_id">Destination Floor</label>
+                                    <select class="form-select" id="destination_floor_id" name="destination_floor_id">
+                                        <option value="">Select Destination Floor</option>
+                                        <?php foreach ($destination_floors as $floor_option): ?>
+                                            <option value="<?php echo h($floor_option['warehouse_floor_id']); ?>" <?php echo ($form_state['destination_floor_id'] === $floor_option['warehouse_floor_id']) ? 'selected' : ''; ?>>
+                                                <?php echo h(floor_dropdown_label($floor_option)); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
                                 </div>
                             </div>
                         </div>
 
                         <div class="form-card p-3 p-md-4 mb-3">
                             <div class="row g-3">
-                                <div class="col-12">
-                                    <div class="row g-3" id="source_row_wrap">
-                                        <div class="col-12 col-lg-6">
-                                            <label class="form-label fw-bold" for="warehouse_id">Source Warehouse</label>
-                                            <select class="form-select" id="warehouse_id" name="warehouse_id">
-                                                <option value="">Select Source Warehouse</option>
-                                                <?php foreach ($warehouse_options as $warehouse_option): ?>
-                                                    <option value="<?php echo h($warehouse_option['warehouse_id']); ?>" <?php echo ($warehouse_id === $warehouse_option['warehouse_id']) ? 'selected' : ''; ?>>
-                                                        <?php echo h($warehouse_option['warehouse_name']); ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </div>
-
-                                        <div class="col-12 col-lg-6">
-                                            <label class="form-label fw-bold" for="floor_id">Source Floor</label>
-                                            <select class="form-select" id="floor_id" name="floor_id">
-                                                <option value="">Select Source Floor</option>
-                                                <?php foreach ($source_floors as $floor_option): ?>
-                                                    <option value="<?php echo h($floor_option['warehouse_floor_id']); ?>" <?php echo ($floor_id === $floor_option['warehouse_floor_id']) ? 'selected' : ''; ?>>
-                                                        <?php echo h(floor_dropdown_label($floor_option)); ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </div>
-                                    </div>
+                                <div class="col-12 col-lg-4">
+                                    <label class="form-label fw-bold" for="movement_date">Movement Date</label>
+                                    <input type="datetime-local" class="form-control" id="movement_date" name="movement_date" value="<?php echo h($form_state['movement_date']); ?>" required>
                                 </div>
 
-                                <div class="col-12" id="transfer_row_wrap" style="display:none;">
-                                    <div class="row g-3">
-                                        <div class="col-12 col-lg-6" id="transfer_destination_warehouse_wrap">
-                                            <label class="form-label fw-bold" for="destination_warehouse_id">Destination Warehouse</label>
-                                            <select class="form-select" id="destination_warehouse_id" name="destination_warehouse_id">
-                                                <option value="">Select Destination Warehouse</option>
-                                                <?php foreach ($warehouse_options as $warehouse_option): ?>
-                                                    <option value="<?php echo h($warehouse_option['warehouse_id']); ?>" <?php echo ($destination_warehouse_id_form === $warehouse_option['warehouse_id']) ? 'selected' : ''; ?>>
-                                                        <?php echo h($warehouse_option['warehouse_name']); ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </div>
-
-                                        <div class="col-12 col-lg-6" id="transfer_destination_wrap">
-                                            <label class="form-label fw-bold" for="destination_floor_id">Destination Floor</label>
-                                            <select class="form-select" id="destination_floor_id" name="destination_floor_id">
-                                                <option value="">Select Destination Floor</option>
-                                                <?php foreach ($destination_floors as $floor_option): ?>
-                                                    <option value="<?php echo h($floor_option['warehouse_floor_id']); ?>" <?php echo ($form_state['destination_floor_id'] === $floor_option['warehouse_floor_id']) ? 'selected' : ''; ?>>
-                                                        <?php echo h(floor_dropdown_label($floor_option)); ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="col-12 col-lg-8">
-                                    <label class="form-label fw-bold">Item</label>
-                                    <div class="input-group">
-                                        <input type="hidden" name="itmcde" id="itmcde" value="<?php echo h($form_state['itmcde']); ?>">
-                                        <input type="text" class="form-control" name="item_label" id="item_label" value="<?php echo h($form_state['item_label']); ?>" placeholder="Search item" readonly>
-                                        <button type="button" class="btn btn-success search-trigger" id="open_item_search" data-bs-toggle="modal" data-bs-target="#itemSearchModal">
-                                            <i class="fas fa-search"></i>
-                                        </button>
-                                    </div>
+                                <div class="col-12 col-lg-4">
+                                    <label class="form-label fw-bold" for="open_item_search">Item</label>
+                                    <select class="form-select" id="open_item_search" name="itmcde" autocomplete="off" style="width:100%" required>
+                                        <option value="">-- Select Item --</option>
+                                        <?php foreach ($item_by_id as $item_row): ?>
+                                            <option value="<?php echo h($item_row['itmcde']); ?>" <?php echo ($form_state['itmcde'] === $item_row['itmcde']) ? 'selected' : ''; ?>>
+                                                <?php echo h($item_row['itmdsc']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
                                 </div>
 
                                 <div class="col-12 col-lg-4">
@@ -1414,7 +1406,7 @@ $show_form = $is_entry_page;
 
                                 <div class="col-12 col-lg-6">
                                     <label class="form-label fw-bold" for="warehouse_staff_id">Warehouse Staff</label>
-                                    <select class="form-select" id="warehouse_staff_id" name="warehouse_staff_id">
+                                    <select class="form-select" id="warehouse_staff_id" name="warehouse_staff_id" required>
                                         <option value="">Select Staff</option>
                                         <?php foreach ($staff_by_id as $staff_id => $staff_row): ?>
                                             <?php $staff_label = trim($staff_row['fname'] . ' ' . $staff_row['lname']) . ((trim((string)$staff_row['role']) !== '') ? ' - ' . $staff_row['role'] : ''); ?>
@@ -1585,35 +1577,6 @@ $show_form = $is_entry_page;
     </div>
 </div>
 
-<div class="modal fade" id="itemSearchModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Search Item</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <label class="form-label fw-bold" for="item_modal_select">Item</label>
-                <select class="form-select" id="item_modal_select" autocomplete="off" style="width:100%">
-                    <option value="">-- Select Item --</option>
-                    <?php foreach ($item_by_id as $item_row): ?>
-                        <option
-                            value="<?php echo h($item_row['itmcde']); ?>"
-                            data-label="<?php echo h(item_label($item_row)); ?>"
-                            <?php echo ($form_state['itmcde'] === $item_row['itmcde']) ? 'selected' : ''; ?>>
-                            <?php echo h($item_row['itmdsc']); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-success" id="select_item_btn">Select Item</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <div class="modal fade" id="transactionViewModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
         <div class="modal-content">
@@ -1720,23 +1683,19 @@ $show_form = $is_entry_page;
         var searchSelectedWarehouseId = <?php echo json_encode($search_filters['warehouse_id']); ?>;
         var searchSelectedFloorId = <?php echo json_encode($search_filters['floor_id']); ?>;
         var mode = <?php echo json_encode($mode); ?>;
+        var movementForm = document.getElementById('movement_form');
         var movementAction = document.getElementById('movement_action');
         var movementDate = document.getElementById('movement_date');
-        var itemCode = document.getElementById('itmcde');
-        var itemLabel = document.getElementById('item_label');
+        var itemSelect = document.getElementById('open_item_search');
         var quantityInput = document.getElementById('qty');
+        var staffSelect = document.getElementById('warehouse_staff_id');
         var transferRowWrap = document.getElementById('transfer_row_wrap');
         var transferStockWrap = document.getElementById('transfer_stock_wrap');
         var transferStockBox = document.getElementById('transfer_stock_box');
-        var openItemSearchBtn = document.getElementById('open_item_search');
-        var itemModalSelect = document.getElementById('item_modal_select');
-        var selectItemBtn = document.getElementById('select_item_btn');
+        var submitButton = movementForm ? movementForm.querySelector('button[type="submit"]') : null;
         var transactionSearchModalEl = document.getElementById('transactionSearchModal');
         var transactionViewModalEl = document.getElementById('transactionViewModal');
-        var itemSearchModalEl = document.getElementById('itemSearchModal');
-        var transactionSearchModal = transactionSearchModalEl ? new bootstrap.Modal(transactionSearchModalEl) : null;
         var transactionViewModal = transactionViewModalEl ? new bootstrap.Modal(transactionViewModalEl) : null;
-        var itemSearchModal = itemSearchModalEl ? new bootstrap.Modal(itemSearchModalEl) : null;
 
         function shouldShowStockPreview() {
             return movementAction && (movementAction.value === 'REMOVE' || movementAction.value === 'TRANSFER');
@@ -1749,17 +1708,29 @@ $show_form = $is_entry_page;
             }
         }
 
+        function getFloorsForWarehouse(warehouseId) {
+            var key = String(warehouseId || '');
+            if (key !== '' && Object.prototype.hasOwnProperty.call(floorsByWarehouse, key)) {
+                return floorsByWarehouse[key];
+            }
+
+            var floorList = [];
+            Object.keys(floorsByWarehouse).forEach(function (warehouseKey) {
+                if (String(warehouseKey) === key) {
+                    floorList = floorsByWarehouse[warehouseKey];
+                }
+            });
+
+            return floorList;
+        }
+
         function optionLabel(floor, includeWarehouseName) {
             var parts = [];
 
             if (includeWarehouseName && warehouseNames[floor.warehouse_id]) {
                 parts.push(warehouseNames[floor.warehouse_id]);
             }
-            if (floor.floor_no) {
-                parts.push(String(floor.floor_no));
-            } else if (floor.floor_name) {
-                parts.push(floor.floor_name);
-            }
+            parts.push(String(floor.floor_no || ''));
 
             return parts.join(' / ');
         }
@@ -1771,11 +1742,12 @@ $show_form = $is_entry_page;
 
             selectEl.innerHTML = '<option value="">' + placeholderText + '</option>';
 
-            if (!warehouseId || !floorsByWarehouse[warehouseId]) {
+            var floorList = getFloorsForWarehouse(warehouseId);
+            if (!warehouseId || !floorList.length) {
                 return;
             }
 
-            floorsByWarehouse[warehouseId].forEach(function (floor) {
+            floorList.forEach(function (floor) {
                 var option = document.createElement('option');
                 option.value = floor.warehouse_floor_id;
                 option.textContent = optionLabel(floor, false);
@@ -1794,11 +1766,12 @@ $show_form = $is_entry_page;
             searchFloorSelect.innerHTML = '<option value="">All Floors</option>';
 
             if (warehouseId) {
-                if (!floorsByWarehouse[warehouseId]) {
+                var filteredFloors = getFloorsForWarehouse(warehouseId);
+                if (!filteredFloors.length) {
                     return;
                 }
 
-                floorsByWarehouse[warehouseId].forEach(function (floor) {
+                filteredFloors.forEach(function (floor) {
                     var option = document.createElement('option');
                     option.value = floor.warehouse_floor_id;
                     option.textContent = optionLabel(floor, false);
@@ -1821,6 +1794,32 @@ $show_form = $is_entry_page;
                     searchFloorSelect.appendChild(option);
                 });
             });
+        }
+
+        function validateRequiredFields() {
+            if (!movementForm) {
+                return true;
+            }
+
+            if (!movementDate || !movementDate.value) return false;
+            if (!warehouseSelect || !warehouseSelect.value) return false;
+            if (!floorSelect || !floorSelect.value) return false;
+            if (!itemSelect || !itemSelect.value) return false;
+            if (!staffSelect || !staffSelect.value) return false;
+            if (!quantityInput || !quantityInput.value || parseFloat(quantityInput.value) <= 0) return false;
+
+            if (movementAction && movementAction.value === 'TRANSFER') {
+                if (!destinationWarehouseSelect || !destinationWarehouseSelect.value) return false;
+                if (!destinationFloorSelect || !destinationFloorSelect.value) return false;
+            }
+
+            return true;
+        }
+
+        function updateSaveButtonState() {
+            if (submitButton) {
+                submitButton.disabled = !validateRequiredFields();
+            }
         }
 
         function updateQuantityLimit(availableStock) {
@@ -1846,6 +1845,12 @@ $show_form = $is_entry_page;
             if (transferRowWrap) {
                 transferRowWrap.style.display = (currentAction === 'TRANSFER') ? '' : 'none';
             }
+            if (destinationWarehouseSelect) {
+                destinationWarehouseSelect.required = (currentAction === 'TRANSFER');
+            }
+            if (destinationFloorSelect) {
+                destinationFloorSelect.required = (currentAction === 'TRANSFER');
+            }
             if (transferStockWrap) {
                 transferStockWrap.style.display = shouldShowStockPreview() ? '' : 'none';
             }
@@ -1863,6 +1868,8 @@ $show_form = $is_entry_page;
                     transferStockBox.textContent = 'Current Available Stock: -';
                 }
             }
+
+            updateSaveButtonState();
         }
 
         function fetchTransferStock() {
@@ -1873,7 +1880,7 @@ $show_form = $is_entry_page;
 
             var floorIdForStock = floorSelect ? floorSelect.value : '';
             var movementDateVal = movementDate ? movementDate.value : '';
-            var itemCodeVal = itemCode ? itemCode.value : '';
+            var itemCodeVal = itemSelect ? itemSelect.value : '';
             var excludeRecids = [];
 
             if (mode === 'edit' && editRecid) {
@@ -1942,42 +1949,40 @@ $show_form = $is_entry_page;
             }
         };
 
-        window.selectWarehouseTransactionItem = function (itmcde, label) {
-            if (itemCode) {
-                itemCode.value = itmcde;
-            }
-            if (itemLabel) {
-                itemLabel.value = label;
-            }
-            if (itemModalSelect) {
-                itemModalSelect.value = itmcde;
-                $('#item_modal_select').trigger('change');
-            }
-            if (itemSearchModal) {
-                itemSearchModal.hide();
-            }
-            fetchTransferStock();
-        };
-
         if (warehouseSelect) {
             warehouseSelect.addEventListener('change', function () {
                 rebuildFloorOptions(floorSelect, this.value, '', 'Select Source Floor');
+                if (floorSelect) {
+                    floorSelect.value = '';
+                }
                 if (movementAction && movementAction.value === 'TRANSFER' && destinationWarehouseSelect && !destinationWarehouseSelect.value) {
                     destinationWarehouseSelect.value = this.value;
                     rebuildFloorOptions(destinationFloorSelect, this.value, '', 'Select Destination Floor');
                 }
                 fetchTransferStock();
+                updateSaveButtonState();
             });
         }
 
         if (floorSelect) {
-            floorSelect.addEventListener('change', fetchTransferStock);
+            floorSelect.addEventListener('change', function () {
+                fetchTransferStock();
+                updateSaveButtonState();
+            });
         }
 
         if (destinationWarehouseSelect) {
             destinationWarehouseSelect.addEventListener('change', function () {
                 rebuildFloorOptions(destinationFloorSelect, this.value, '', 'Select Destination Floor');
+                if (destinationFloorSelect) {
+                    destinationFloorSelect.value = '';
+                }
+                updateSaveButtonState();
             });
+        }
+
+        if (destinationFloorSelect) {
+            destinationFloorSelect.addEventListener('change', updateSaveButtonState);
         }
 
         if (searchWarehouseSelect) {
@@ -1991,7 +1996,18 @@ $show_form = $is_entry_page;
         }
 
         if (movementDate) {
-            movementDate.addEventListener('change', fetchTransferStock);
+            movementDate.addEventListener('change', function () {
+                fetchTransferStock();
+                updateSaveButtonState();
+            });
+        }
+
+        if (quantityInput) {
+            quantityInput.addEventListener('input', updateSaveButtonState);
+        }
+
+        if (staffSelect) {
+            staffSelect.addEventListener('change', updateSaveButtonState);
         }
 
         if (transactionSearchModalEl) {
@@ -2000,63 +2016,16 @@ $show_form = $is_entry_page;
             });
         }
 
-        if (itemSearchModalEl) {
-            itemSearchModalEl.addEventListener('shown.bs.modal', function () {
-                if ($('#item_modal_select').data('select2')) {
-                    $('#item_modal_select').select2('open');
-                }
-            });
-        }
-
-        if (openItemSearchBtn) {
-            openItemSearchBtn.addEventListener('click', function () {
-                if (itemSearchModal) {
-                    itemSearchModal.show();
-                }
-            });
-        }
-
-        if (selectItemBtn) {
-            selectItemBtn.addEventListener('click', function () {
-                if (!itemModalSelect || !itemModalSelect.value) {
-                    return;
-                }
-
-                var selectedOption = itemModalSelect.options[itemModalSelect.selectedIndex];
-                var label = selectedOption ? selectedOption.getAttribute('data-label') : '';
-                window.selectWarehouseTransactionItem(itemModalSelect.value, label);
-            });
-        }
-
-        $('#item_modal_select').select2({
+        $('#open_item_search').select2({
             theme: 'bootstrap-5',
             placeholder: '-- Select Item --',
             allowClear: true,
-            width: '100%',
-            dropdownParent: $('#itemSearchModal')
+            width: '100%'
         });
 
-        $('#item_modal_select').on('change', function () {
-            var selectedOption = this.options[this.selectedIndex];
-            if (!this.value || !selectedOption) {
-                if (itemCode) {
-                    itemCode.value = '';
-                }
-                if (itemLabel) {
-                    itemLabel.value = '';
-                }
-                fetchTransferStock();
-                return;
-            }
-
-            var label = selectedOption.getAttribute('data-label') || '';
-            if (itemCode) {
-                itemCode.value = this.value;
-            }
-            if (itemLabel) {
-                itemLabel.value = label;
-            }
+        $('#open_item_search').on('change', function () {
             fetchTransferStock();
+            updateSaveButtonState();
         });
 
         rebuildFloorOptions(floorSelect, warehouseSelect ? warehouseSelect.value : sourceWarehouseId, sourceFloorId, 'Select Source Floor');
@@ -2069,7 +2038,19 @@ $show_form = $is_entry_page;
         } else if (!shouldShowStockPreview()) {
             updateQuantityLimit(null);
         }
+
+        if (movementForm) {
+            movementForm.addEventListener('submit', function (event) {
+                if (!validateRequiredFields()) {
+                    event.preventDefault();
+                    alert('Please complete all required fields before saving.');
+                }
+            });
+        }
+
+        updateSaveButtonState();
     })();
 </script>
 
 <?php require "includes/main_footer.php"; ?>
+
