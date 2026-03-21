@@ -1,5 +1,19 @@
 # Latest
 
+## 2026-03-21
+- Reworked `customer_sales_pdf.php` into the actual `Customer Sales Report` filter page with:
+  - `Date To` as the report anchor date
+  - `ASC/DESC` sorting for total online quantity sold in the last 30 days
+  - export buttons that now post to the new `customer_sales_rep.php` backend for both PDF and XLSX
+- Added `customer_sales_rep.php`:
+  - landscape PDF/XLSX output patterned after `top_sales_item_pdf.php`
+  - columns: `Item`, `Tiktok Qty Sold Last 30 Days`, `Lazada Qty Sold Last 30 Days`, `Total Online Qty Sold Last 30 Days`, `RYU Qty Sold Last 30 Days`, `30 Days Inventory Ratio`, `Current Total Inventory Valuation`
+  - item loop sourced from `itemfile`
+  - online-platform sales sourced from `tranfile1` + `tranfile2` + `customerfile` with `trncde='SAL'`
+  - total online quantity defined as `Tiktok + Lazada + Shopee`
+  - current stock based on `SUM(tranfile2.stkqty)` on or before the report end date
+  - valuation based on current stock multiplied by the latest purchase `untprc` on or before the report end date
+
 ## 2026-03-18
 - Updated `mf_warehouse_transaction.php` warehouse-transaction UI:
   - removed the old top list-page header section

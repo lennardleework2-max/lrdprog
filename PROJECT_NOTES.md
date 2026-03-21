@@ -1,5 +1,31 @@
 # LRD Program - Project Notes
 
+## Customer Sales Report (2026-03-21)
+
+- `customer_sales_pdf.php`
+  - Replaced the copied unpaid-route page with a dedicated customer-sales report filter form.
+  - Export actions now point to `customer_sales_rep.php`.
+  - The page keeps only the filters confirmed for this report:
+    - `Date To`
+    - `Order By` (`ASC` / `DESC`) for total online quantity sold in the last 30 days
+
+- `customer_sales_rep.php`
+  - New landscape PDF/XLSX export file modeled on `top_sales_item_pdf.php`.
+  - Report rows are driven by `itemfile`; the displayed item column uses `itemfile.itmdsc`.
+  - The report window is anchored to `date_to`; if blank, it falls back to the current Philippine date.
+  - Platform quantities come from `tranfile1` + `tranfile2` sales rows (`trncde='SAL'`) joined to `customerfile`:
+    - `Tiktok`
+    - `Lazada`
+    - `Shopee`
+    - `RYU`
+  - `Total Online Qty Sold` is computed as `Tiktok + Lazada + Shopee`.
+  - `30 Days Inventory Ratio` is computed as:
+    - current stock = `SUM(tranfile2.stkqty)` on or before the report end date
+    - divided by total `SUM(tranfile2.itmqty)` sold in the same report window for `trncde='SAL'`
+  - `Current Total Inventory Valuation` is computed as:
+    - current stock
+    - multiplied by the latest purchase cost (`tranfile2.untprc`) from the latest `PUR` transaction for the same item on or before the report end date
+
 ## Warehouse Transactions UX Updates (2026-03-18)
 
 - `mf_warehouse_transaction.php`

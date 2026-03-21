@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-03-21
+- Replaced the copied draft UI in `customer_sales_pdf.php` with a dedicated `Customer Sales Report` filter page.
+- Added `customer_sales_rep.php` as a new PDF/XLSX export backend for Customer Sales, matching the `top_sales_item_pdf.php` landscape report style.
+- The new Customer Sales export now:
+  - loops through `itemfile` and displays `itemfile.itmdsc`
+  - anchors the rolling report window to `date_to` or the current Philippine date when `date_to` is blank
+  - calculates last-window sales quantities for `Tiktok`, `Lazada`, `Shopee` (used in total online), and `RYU` from `tranfile1`/`tranfile2` sales data (`trncde='SAL'`)
+  - computes `Total Online Qty Sold` as `Tiktok + Lazada + Shopee`
+  - computes `30 Days Inventory Ratio` as `current total stock / qty sold in the same last-window sales period`
+  - computes `Current Total Inventory Valuation` as `current stock * latest purchase cost`
+  - sorts the report by `Total Online Qty Sold (Last 30 Days)` using the `ASC/DESC` filter from `customer_sales_pdf.php`
+
 ## 2026-03-18
 - Updated `mf_warehouse_transaction.php` to simplify the list-page chrome by removing the old top Warehouse Transactions header/action strip.
 - Reworked the stock-movement entry layout in `mf_warehouse_transaction.php`:
