@@ -14,8 +14,10 @@ require "includes/main_header.php";
 date_default_timezone_set('Asia/Manila');
 
 $header_usercode = '';
+$is_edit_mode = false;
 
 if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
+    $is_edit_mode = true;
     $select_db_docnum1='SELECT * FROM tranfile1 WHERE recid=?';
     $stmt_docnum1	= $link->prepare($select_db_docnum1);
     $stmt_docnum1->execute(array($_POST["recid_hidden"]));
@@ -82,7 +84,7 @@ if(isset($_SESSION['usercode']) && trim((string)$_SESSION['usercode']) !== ''){
     $session_usercode = trim((string)$_POST["usercode_hidden"]);
 }
 
-$display_usercode = ($session_usercode !== '') ? $session_usercode : $header_usercode;
+$display_usercode = $is_edit_mode ? $header_usercode : $session_usercode;
 $display_userdesc = '';
 if($display_usercode !== ''){
     $select_user = "SELECT userdesc FROM users WHERE usercode = ? LIMIT 1";
@@ -267,7 +269,7 @@ while($rs_staff = $stmt_staff->fetch()){
                                     <tr class="m-1 edit_row salesfile1" style="border-bottom:3px solid #cccccc ">
                                         <td colspan="3">
                                             <div class="row px-2">
-                                                <div class="p-3">
+                                                <div class="p-3 col-md-4 col-6">
                                                     <label for="userdesc_display" style="font-weight:bold">User:</label>
                                                     <input type="text" class="form-control" name="userdesc_display" id="userdesc_display" value="<?php echo htmlspecialchars($display_userdesc, ENT_QUOTES); ?>" readonly>
                                                     <input type="hidden" name="usercode_1" id="usercode_1" value="<?php echo htmlspecialchars($display_usercode, ENT_QUOTES); ?>">

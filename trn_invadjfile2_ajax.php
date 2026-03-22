@@ -280,7 +280,6 @@
                 // $arr_record_update['paydetails'] 	= $_POST['payment_details_1'];
                 $arr_record_update['remarks'] 	= $_POST['remarks_1'];
                 $arr_record_update['ordernum'] 	= $_POST['ordernum_1'];
-                $arr_record_update['usercode'] 	= $current_usercode;
                 PDO_UpdateRecord($link,"tranfile1",$arr_record_update,"recid = ?",array($recid),false); 
             }
 

@@ -3,12 +3,15 @@
 ## Inventory Adjustment Warehouse Fields (2026-03-22)
 
 - `trn_invadjfile2.php`
-  - Added a read-only `User` field below remarks that displays `users.userdesc` from the current session user.
+  - Added a read-only `User` field below remarks.
+  - In add mode, it displays `users.userdesc` from the current session user.
+  - In edit mode, it displays only the saved `tranfile1.usercode -> users.userdesc`; if `tranfile1.usercode` is blank, the field stays blank.
   - Added `Warehouse`, `Warehouse Floor`, and `Warehouse Staff` selectors to both add and edit inventory-adjustment line-item modals.
   - The warehouse-floor dropdown now depends on the selected warehouse and displays `warehouse_floor.floor_no`.
 
 - `trn_invadjfile2_ajax.php`
-  - Inventory-adjustment header saves now store the current session `usercode` in `tranfile1.usercode`.
+  - New inventory-adjustment header saves now store the current session `usercode` in `tranfile1.usercode`.
+  - Edit saves no longer overwrite an existing record's stored `tranfile1.usercode`.
   - Inventory-adjustment line saves and edits now persist:
     - `tranfile2.warcde`
     - `tranfile2.warehouse_floor_id`
