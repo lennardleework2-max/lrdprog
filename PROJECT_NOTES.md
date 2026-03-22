@@ -14,6 +14,10 @@
   - Warehouse delete cleanup now removes related `warehouse_floor` and `warehouse_stock_movement` rows by `warcde`.
   - New `warehouse_floor` records now inherit the active warehouse context through `warcde`.
 
+- `pager/pager_ajax.pager.php`
+  - Custom button placeholders now pull any referenced fields into the pager row payload even if those fields are not visible in the table.
+  - This keeps actions like `goWarehouseFloors('{warcde}')` working without forcing `warcde` to appear as a displayed column.
+
 ## Warehouse Transactions View-Only Update (2026-03-22)
 
 - `mf_warehouse_transaction.php`

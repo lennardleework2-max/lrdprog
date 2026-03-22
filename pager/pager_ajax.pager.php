@@ -40,6 +40,33 @@
         }
     }
 
+    if(!function_exists('extract_pager_btn_placeholders')){
+        function extract_pager_btn_placeholders($buttons){
+            $fields = array();
+
+            if(!is_array($buttons)){
+                return $fields;
+            }
+
+            foreach($buttons as $button){
+                if(!isset($button[3]["btn-function"]) || !is_string($button[3]["btn-function"])){
+                    continue;
+                }
+
+                if(preg_match_all('/\{([a-zA-Z0-9_]+)\}/', $button[3]["btn-function"], $matches)){
+                    foreach($matches[1] as $field_name){
+                        $field_name = trim($field_name);
+                        if($field_name !== '' && !in_array($field_name, $fields, true)){
+                            $fields[] = $field_name;
+                        }
+                    }
+                }
+            }
+
+            return $fields;
+        }
+    }
+
 /*
     $stmt	= $link->prepare("select * from itemfile order by itmdsc");
     $stmt->execute();
@@ -57,6 +84,13 @@
 
         if($name_select !== ""){
             $fields_arr[] = $name_select;
+        }
+    }
+
+    $btn_placeholder_fields = extract_pager_btn_placeholders(isset($_POST["xdata_btn"]) ? $_POST["xdata_btn"] : array());
+    foreach($btn_placeholder_fields as $placeholder_field){
+        if(!in_array($placeholder_field, $fields_arr, true)){
+            $fields_arr[] = $placeholder_field;
         }
     }
 
@@ -291,6 +325,13 @@
                 }
             }
 
+            foreach($btn_placeholder_fields as $placeholder_field){
+                $placeholder_select = $_POST["tablename"].".".$placeholder_field;
+                if(!in_array($placeholder_select, $fields_search_arr, true)){
+                    $fields_search_arr[] = $placeholder_select;
+                }
+            }
+
             if(!in_array($_POST["tablename"].".recid", $fields_search_arr)){
                 $fields_search_arr[] = $_POST["tablename"].".recid";
             }
@@ -339,6 +380,13 @@
 
             if($value_select_name !== ""){
                 $fields_search_arr[] = $_POST["tablename"].".".$value_select_name;
+            }
+        }
+
+        foreach($btn_placeholder_fields as $placeholder_field){
+            $placeholder_select = $_POST["tablename"].".".$placeholder_field;
+            if(!in_array($placeholder_select, $fields_search_arr, true)){
+                $fields_search_arr[] = $placeholder_select;
             }
         }
 

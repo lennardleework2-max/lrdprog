@@ -6,6 +6,7 @@
   - the Warehouse -> Floors redirect now posts `warcde`
   - warehouse-floor filtering and context injection now use `warehouse_floor.warcde`
   - warehouse delete cleanup now removes matching floors and stock-movement rows by `warcde`
+- Updated `pager/pager_ajax.pager.php` so custom action buttons can still receive placeholder fields like `{warcde}` even when those fields are not shown as visible table columns
 - Updated `mf_warehouse_transaction.php` latest-transactions view to make transaction details view-only:
   - removed the `Edit Transaction` action from the details modal
   - blocked edit-mode entry handling in this shared page and now shows a warning that editing is disabled

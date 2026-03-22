@@ -5,6 +5,7 @@
   - `mf_warehouse.php` now uses `warcde`
   - `mf_warehouse_floor.php` now loads and filters floors by `warcde`
   - the pager AJAX handler now carries warehouse-floor context and delete cleanup by `warcde`
+  - the pager row loader now also includes custom-button placeholder fields like `warcde`, so the Floors action receives the correct value
 - Updated `mf_warehouse_transaction.php` latest-transactions UI:
   - transaction details modal is now view-only and no longer shows `Edit Transaction`
   - edit-mode access through this page is blocked and shows a disabled-edit warning instead
