@@ -5,6 +5,10 @@
   - replaced the old tab-delimited pseudo-`xlsx` stream with a real `PhpSpreadsheet` `.xlsx` writer
   - kept the PDF export path unchanged
   - clears output buffers before streaming so stricter clients such as iOS can open the file without corruption errors
+- Updated `customer_sales_pdf.php` and `customer_sales_rep.php` customer-sales columns:
+  - added `Current Total Stock` before `Current Total Inventory Valuation`
+  - the new column uses `SUM(tranfile2.stkqty)` per item across joined `tranfile1` + `tranfile2` rows, matching the provided SQL logic
+  - the new column is included in both PDF and XLSX exports and is available in the sort dropdown
 - Added `stock_transfer_transaction.php` by mirroring the inventory-adjustment list page for stock transfers:
   - uses the same UI and flow as `trn_invadjfile1.php`
   - filters records with `trncde='STT'`

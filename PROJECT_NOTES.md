@@ -6,6 +6,11 @@
   - The XLSX export no longer uses the legacy tab-text fallback with an `.xlsx` extension.
   - It now creates a real Office Open XML spreadsheet using `PhpSpreadsheet`.
   - Output buffers are cleared before streaming the file so stricter clients, including iOS, receive a clean workbook stream.
+  - A new `Current Total Stock` column was added before valuation.
+  - Its value is computed from `SUM(tranfile2.stkqty)` grouped by item across joined `tranfile1` + `tranfile2` rows, without the date filter used by the ratio/valuation stock-as-of calculation.
+
+- `customer_sales_pdf.php`
+  - The sort-column dropdown now includes `Current Total Stock`.
 
 ## Stock Transfer Entry Reuse (2026-03-22)
 

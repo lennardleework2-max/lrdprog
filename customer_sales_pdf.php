@@ -44,7 +44,28 @@ $trncde = "SAL";
                                     <td colspan="2">
                                         <div class="w-100 h-100 d-flex justify-content-center align-items-top">
                                             <div class="m-2" style="width:80%">
-                                                <label for="orderby_select">Order By Total Online Qty Sold (Last 30 Days):</label>
+                                                <label for="sort_field_select">Sort Column:</label>
+                                                <select class="form-select" id="sort_field_select" name="sort_field_select" autocomplete="off">
+                                                    <option value="total_online_qty">Total Online Qty Sold Last 30 Days</option>
+                                                    <option value="item">Item</option>
+                                                    <option value="tiktok_qty">Tiktok Qty Sold Last 30 Days</option>
+                                                    <option value="lazada_qty">Lazada Qty Sold Last 30 Days</option>
+                                                    <option value="shopee_qty">Shopee Qty Sold Last 30 Days</option>
+                                                    <option value="ryu_qty">RYU Qty Sold Last 30 Days</option>
+                                                    <option value="inventory_ratio">30 Days Inventory Ratio</option>
+                                                    <option value="current_total_stock">Current Total Stock</option>
+                                                    <option value="current_inventory_valuation">Current Total Inventory Valuation</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                <tr style="height:20%">
+                                    <td colspan="2">
+                                        <div class="w-100 h-100 d-flex justify-content-center align-items-top">
+                                            <div class="m-2" style="width:80%">
+                                                <label for="orderby_select">Sort Direction:</label>
                                                 <select class="form-select" id="orderby_select" name="orderby_select" autocomplete="off">
                                                     <option value="DESC">Descending</option>
                                                     <option value="ASC">Ascending</option>

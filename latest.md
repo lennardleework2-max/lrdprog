@@ -5,6 +5,10 @@
   - now generates a real `.xlsx` file with `PhpSpreadsheet`
   - keeps the same report content/columns
   - avoids the corruption warning seen on iOS clients
+- Updated the customer sales report columns:
+  - added `Current Total Stock` before inventory valuation
+  - included it in both PDF and XLSX output
+  - added it to the sort-column dropdown
 - Added `stock_transfer_transaction.php`:
   - same list-page design and behavior as inventory adjustments
   - uses `trncde='STT'`

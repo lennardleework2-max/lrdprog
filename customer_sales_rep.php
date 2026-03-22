@@ -74,6 +74,7 @@ $sort_field_map = array(
     'total_online_qty' => array('sql' => 'total_online_qty', 'label' => 'Total Online Qty Sold (Last 30 Days)'),
     'ryu_qty' => array('sql' => 'ryu_qty', 'label' => 'RYU Qty Sold (Last 30 Days)'),
     'inventory_ratio' => array('sql' => 'inventory_ratio', 'label' => '30 Days Inventory Ratio'),
+    'current_total_stock' => array('sql' => 'current_total_stock', 'label' => 'Current Total Stock'),
     'current_inventory_valuation' => array('sql' => 'current_inventory_valuation', 'label' => 'Current Total Inventory Valuation')
 );
 
@@ -101,12 +102,13 @@ $row_step_double = 22;
 $item_second_line_offset = 8;
 
 $col_item = 20;
-$col_tiktok = 255;
-$col_lazada = 325;
-$col_shopee = 395;
-$col_total_online = 485;
-$col_ryu = 555;
-$col_ratio = 650;
+$col_tiktok = 215;
+$col_lazada = 280;
+$col_shopee = 345;
+$col_total_online = 425;
+$col_ryu = 495;
+$col_ratio = 580;
+$col_current_total_stock = 665;
 $col_valuation = 755;
 
 if (!$is_tab_export) {
@@ -156,6 +158,9 @@ if (!$is_tab_export) {
     $pdf->ezPlaceData($col_ratio, $xheader_base_y - 5, "<b>Inventory</b>", 7, 'right');
     $pdf->ezPlaceData($col_ratio, $xheader_base_y - 14, "<b>Ratio</b>", 7, 'right');
 
+    $pdf->ezPlaceData($col_current_total_stock, $xheader_base_y + 4, "<b>Current Total</b>", 7, 'right');
+    $pdf->ezPlaceData($col_current_total_stock, $xheader_base_y - 5, "<b>Stock</b>", 7, 'right');
+
     $pdf->ezPlaceData($col_valuation, $xheader_base_y + 4, "<b>Current Total</b>", 7, 'right');
     $pdf->ezPlaceData($col_valuation, $xheader_base_y - 5, "<b>Inventory</b>", 7, 'right');
     $pdf->ezPlaceData($col_valuation, $xheader_base_y - 14, "<b>Valuation</b>", 7, 'right');
@@ -175,6 +180,7 @@ $select_db_base = "SELECT
     COALESCE(platform_sales.shopee_qty, 0) AS shopee_qty,
     COALESCE(platform_sales.ryu_qty, 0) AS ryu_qty,
     COALESCE(all_sales.sold_qty_30, 0) AS sold_qty_30,
+    COALESCE(total_stock.current_total_stock, 0) AS current_total_stock,
     COALESCE(current_stock.current_stock, 0) AS current_stock,
     COALESCE((
         SELECT pur_tranfile2.untprc
@@ -216,6 +222,15 @@ LEFT JOIN (
 ) all_sales ON itemfile.itmcde = all_sales.itmcde
 LEFT JOIN (
     SELECT
+        all_stock_tranfile2.itmcde,
+        SUM(all_stock_tranfile2.stkqty) AS current_total_stock
+    FROM tranfile1 all_stock_tranfile1
+    LEFT JOIN tranfile2 all_stock_tranfile2 ON all_stock_tranfile1.docnum = all_stock_tranfile2.docnum
+    WHERE all_stock_tranfile2.itmcde IS NOT NULL
+    GROUP BY all_stock_tranfile2.itmcde
+) total_stock ON itemfile.itmcde = total_stock.itmcde
+LEFT JOIN (
+    SELECT
         stock_tranfile2.itmcde,
         SUM(stock_tranfile2.stkqty) AS current_stock
     FROM tranfile1 stock_tranfile1
@@ -232,6 +247,7 @@ $select_db = "SELECT
     base.shopee_qty,
     (base.tiktok_qty + base.lazada_qty + base.shopee_qty) AS total_online_qty,
     base.ryu_qty,
+    base.current_total_stock,
     base.current_stock,
     base.sold_qty_30,
     CASE WHEN base.sold_qty_30 = 0 THEN 0 ELSE (base.current_stock / base.sold_qty_30) END AS inventory_ratio,
@@ -249,6 +265,7 @@ $total_lazada = 0;
 $total_shopee = 0;
 $total_online = 0;
 $total_ryu = 0;
+$total_current_total_stock = 0;
 $total_valuation = 0;
 
 while ($rs_main = $stmt_main->fetch()) {
@@ -259,6 +276,7 @@ while ($rs_main = $stmt_main->fetch()) {
     $total_shopee += (float) $rs_main["shopee_qty"];
     $total_online += (float) $rs_main["total_online_qty"];
     $total_ryu += (float) $rs_main["ryu_qty"];
+    $total_current_total_stock += (float) $rs_main["current_total_stock"];
     $total_valuation += (float) $rs_main["current_inventory_valuation"];
 }
 
@@ -276,6 +294,7 @@ if ($is_tab_export) {
         $total_shopee,
         $total_online,
         $total_ryu,
+        $total_current_total_stock,
         $total_valuation
     );
     exit;
@@ -301,6 +320,7 @@ foreach ($report_rows as $rs_main) {
     $total_online_qty = (float) $rs_main["total_online_qty"];
     $ryu_qty = (float) $rs_main["ryu_qty"];
     $inventory_ratio = (float) $rs_main["inventory_ratio"];
+    $current_total_stock = (float) $rs_main["current_total_stock"];
     $current_inventory_valuation = (float) $rs_main["current_inventory_valuation"];
 
     $pdf->ezPlaceData($col_item, $row_y, $item_lines[0] ?? '', 8, "left");
@@ -314,6 +334,7 @@ foreach ($report_rows as $rs_main) {
     $pdf->ezPlaceData($col_total_online, $row_y, number_format($total_online_qty, 0), 9, "right");
     $pdf->ezPlaceData($col_ryu, $row_y, number_format($ryu_qty, 0), 9, "right");
     $pdf->ezPlaceData($col_ratio, $row_y, number_format($inventory_ratio, 2), 9, "right");
+    $pdf->ezPlaceData($col_current_total_stock, $row_y, number_format($current_total_stock, 2), 9, "right");
     $pdf->ezPlaceData($col_valuation, $row_y, number_format($current_inventory_valuation, 2), 9, "right");
 }
 
@@ -331,6 +352,7 @@ $pdf->ezPlaceData($col_lazada, $xtop, number_format($total_lazada, 0), 9, "right
 $pdf->ezPlaceData($col_shopee, $xtop, number_format($total_shopee, 0), 9, "right");
 $pdf->ezPlaceData($col_total_online, $xtop, number_format($total_online, 0), 9, "right");
 $pdf->ezPlaceData($col_ryu, $xtop, number_format($total_ryu, 0), 9, "right");
+$pdf->ezPlaceData($col_current_total_stock, $xtop, number_format($total_current_total_stock, 2), 9, "right");
 $pdf->ezPlaceData($col_valuation, $xtop, number_format($total_valuation, 2), 9, "right");
 $pdf->ezStream();
 ob_end_flush();
@@ -529,13 +551,14 @@ function export_customer_sales_xlsx(
     $total_shopee,
     $total_online,
     $total_ryu,
+    $total_current_total_stock,
     $total_valuation
 ) {
     $spreadsheet = new Spreadsheet();
     $sheet = $spreadsheet->getActiveSheet();
     $sheet->setTitle('Customer Sales');
 
-    $sheet->mergeCells('A1:H1');
+    $sheet->mergeCells('A1:I1');
     $sheet->setCellValue('A1', 'Customer Sales Report');
     $sheet->setCellValue('A2', 'Pdf Report by: ' . $report_user);
     $sheet->setCellValue('A3', '30-Day Window : ' . $head_window_start . ' to ' . $head_date_to);
@@ -551,6 +574,7 @@ function export_customer_sales_xlsx(
         'Total Online Qty Sold Last 30 Days',
         'RYU Qty Sold Last 30 Days',
         '30 Days Inventory Ratio',
+        'Current Total Stock',
         'Current Total Inventory Valuation'
     ), null, 'A' . $header_row);
 
@@ -563,7 +587,8 @@ function export_customer_sales_xlsx(
         $sheet->setCellValue('E' . $row_num, (float) $row['total_online_qty']);
         $sheet->setCellValue('F' . $row_num, (float) $row['ryu_qty']);
         $sheet->setCellValue('G' . $row_num, (float) $row['inventory_ratio']);
-        $sheet->setCellValue('H' . $row_num, (float) $row['current_inventory_valuation']);
+        $sheet->setCellValue('H' . $row_num, (float) $row['current_total_stock']);
+        $sheet->setCellValue('I' . $row_num, (float) $row['current_inventory_valuation']);
         $row_num++;
     }
 
@@ -573,18 +598,19 @@ function export_customer_sales_xlsx(
     $sheet->setCellValue('D' . $row_num, $total_shopee);
     $sheet->setCellValue('E' . $row_num, $total_online);
     $sheet->setCellValue('F' . $row_num, $total_ryu);
-    $sheet->setCellValue('H' . $row_num, $total_valuation);
+    $sheet->setCellValue('H' . $row_num, $total_current_total_stock);
+    $sheet->setCellValue('I' . $row_num, $total_valuation);
 
     $sheet->getStyle('A1:A5')->getFont()->setBold(true);
-    $sheet->getStyle('A' . $header_row . ':H' . $header_row)->getFont()->setBold(true);
-    $sheet->getStyle('A' . $header_row . ':H' . $header_row)->getAlignment()->setWrapText(true);
-    $sheet->getStyle('A' . $header_row . ':H' . $row_num)->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
+    $sheet->getStyle('A' . $header_row . ':I' . $header_row)->getFont()->setBold(true);
+    $sheet->getStyle('A' . $header_row . ':I' . $header_row)->getAlignment()->setWrapText(true);
+    $sheet->getStyle('A' . $header_row . ':I' . $row_num)->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
     $sheet->getStyle('B' . ($header_row + 1) . ':F' . $row_num)->getNumberFormat()->setFormatCode('#,##0');
     $sheet->getStyle('G' . ($header_row + 1) . ':G' . ($row_num - 1))->getNumberFormat()->setFormatCode('0.00');
-    $sheet->getStyle('H' . ($header_row + 1) . ':H' . $row_num)->getNumberFormat()->setFormatCode('#,##0.00');
-    $sheet->getStyle('B' . ($header_row + 1) . ':H' . $row_num)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+    $sheet->getStyle('H' . ($header_row + 1) . ':I' . $row_num)->getNumberFormat()->setFormatCode('#,##0.00');
+    $sheet->getStyle('B' . ($header_row + 1) . ':I' . $row_num)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
     $sheet->getStyle('A' . ($header_row + 1) . ':A' . $row_num)->getAlignment()->setWrapText(true);
-    $sheet->getStyle('A' . $row_num . ':H' . $row_num)->getFont()->setBold(true);
+    $sheet->getStyle('A' . $row_num . ':I' . $row_num)->getFont()->setBold(true);
 
     $sheet->getColumnDimension('A')->setWidth(48);
     $sheet->getColumnDimension('B')->setWidth(16);
@@ -593,7 +619,8 @@ function export_customer_sales_xlsx(
     $sheet->getColumnDimension('E')->setWidth(18);
     $sheet->getColumnDimension('F')->setWidth(16);
     $sheet->getColumnDimension('G')->setWidth(18);
-    $sheet->getColumnDimension('H')->setWidth(22);
+    $sheet->getColumnDimension('H')->setWidth(18);
+    $sheet->getColumnDimension('I')->setWidth(22);
     $sheet->freezePane('A8');
 
     while (ob_get_level() > 0) {
