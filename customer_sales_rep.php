@@ -46,6 +46,9 @@ $date_printed = date("F j, Y h:i:s A");
 $current_date_sql = date("Y-m-d");
 $date_to_sql = $current_date_sql;
 $sort_order = 'DESC';
+$sort_field = 'total_online_qty';
+$sort_field_sql = 'total_online_qty';
+$sort_field_label = 'Total Online Qty Sold (Last 30 Days)';
 
 if (isset($_POST['date_to']) && trim((string)$_POST['date_to']) !== '') {
     $parsed_date_to = normalize_report_date($_POST['date_to']);
@@ -61,6 +64,27 @@ if (isset($_POST['orderby_select'])) {
     }
 }
 
+$sort_field_map = array(
+    'item' => array('sql' => 'base.itmdsc', 'label' => 'Item'),
+    'tiktok_qty' => array('sql' => 'tiktok_qty', 'label' => 'Tiktok Qty Sold (Last 30 Days)'),
+    'lazada_qty' => array('sql' => 'lazada_qty', 'label' => 'Lazada Qty Sold (Last 30 Days)'),
+    'shopee_qty' => array('sql' => 'shopee_qty', 'label' => 'Shopee Qty Sold (Last 30 Days)'),
+    'total_online_qty' => array('sql' => 'total_online_qty', 'label' => 'Total Online Qty Sold (Last 30 Days)'),
+    'ryu_qty' => array('sql' => 'ryu_qty', 'label' => 'RYU Qty Sold (Last 30 Days)'),
+    'inventory_ratio' => array('sql' => 'inventory_ratio', 'label' => '30 Days Inventory Ratio'),
+    'current_inventory_valuation' => array('sql' => 'current_inventory_valuation', 'label' => 'Current Total Inventory Valuation')
+);
+
+if (isset($_POST['sort_field_select'])) {
+    $tmp_sort_field = trim((string) $_POST['sort_field_select']);
+    if (isset($sort_field_map[$tmp_sort_field])) {
+        $sort_field = $tmp_sort_field;
+    }
+}
+
+$sort_field_sql = $sort_field_map[$sort_field]['sql'];
+$sort_field_label = $sort_field_map[$sort_field]['label'];
+
 $window_start_sql = subtract_one_month_same_day($date_to_sql);
 $head_window_start = format_report_date($window_start_sql);
 $head_date_to = format_report_date($date_to_sql);
@@ -69,13 +93,18 @@ $report_user = $username_session !== '' ? $username_session : 'System';
 $xtop = 570;
 $xleft = 25;
 $line_right = 760;
+$detail_start_top = 468;
+$row_step_single = 16;
+$row_step_double = 22;
+$item_second_line_offset = 8;
 
 $col_item = 20;
-$col_tiktok = 280;
-$col_lazada = 360;
-$col_total_online = 450;
-$col_ryu = 530;
-$col_ratio = 620;
+$col_tiktok = 255;
+$col_lazada = 325;
+$col_shopee = 395;
+$col_total_online = 485;
+$col_ryu = 555;
+$col_ratio = 650;
 $col_valuation = 755;
 
 $xheader = $pdf->openObject();
@@ -87,7 +116,7 @@ $pdf->ezPlaceData($xleft, $xtop, $header, 9, 'left');
 $xtop -= 15;
 $pdf->ezPlaceData($xleft, $xtop, "30-Day Window : " . $head_window_start . " to " . $head_date_to, 10, 'left');
 $xtop -= 15;
-$pdf->ezPlaceData($xleft, $xtop, "Sorted By : Total Online Qty Sold (Last 30 Days) " . $sort_order, 10, 'left');
+$pdf->ezPlaceData($xleft, $xtop, "Sorted By : " . $sort_field_label . " " . $sort_order, 10, 'left');
 $xtop -= 15;
 $pdf->ezPlaceData($xleft, $xtop, 'Date Printed : ' . $date_printed, 10, 'left');
 $xtop -= 20;
@@ -107,6 +136,10 @@ $pdf->ezPlaceData($col_tiktok, $xheader_base_y - 14, "<b>30 Days</b>", 7, 'right
 $pdf->ezPlaceData($col_lazada, $xheader_base_y + 4, "<b>Lazada Qty</b>", 7, 'right');
 $pdf->ezPlaceData($col_lazada, $xheader_base_y - 5, "<b>Sold Last</b>", 7, 'right');
 $pdf->ezPlaceData($col_lazada, $xheader_base_y - 14, "<b>30 Days</b>", 7, 'right');
+
+$pdf->ezPlaceData($col_shopee, $xheader_base_y + 4, "<b>Shopee Qty</b>", 7, 'right');
+$pdf->ezPlaceData($col_shopee, $xheader_base_y - 5, "<b>Sold Last</b>", 7, 'right');
+$pdf->ezPlaceData($col_shopee, $xheader_base_y - 14, "<b>30 Days</b>", 7, 'right');
 
 $pdf->ezPlaceData($col_total_online, $xheader_base_y + 4, "<b>Total Online</b>", 7, 'right');
 $pdf->ezPlaceData($col_total_online, $xheader_base_y - 5, "<b>Qty Sold</b>", 7, 'right');
@@ -128,7 +161,7 @@ $pdf->restoreState();
 $pdf->closeObject();
 $pdf->addObject($xheader, 'all');
 
-$xtop = 485;
+$xtop = $detail_start_top;
 
 $select_db_base = "SELECT
     itemfile.itmcde,
@@ -192,6 +225,7 @@ $select_db = "SELECT
     base.itmdsc,
     base.tiktok_qty,
     base.lazada_qty,
+    base.shopee_qty,
     (base.tiktok_qty + base.lazada_qty + base.shopee_qty) AS total_online_qty,
     base.ryu_qty,
     base.current_stock,
@@ -200,13 +234,14 @@ $select_db = "SELECT
     base.latest_cost,
     (base.current_stock * base.latest_cost) AS current_inventory_valuation
 FROM (" . $select_db_base . ") base
-ORDER BY total_online_qty " . $sort_order . ", base.itmdsc ASC";
+ORDER BY " . $sort_field_sql . " " . $sort_order . ", base.itmdsc ASC";
 
 $stmt_main = $link->prepare($select_db);
 $stmt_main->execute();
 
 $total_tiktok = 0;
 $total_lazada = 0;
+$total_shopee = 0;
 $total_online = 0;
 $total_ryu = 0;
 $total_valuation = 0;
@@ -214,31 +249,33 @@ $total_valuation = 0;
 while ($rs_main = $stmt_main->fetch()) {
     $item_desc = normalize_item_text($rs_main["itmdsc"]);
     $item_lines = wrap_str_two_lines($item_desc, 235, 9, 48);
-    $row_height = count($item_lines) > 1 ? 25 : 15;
+    $has_two_lines = count($item_lines) > 1 && isset($item_lines[1]) && $item_lines[1] !== '';
+    $row_height = $has_two_lines ? $row_step_double : $row_step_single;
 
     if (($xtop - $row_height) <= 60) {
         $pdf->ezNewPage();
-        $xtop = 485;
+        $xtop = $detail_start_top;
     }
 
-    $xtop -= 30;
+    $xtop -= $row_height;
     $row_y = $xtop;
 
     $tiktok_qty = (float) $rs_main["tiktok_qty"];
     $lazada_qty = (float) $rs_main["lazada_qty"];
+    $shopee_qty = (float) $rs_main["shopee_qty"];
     $total_online_qty = (float) $rs_main["total_online_qty"];
     $ryu_qty = (float) $rs_main["ryu_qty"];
     $inventory_ratio = (float) $rs_main["inventory_ratio"];
     $current_inventory_valuation = (float) $rs_main["current_inventory_valuation"];
 
-    $pdf->ezPlaceData($col_item, $row_y, $item_lines[0] ?? '', 9, "left");
-    if (isset($item_lines[1]) && $item_lines[1] !== '') {
-        $pdf->ezPlaceData($col_item, $row_y - 10, $item_lines[1], 9, "left");
-        $xtop -= 10;
+    $pdf->ezPlaceData($col_item, $row_y, $item_lines[0] ?? '', 8, "left");
+    if ($has_two_lines) {
+        $pdf->ezPlaceData($col_item, $row_y - $item_second_line_offset, $item_lines[1], 8, "left");
     }
 
     $pdf->ezPlaceData($col_tiktok, $row_y, number_format($tiktok_qty, 0), 9, "right");
     $pdf->ezPlaceData($col_lazada, $row_y, number_format($lazada_qty, 0), 9, "right");
+    $pdf->ezPlaceData($col_shopee, $row_y, number_format($shopee_qty, 0), 9, "right");
     $pdf->ezPlaceData($col_total_online, $row_y, number_format($total_online_qty, 0), 9, "right");
     $pdf->ezPlaceData($col_ryu, $row_y, number_format($ryu_qty, 0), 9, "right");
     $pdf->ezPlaceData($col_ratio, $row_y, number_format($inventory_ratio, 2), 9, "right");
@@ -246,6 +283,7 @@ while ($rs_main = $stmt_main->fetch()) {
 
     $total_tiktok += $tiktok_qty;
     $total_lazada += $lazada_qty;
+    $total_shopee += $shopee_qty;
     $total_online += $total_online_qty;
     $total_ryu += $ryu_qty;
     $total_valuation += $current_inventory_valuation;
@@ -253,7 +291,7 @@ while ($rs_main = $stmt_main->fetch()) {
 
 if (($xtop - 25) <= 60) {
     $pdf->ezNewPage();
-    $xtop = 485;
+    $xtop = $detail_start_top;
 }
 
 $pdf->line($xleft, $xtop - 22, $line_right, $xtop - 22);
@@ -262,8 +300,12 @@ $xtop -= 15;
 $pdf->ezPlaceData($col_item, $xtop, "Total", 9, "left");
 $pdf->ezPlaceData($col_tiktok, $xtop, number_format($total_tiktok, 0), 9, "right");
 $pdf->ezPlaceData($col_lazada, $xtop, number_format($total_lazada, 0), 9, "right");
+$pdf->ezPlaceData($col_shopee, $xtop, number_format($total_shopee, 0), 9, "right");
 $pdf->ezPlaceData($col_total_online, $xtop, number_format($total_online, 0), 9, "right");
 $pdf->ezPlaceData($col_ryu, $xtop, number_format($total_ryu, 0), 9, "right");
+if ($is_tab_export) {
+    $pdf->ezPlaceData($col_ratio, $xtop, "", 9, "right");
+}
 $pdf->ezPlaceData($col_valuation, $xtop, number_format($total_valuation, 2), 9, "right");
 
 if ($is_tab_export) {
