@@ -14,6 +14,11 @@
   - `Warehouse Staff` continues to show the full staff name from `warehouse_staff.fname + " " + warehouse_staff.lname`
   - `User` now shows `users.userdesc` instead of `warehouse_stock_movement.usercode`
   - fixed the latest-transactions list query so `users.userdesc` is loaded consistently and no longer throws an undefined `transaction_userdesc` notice
+- Updated the `mf_warehouse_transaction.php` search modal and sorting options:
+  - item search now matches only `itemfile.itmdsc`
+  - removed `Quantity` and `Stock Effect` from both search filters and sort options
+  - user search and sorting now use `users.userdesc`
+  - item sort labels now use `Item Description`
 
 ## 2026-03-21
 - Replaced the copied draft UI in `customer_sales_pdf.php` with a dedicated `Customer Sales Report` filter page.

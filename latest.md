@@ -14,6 +14,10 @@
   - `User` now shows `users.userdesc`
   - `Warehouse Staff` display remains the full staff name from `warehouse_staff`
   - fixed the latest-transactions query so the card renderer always receives `transaction_userdesc`
+- Updated `mf_warehouse_transaction.php` search modal:
+  - item search now uses only item description
+  - quantity and stock-effect search/sort options were removed
+  - user search/sort now use `users.userdesc`
 
 ## 2026-03-21
 - Reworked `customer_sales_pdf.php` into the actual `Customer Sales Report` filter page with:

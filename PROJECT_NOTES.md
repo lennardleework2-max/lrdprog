@@ -18,6 +18,10 @@
     - `Warehouse Staff` uses the full `warehouse_staff` name
     - `User` now resolves from `users.userdesc` instead of showing the raw saved `usercode`
     - The latest-transactions list query was corrected to always load `transaction_userdesc`, preventing undefined-index notices in the card renderer
+  - The transaction search modal was narrowed to the approved fields:
+    - item search now checks only `itemfile.itmdsc`
+    - `Quantity` and `Stock Effect` were removed from search and sorting
+    - user search/sorting now use `users.userdesc`
 
 ## Customer Sales Report (2026-03-21)
 

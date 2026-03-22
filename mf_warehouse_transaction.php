@@ -942,11 +942,9 @@ $search_filters = array(
     'warehouse_id' => isset($_GET['search_warehouse_id']) ? trim((string)$_GET['search_warehouse_id']) : '',
     'floor_id' => isset($_GET['search_floor_id']) ? trim((string)$_GET['search_floor_id']) : '',
     'item' => isset($_GET['search_item']) ? trim((string)$_GET['search_item']) : '',
-    'qty' => isset($_GET['search_qty']) ? trim((string)$_GET['search_qty']) : '',
-    'stkqty' => isset($_GET['search_stkqty']) ? trim((string)$_GET['search_stkqty']) : '',
     'movement_type' => isset($_GET['search_movement_type']) ? trim((string)$_GET['search_movement_type']) : '',
     'warehouse_staff_id' => isset($_GET['search_warehouse_staff_id']) ? trim((string)$_GET['search_warehouse_staff_id']) : '',
-    'usercode' => isset($_GET['search_usercode']) ? trim((string)$_GET['search_usercode']) : '',
+    'userdesc' => isset($_GET['search_userdesc']) ? trim((string)$_GET['search_userdesc']) : '',
     'remarks' => isset($_GET['search_remarks']) ? trim((string)$_GET['search_remarks']) : '',
     'sort1_field' => isset($_GET['sortby_1_field']) ? trim((string)$_GET['sortby_1_field']) : 'movement_date',
     'sort1_order' => isset($_GET['sortby_1_order']) ? trim((string)$_GET['sortby_1_order']) : 'Desc',
@@ -1010,19 +1008,8 @@ if (!$is_entry_page) {
     }
 
     if ($search_filters['item'] !== '') {
-        $where_parts[] = "(wsm.itmcde LIKE ? OR itemfile.itmdsc LIKE ?)";
+        $where_parts[] = "itemfile.itmdsc LIKE ?";
         $params[] = '%' . $search_filters['item'] . '%';
-        $params[] = '%' . $search_filters['item'] . '%';
-    }
-
-    if ($search_filters['qty'] !== '' && is_numeric($search_filters['qty'])) {
-        $where_parts[] = "wsm.qty = ?";
-        $params[] = (float)$search_filters['qty'];
-    }
-
-    if ($search_filters['stkqty'] !== '' && is_numeric($search_filters['stkqty'])) {
-        $where_parts[] = "wsm.stkqty = ?";
-        $params[] = (float)$search_filters['stkqty'];
     }
 
     if ($search_filters['movement_type'] !== '') {
@@ -1035,9 +1022,9 @@ if (!$is_entry_page) {
         $params[] = $search_filters['warehouse_staff_id'];
     }
 
-    if ($search_filters['usercode'] !== '') {
-        $where_parts[] = "COALESCE(wsm.usercode, '') LIKE ?";
-        $params[] = '%' . $search_filters['usercode'] . '%';
+    if ($search_filters['userdesc'] !== '') {
+        $where_parts[] = "COALESCE(usr.userdesc, '') LIKE ?";
+        $params[] = '%' . $search_filters['userdesc'] . '%';
     }
 
     if ($search_filters['remarks'] !== '') {
@@ -1048,10 +1035,8 @@ if (!$is_entry_page) {
     $sort_map = array(
         'movement_date' => 'wsm.movement_date',
         'movement_type' => 'wsm.movement_type',
-        'item' => 'itemfile.itmdsc',
-        'qty' => 'wsm.qty',
-        'stkqty' => 'wsm.stkqty',
-        'usercode' => 'wsm.usercode',
+        'itmdsc' => 'itemfile.itmdsc',
+        'userdesc' => 'usr.userdesc',
         'remarks' => 'wsm.remarks',
         'staff' => 'staff.lname',
         'floor' => 'src.floor_name'
@@ -1669,22 +1654,14 @@ if ($show_form) {
                     <div class="row m-3">
                         <div class="col-12 col-md-4">
                             <label class="form-label" for="search_item">Item</label>
-                            <input type="text" class="form-control" id="search_item" name="search_item" value="<?php echo h($search_filters['item']); ?>" autocomplete="off" placeholder="Item code or description">
-                        </div>
-                        <div class="col-12 col-md-4">
-                            <label class="form-label" for="search_qty">Quantity</label>
-                            <input type="number" step="0.01" class="form-control" id="search_qty" name="search_qty" value="<?php echo h($search_filters['qty']); ?>" autocomplete="off">
-                        </div>
-                        <div class="col-12 col-md-4">
-                            <label class="form-label" for="search_stkqty">Stock Effect</label>
-                            <input type="number" step="0.01" class="form-control" id="search_stkqty" name="search_stkqty" value="<?php echo h($search_filters['stkqty']); ?>" autocomplete="off">
+                            <input type="text" class="form-control" id="search_item" name="search_item" value="<?php echo h($search_filters['item']); ?>" autocomplete="off" placeholder="Item description">
                         </div>
                     </div>
 
                     <div class="row m-3">
                         <div class="col-12 col-md-4">
-                            <label class="form-label" for="search_usercode">User Code</label>
-                            <input type="text" class="form-control" id="search_usercode" name="search_usercode" value="<?php echo h($search_filters['usercode']); ?>" autocomplete="off">
+                            <label class="form-label" for="search_userdesc">User</label>
+                            <input type="text" class="form-control" id="search_userdesc" name="search_userdesc" value="<?php echo h($search_filters['userdesc']); ?>" autocomplete="off" placeholder="User description">
                         </div>
                         <div class="col-12 col-md-8">
                             <label class="form-label" for="search_remarks">Remarks</label>
@@ -1702,12 +1679,10 @@ if ($show_form) {
                             <select name="sortby_1_field" id="sortby_1_field" class="form-select mt-2">
                                 <option value="movement_date" <?php echo ($search_filters['sort1_field'] === 'movement_date') ? 'selected' : ''; ?>>Movement Date</option>
                                 <option value="movement_type" <?php echo ($search_filters['sort1_field'] === 'movement_type') ? 'selected' : ''; ?>>Movement Type</option>
-                                <option value="item" <?php echo ($search_filters['sort1_field'] === 'item') ? 'selected' : ''; ?>>Item</option>
+                                <option value="itmdsc" <?php echo ($search_filters['sort1_field'] === 'itmdsc') ? 'selected' : ''; ?>>Item Description</option>
                                 <option value="floor" <?php echo ($search_filters['sort1_field'] === 'floor') ? 'selected' : ''; ?>>Warehouse Floor</option>
-                                <option value="qty" <?php echo ($search_filters['sort1_field'] === 'qty') ? 'selected' : ''; ?>>Quantity</option>
-                                <option value="stkqty" <?php echo ($search_filters['sort1_field'] === 'stkqty') ? 'selected' : ''; ?>>Stock Effect</option>
                                 <option value="staff" <?php echo ($search_filters['sort1_field'] === 'staff') ? 'selected' : ''; ?>>Warehouse Staff</option>
-                                <option value="usercode" <?php echo ($search_filters['sort1_field'] === 'usercode') ? 'selected' : ''; ?>>User Code</option>
+                                <option value="userdesc" <?php echo ($search_filters['sort1_field'] === 'userdesc') ? 'selected' : ''; ?>>User Description</option>
                                 <option value="remarks" <?php echo ($search_filters['sort1_field'] === 'remarks') ? 'selected' : ''; ?>>Remarks</option>
                             </select>
                         </div>
@@ -1721,12 +1696,10 @@ if ($show_form) {
                                 <option value="none" <?php echo ($search_filters['sort2_field'] === 'none') ? 'selected' : ''; ?>>None</option>
                                 <option value="movement_date" <?php echo ($search_filters['sort2_field'] === 'movement_date') ? 'selected' : ''; ?>>Movement Date</option>
                                 <option value="movement_type" <?php echo ($search_filters['sort2_field'] === 'movement_type') ? 'selected' : ''; ?>>Movement Type</option>
-                                <option value="item" <?php echo ($search_filters['sort2_field'] === 'item') ? 'selected' : ''; ?>>Item</option>
+                                <option value="itmdsc" <?php echo ($search_filters['sort2_field'] === 'itmdsc') ? 'selected' : ''; ?>>Item Description</option>
                                 <option value="floor" <?php echo ($search_filters['sort2_field'] === 'floor') ? 'selected' : ''; ?>>Warehouse Floor</option>
-                                <option value="qty" <?php echo ($search_filters['sort2_field'] === 'qty') ? 'selected' : ''; ?>>Quantity</option>
-                                <option value="stkqty" <?php echo ($search_filters['sort2_field'] === 'stkqty') ? 'selected' : ''; ?>>Stock Effect</option>
                                 <option value="staff" <?php echo ($search_filters['sort2_field'] === 'staff') ? 'selected' : ''; ?>>Warehouse Staff</option>
-                                <option value="usercode" <?php echo ($search_filters['sort2_field'] === 'usercode') ? 'selected' : ''; ?>>User Code</option>
+                                <option value="userdesc" <?php echo ($search_filters['sort2_field'] === 'userdesc') ? 'selected' : ''; ?>>User Description</option>
                                 <option value="remarks" <?php echo ($search_filters['sort2_field'] === 'remarks') ? 'selected' : ''; ?>>Remarks</option>
                             </select>
                         </div>
