@@ -5,6 +5,10 @@
   - transaction details modal is now view-only and no longer shows `Edit Transaction`
   - edit-mode access through this page is blocked and shows a disabled-edit warning instead
   - movement dates on the cards and in the modal now use `MM/DD/YYYY HH:MMPM` format, for example `03/18/2026 10:06PM`
+- Updated `mf_warehouse_transaction.php` stock-movement form validation:
+  - for `REMOVE STOCK` and `TRANSFER STOCK`, the save button now disables when quantity is higher than current available stock
+  - users get an `Insufficient stock` alert when they enter an amount beyond available stock
+  - server-side stock validation still blocks invalid saves as a fallback
 
 ## 2026-03-21
 - Reworked `customer_sales_pdf.php` into the actual `Customer Sales Report` filter page with:

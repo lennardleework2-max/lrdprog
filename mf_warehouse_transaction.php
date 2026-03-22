@@ -1851,6 +1851,8 @@ if ($show_form) {
         var transactionSearchModalEl = document.getElementById('transactionSearchModal');
         var transactionViewModalEl = document.getElementById('transactionViewModal');
         var transactionViewModal = null;
+        var currentAvailableStock = null;
+        var insufficientStockActive = false;
 
         function shouldShowStockPreview() {
             return movementAction && (movementAction.value === 'REMOVE' || movementAction.value === 'TRANSFER');
@@ -2036,13 +2038,9 @@ if ($show_form) {
             return true;
         }
 
-        function updateSaveButtonState() {
-            if (submitButton) {
-                submitButton.disabled = !validateRequiredFields();
-            }
-        }
-
         function updateQuantityLimit(availableStock) {
+            currentAvailableStock = (typeof availableStock === 'number' && isFinite(availableStock)) ? availableStock : null;
+
             if (!quantityInput) {
                 return;
             }
@@ -2053,6 +2051,45 @@ if ($show_form) {
             }
 
             quantityInput.removeAttribute('max');
+        }
+
+        function hasInsufficientStock() {
+            if (!shouldShowStockPreview()) {
+                return false;
+            }
+
+            if (!quantityInput || quantityInput.value === '') {
+                return false;
+            }
+
+            if (typeof currentAvailableStock !== 'number' || !isFinite(currentAvailableStock)) {
+                return false;
+            }
+
+            return parseFloat(quantityInput.value) > currentAvailableStock;
+        }
+
+        function syncInsufficientStockState(showAlert) {
+            var insufficientStock = hasInsufficientStock();
+
+            if (quantityInput) {
+                quantityInput.setCustomValidity(insufficientStock ? 'Insufficient stock.' : '');
+            }
+
+            if (insufficientStock && showAlert && !insufficientStockActive) {
+                alert('Insufficient stock. Quantity cannot be greater than the current available stock.');
+            }
+
+            insufficientStockActive = insufficientStock;
+            return insufficientStock;
+        }
+
+        function updateSaveButtonState(showAlert) {
+            var insufficientStock = syncInsufficientStockState(!!showAlert);
+
+            if (submitButton) {
+                submitButton.disabled = !validateRequiredFields() || insufficientStock;
+            }
         }
 
         function updateTransferUI() {
@@ -2084,6 +2121,7 @@ if ($show_form) {
                 fetchTransferStock();
             } else {
                 updateQuantityLimit(null);
+                syncInsufficientStockState(false);
                 if (transferStockBox) {
                     transferStockBox.textContent = 'Current Available Stock: -';
                 }
@@ -2095,6 +2133,7 @@ if ($show_form) {
         function fetchTransferStock() {
             if (!transferStockBox || !shouldShowStockPreview()) {
                 updateQuantityLimit(null);
+                syncInsufficientStockState(false);
                 return;
             }
 
@@ -2112,7 +2151,9 @@ if ($show_form) {
 
             if (!floorIdForStock || !movementDateVal || !itemCodeVal) {
                 updateQuantityLimit(null);
+                syncInsufficientStockState(false);
                 transferStockBox.textContent = 'Current Available Stock: -';
+                updateSaveButtonState(false);
                 return;
             }
 
@@ -2134,14 +2175,19 @@ if ($show_form) {
                     if (response && response.status === 1) {
                         transferStockBox.textContent = response.message || ('Current Available Stock: ' + parseFloat(response.available_stock || 0).toFixed(2));
                         updateQuantityLimit(parseFloat(response.available_stock));
+                        updateSaveButtonState(false);
                     } else {
                         updateQuantityLimit(null);
+                        syncInsufficientStockState(false);
                         transferStockBox.textContent = 'Current Available Stock: -';
+                        updateSaveButtonState(false);
                     }
                 },
                 error: function () {
                     updateQuantityLimit(null);
+                    syncInsufficientStockState(false);
                     transferStockBox.textContent = 'Current Available Stock: -';
+                    updateSaveButtonState(false);
                 }
             });
         }
@@ -2209,7 +2255,9 @@ if ($show_form) {
         }
 
         if (quantityInput) {
-            quantityInput.addEventListener('input', updateSaveButtonState);
+            quantityInput.addEventListener('input', function () {
+                updateSaveButtonState(true);
+            });
         }
 
         if (staffSelect) {
@@ -2250,6 +2298,12 @@ if ($show_form) {
                 if (!validateRequiredFields()) {
                     event.preventDefault();
                     alert('Please complete all required fields before saving.');
+                    return;
+                }
+
+                if (syncInsufficientStockState(true)) {
+                    event.preventDefault();
+                    updateSaveButtonState(false);
                     return;
                 }
 

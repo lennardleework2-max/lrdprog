@@ -5,6 +5,10 @@
   - removed the `Edit Transaction` action from the details modal
   - blocked edit-mode entry handling in this shared page and now shows a warning that editing is disabled
 - Updated warehouse-transaction datetime display formatting in `mf_warehouse_transaction.php` from `YYYY-MM-DD HH:MM` to `MM/DD/YYYY HH:MMPM` (example: `03/18/2026 10:06PM`) in both the transaction cards and the details modal.
+- Updated `mf_warehouse_transaction.php` create/edit form behavior for `REMOVE STOCK` and `TRANSFER STOCK`:
+  - save is now disabled immediately when entered quantity is greater than the current available stock
+  - users now get an `Insufficient stock` alert before submit when quantity exceeds available stock
+  - existing backend insufficient-stock validation remains in place as the server-side safeguard
 
 ## 2026-03-21
 - Replaced the copied draft UI in `customer_sales_pdf.php` with a dedicated `Customer Sales Report` filter page.
