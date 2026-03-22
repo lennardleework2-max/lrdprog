@@ -8,8 +8,11 @@
 - Added `stock_transfer_transaction.php`:
   - same list-page design and behavior as inventory adjustments
   - uses `trncde='STT'`
-  - routes add/edit into the shared detail page
-- Updated `trn_invadjfile2.php` so `trncde_hidden='STT'` changes the page label to `Stock Transfer`, uses the stock-transfer back page, and starts new doc numbers at `STT-0000001`
+  - now routes add/edit into `stock_transfer_transaction_file2.php`
+- Split the detail pages again:
+  - `trn_invadjfile2.php` is back to inventory-adjustment-only entry
+  - `stock_transfer_transaction_file2.php` is the separate stock-transfer entry page
+  - both use the shared implementation in `trn_invadjfile2_shared.php`
 - Updated inventory adjustment entry in `trn_invadjfile2.php`:
   - add/edit item modals now include `Warehouse`, dependent `Warehouse Floor`, and `Warehouse Staff`
   - selected line-item warehouse values now save into `tranfile2`

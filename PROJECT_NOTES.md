@@ -12,11 +12,17 @@
 - `stock_transfer_transaction.php`
   - New stock-transfer list page copied from the inventory-adjustment list-page pattern.
   - It reuses the existing pager and CRUD handlers by passing `trncde='STT'`.
+  - It now routes add/edit actions to `stock_transfer_transaction_file2.php` instead of `trn_invadjfile2.php`.
 
 - `trn_invadjfile2.php`
-  - The shared detail page now derives its label set, back target, and first doc-number fallback from `trncde_hidden`.
-  - `ADJ` stays on the inventory-adjustment wording and `ADJ-00001`.
-  - `STT` switches to `Stock Transfer`, goes back to `stock_transfer_transaction.php`, and defaults new docs to `STT-0000001`.
+  - Restored as the inventory-adjustment entry-point wrapper only.
+
+- `stock_transfer_transaction_file2.php`
+  - Added as the separate stock-transfer entry-point wrapper.
+
+- `trn_invadjfile2_shared.php`
+  - Holds the shared add/edit implementation used by both inventory adjustments and stock transfer.
+  - Wrapper pages now force their own `trncde_hidden` instead of sharing a single public entry page.
 
 ## Inventory Adjustment Warehouse Fields (2026-03-22)
 

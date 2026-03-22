@@ -8,10 +8,11 @@
 - Added `stock_transfer_transaction.php` by mirroring the inventory-adjustment list page for stock transfers:
   - uses the same UI and flow as `trn_invadjfile1.php`
   - filters records with `trncde='STT'`
-  - opens the shared detail page `trn_invadjfile2.php` for add/edit
-- Updated `trn_invadjfile2.php` to switch labels and defaults by `trncde_hidden`:
-  - `ADJ` keeps the inventory-adjustment labels and `ADJ-00001` default
-  - `STT` now shows `Stock Transfer`, uses `stock_transfer_transaction.php` as the back page, and starts new records at `STT-0000001`
+  - now opens `stock_transfer_transaction_file2.php` for add/edit
+- Split the shared entry screen into wrappers:
+  - `trn_invadjfile2.php` is inventory-adjustment-only again
+  - `stock_transfer_transaction_file2.php` is the separate stock-transfer detail page entry point
+  - `trn_invadjfile2_shared.php` holds the shared implementation used by both wrappers
 - Updated `trn_invadjfile2.php` and `trn_invadjfile2_ajax.php` for the inventory-adjustment warehouse metadata flow:
   - added `Warehouse`, dependent `Warehouse Floor`, and `Warehouse Staff` fields to the add/edit line-item modals
   - warehouse-floor options now refresh from the selected warehouse and display `warehouse_floor.floor_no`

@@ -276,7 +276,7 @@ $prog_name = "Stock Transfer";
                     $("#recid_hidden").val(recid);
                     document.forms.myforms.target = "_self";
                     document.forms.myforms.method = "post";
-                    document.forms.myforms.action = "trn_invadjfile2.php";
+                    document.forms.myforms.action = "stock_transfer_transaction_file2.php";
                     document.forms.myforms.submit();
                     break;
             }
@@ -295,7 +295,7 @@ $prog_name = "Stock Transfer";
         function next_page(event){
             document.forms.myforms.target = "_self";
             document.forms.myforms.method = "post";
-            document.forms.myforms.action = "trn_invadjfile2.php";
+            document.forms.myforms.action = "stock_transfer_transaction_file2.php";
             document.forms.myforms.submit();
         }
 
