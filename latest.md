@@ -4,6 +4,7 @@
 - Updated inventory adjustment entry in `trn_invadjfile2.php`:
   - add/edit item modals now include `Warehouse`, dependent `Warehouse Floor`, and `Warehouse Staff`
   - selected line-item warehouse values now save into `tranfile2`
+  - the line-items table now also shows `Warehouse` and `Warehouse Floor`
   - the header `User` field now shows the current session user only for add mode, and the saved `tranfile1.usercode -> users.userdesc` only for edit mode
   - new saves persist the session `usercode` into `tranfile1.usercode` without overwriting existing edit records
 - Updated warehouse master pages for the new warehouse-code schema:

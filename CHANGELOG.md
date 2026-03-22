@@ -5,6 +5,7 @@
   - added `Warehouse`, dependent `Warehouse Floor`, and `Warehouse Staff` fields to the add/edit line-item modals
   - warehouse-floor options now refresh from the selected warehouse and display `warehouse_floor.floor_no`
   - line-item saves now write `tranfile2.warcde`, `tranfile2.warehouse_floor_id`, and `tranfile2.warehouse_staff_id`
+  - the inventory-adjustment line-items table now shows `Warehouse` and `Warehouse Floor`
   - added a read-only `User` field below remarks; add mode shows the current session user's `userdesc`, while edit mode shows only the saved `tranfile1.usercode -> users.userdesc`
   - new header saves now persist the current session `usercode` into `tranfile1.usercode` without overwriting existing edit records
 - Updated `mf_warehouse.php`, `mf_warehouse_floor.php`, and `pager/pager_ajax.class.php` for the warehouse schema rename:

@@ -16,6 +16,7 @@
     - `tranfile2.warcde`
     - `tranfile2.warehouse_floor_id`
     - `tranfile2.warehouse_staff_id`
+  - The line-items table output now joins `warehouse` and `warehouse_floor` so it can display `Warehouse` and `Warehouse Floor` without showing warehouse staff there.
   - Edit payloads now return those warehouse-related fields so the edit modal can preload them correctly.
 
 ## Warehouse Code Schema Update (2026-03-22)

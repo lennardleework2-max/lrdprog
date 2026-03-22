@@ -573,6 +573,8 @@
 
     $xret["html"] .= "<tr style='font-weight:bold'>";
         $xret["html"] .= "<td>Item</td>";
+        $xret["html"] .= "<td>Warehouse</td>";
+        $xret["html"] .= "<td>Warehouse Floor</td>";
         $xret["html"] .= "<td style='text-align:right'>Quantity</td>";
         $xret["html"] .= "<td style='text-align:right'>Price</td>";
         $xret["html"] .= "<td style='text-align:right'>Amount</td>";
@@ -580,8 +582,13 @@
     $xret["html"] .= "</tr>";  
 
 
-            $select_salesfile2="SELECT itemfile.itmdsc as itemfile_itmdsc,itemfile.itmcde as itemfile_itmcde, tranfile2.itmqty, tranfile2.untprc, tranfile2.extprc, tranfile2.recid as tranfile2_recid
-            FROM tranfile2 LEFT JOIN itemfile ON itemfile.itmcde = tranfile2.itmcde WHERE docnum=?";
+            $select_salesfile2="SELECT itemfile.itmdsc as itemfile_itmdsc,itemfile.itmcde as itemfile_itmcde, tranfile2.itmqty, tranfile2.untprc, tranfile2.extprc, tranfile2.recid as tranfile2_recid,
+            warehouse.warehouse_name, warehouse_floor.floor_no
+            FROM tranfile2
+            LEFT JOIN itemfile ON itemfile.itmcde = tranfile2.itmcde
+            LEFT JOIN warehouse ON warehouse.warcde = tranfile2.warcde
+            LEFT JOIN warehouse_floor ON warehouse_floor.warehouse_floor_id = tranfile2.warehouse_floor_id
+            WHERE docnum=?";
             $stmt_salesfile2	= $link->prepare($select_salesfile2);
             $stmt_salesfile2->execute(array($docnum));
 
@@ -603,6 +610,8 @@
 
                 $xret["html"] .= "<tr>";
                     $xret["html"] .= "<td>".htmlspecialchars($rs_salesfile2['itemfile_itmdsc'],ENT_QUOTES)."</td>";
+                    $xret["html"] .= "<td>".htmlspecialchars(isset($rs_salesfile2['warehouse_name']) ? $rs_salesfile2['warehouse_name'] : '',ENT_QUOTES)."</td>";
+                    $xret["html"] .= "<td>".htmlspecialchars(isset($rs_salesfile2['floor_no']) ? $rs_salesfile2['floor_no'] : '',ENT_QUOTES)."</td>";
                     $xret["html"] .= "<td style='text-align:right'>".$rs_salesfile2['itmqty']."</td>";
                     $xret["html"] .= "<td style='text-align:right'>".$rs_salesfile2['untprc']."</td>";
                     $xret["html"] .= "<td style='text-align:right'>".$rs_salesfile2['extprc']."</td>";
@@ -630,6 +639,16 @@
                 $xret["html_mobile"] .= "<tr>";
                     $xret["html_mobile"] .= "<td class='fw-bold'>Item</td>";
                     $xret["html_mobile"] .= "<td>".htmlspecialchars($rs_salesfile2['itemfile_itmdsc'],ENT_QUOTES)."</td>";
+                $xret["html_mobile"] .= "</tr>";
+
+                $xret["html_mobile"] .= "<tr>";
+                    $xret["html_mobile"] .= "<td class='fw-bold'>Warehouse</td>";
+                    $xret["html_mobile"] .= "<td>".htmlspecialchars(isset($rs_salesfile2['warehouse_name']) ? $rs_salesfile2['warehouse_name'] : '',ENT_QUOTES)."</td>";
+                $xret["html_mobile"] .= "</tr>";
+
+                $xret["html_mobile"] .= "<tr>";
+                    $xret["html_mobile"] .= "<td class='fw-bold'>Warehouse Floor</td>";
+                    $xret["html_mobile"] .= "<td>".htmlspecialchars(isset($rs_salesfile2['floor_no']) ? $rs_salesfile2['floor_no'] : '',ENT_QUOTES)."</td>";
                 $xret["html_mobile"] .= "</tr>";
 
                 $xret["html_mobile"] .= "<tr>";
