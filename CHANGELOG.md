@@ -9,6 +9,7 @@
   - added `Current Total Stock` before `Current Total Inventory Valuation`
   - the new column uses `SUM(tranfile2.stkqty)` per item across joined `tranfile1` + `tranfile2` rows, matching the provided SQL logic
   - the new column is included in both PDF and XLSX exports and is available in the sort dropdown
+  - tightened the PDF item-text wrap width further so long item descriptions break earlier and no longer overlap the Tiktok column
 - Added `stock_transfer_transaction.php` by mirroring the inventory-adjustment list page for stock transfers:
   - uses the same UI and flow as `trn_invadjfile1.php`
   - filters records with `trncde='STT'`

@@ -100,6 +100,7 @@ $detail_start_top = 468;
 $row_step_single = 16;
 $row_step_double = 22;
 $item_second_line_offset = 8;
+$item_wrap_width = 150;
 
 $col_item = 20;
 $col_tiktok = 215;
@@ -302,7 +303,7 @@ if ($is_tab_export) {
 
 foreach ($report_rows as $rs_main) {
     $item_desc = normalize_item_text($rs_main["itmdsc"]);
-    $item_lines = wrap_str_two_lines($item_desc, 235, 9, 48);
+    $item_lines = wrap_str_two_lines($item_desc, $item_wrap_width, 9, 48);
     $has_two_lines = count($item_lines) > 1 && isset($item_lines[1]) && $item_lines[1] !== '';
     $row_height = $has_two_lines ? $row_step_double : $row_step_single;
 

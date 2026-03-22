@@ -12,6 +12,9 @@
 - `customer_sales_pdf.php`
   - The sort-column dropdown now includes `Current Total Stock`.
 
+- `customer_sales_rep.php`
+  - The PDF item-description wrap width was reduced further so long item names break earlier and stay inside the item column without touching the Tiktok column.
+
 ## Stock Transfer Entry Reuse (2026-03-22)
 
 - `stock_transfer_transaction.php`

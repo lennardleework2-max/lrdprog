@@ -9,6 +9,7 @@
   - added `Current Total Stock` before inventory valuation
   - included it in both PDF and XLSX output
   - added it to the sort-column dropdown
+  - tightened the PDF item wrapping further so long descriptions break earlier and no longer spill into the Tiktok column
 - Added `stock_transfer_transaction.php`:
   - same list-page design and behavior as inventory adjustments
   - uses `trncde='STT'`
