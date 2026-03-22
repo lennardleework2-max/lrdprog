@@ -1,5 +1,12 @@
 # LRD Program - Project Notes
 
+## Customer Sales XLSX Export Fix (2026-03-22)
+
+- `customer_sales_rep.php`
+  - The XLSX export no longer uses the legacy tab-text fallback with an `.xlsx` extension.
+  - It now creates a real Office Open XML spreadsheet using `PhpSpreadsheet`.
+  - Output buffers are cleared before streaming the file so stricter clients, including iOS, receive a clean workbook stream.
+
 ## Stock Transfer Entry Reuse (2026-03-22)
 
 - `stock_transfer_transaction.php`

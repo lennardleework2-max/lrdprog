@@ -1,6 +1,10 @@
 # Changelog
 
 ## 2026-03-22
+- Updated `customer_sales_rep.php` XLSX export generation:
+  - replaced the old tab-delimited pseudo-`xlsx` stream with a real `PhpSpreadsheet` `.xlsx` writer
+  - kept the PDF export path unchanged
+  - clears output buffers before streaming so stricter clients such as iOS can open the file without corruption errors
 - Added `stock_transfer_transaction.php` by mirroring the inventory-adjustment list page for stock transfers:
   - uses the same UI and flow as `trn_invadjfile1.php`
   - filters records with `trncde='STT'`

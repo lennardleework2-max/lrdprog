@@ -1,6 +1,10 @@
 # Latest
 
 ## 2026-03-22
+- Updated `customer_sales_rep.php` XLSX export:
+  - now generates a real `.xlsx` file with `PhpSpreadsheet`
+  - keeps the same report content/columns
+  - avoids the corruption warning seen on iOS clients
 - Added `stock_transfer_transaction.php`:
   - same list-page design and behavior as inventory adjustments
   - uses `trncde='STT'`

@@ -6,6 +6,12 @@ require_once("resources/connect4.php");
 require_once("resources/lx2.pdodb.php");
 require_once('ezpdfclass/class/class.ezpdf.php');
 require_once('resources/func_pdf2tab.php');
+require_once('vendor/autoload.php');
+
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 $tab_file_type = 'xlsx';
 $is_tab_export = (isset($_POST['txt_output_type']) && $_POST['txt_output_type'] === 'tab');
@@ -31,16 +37,12 @@ $xactivity_log = $is_tab_export ? 'export_txt' : 'export_pdf';
 $xremarks_log = "Exported " . $export_label . " from Customer Sales";
 PDO_UserActivityLog($link, $username_session, '', $xtrndte_log, $xprog_module_log, $xactivity_log, $username_full_name, $xremarks_log, 0, '', '', '', '', $username_session, '', '');
 
-ob_start();
-
-if ($is_tab_export) {
-    $pdf = new tab_ezpdf('Letter', 'landscape');
-} else {
+if (!$is_tab_export) {
+    ob_start();
     $pdf = new Cezpdf('Letter', 'landscape');
+    $pdf->selectFont("ezpdfclass/fonts/Helvetica.afm");
+    $pdf->ezStartPageNumbers(700, 15, 8, 'right', 'Page {PAGENUM}  of  {TOTALPAGENUM}', 1);
 }
-
-$pdf->selectFont("ezpdfclass/fonts/Helvetica.afm");
-$pdf->ezStartPageNumbers(700, 15, 8, 'right', 'Page {PAGENUM}  of  {TOTALPAGENUM}', 1);
 
 $date_printed = date("F j, Y h:i:s A");
 $current_date_sql = date("Y-m-d");
@@ -107,61 +109,63 @@ $col_ryu = 555;
 $col_ratio = 650;
 $col_valuation = 755;
 
-$xheader = $pdf->openObject();
-$pdf->saveState();
-$pdf->ezPlaceData($xleft, $xtop, "<b>Customer Sales Report</b>", 15, 'left');
-$xtop -= 15;
-$header = "<b>Pdf Report by: " . $report_user . " </b>";
-$pdf->ezPlaceData($xleft, $xtop, $header, 9, 'left');
-$xtop -= 15;
-$pdf->ezPlaceData($xleft, $xtop, "30-Day Window : " . $head_window_start . " to " . $head_date_to, 10, 'left');
-$xtop -= 15;
-$pdf->ezPlaceData($xleft, $xtop, "Sorted By : " . $sort_field_label . " " . $sort_order, 10, 'left');
-$xtop -= 15;
-$pdf->ezPlaceData($xleft, $xtop, 'Date Printed : ' . $date_printed, 10, 'left');
-$xtop -= 20;
+if (!$is_tab_export) {
+    $xheader = $pdf->openObject();
+    $pdf->saveState();
+    $pdf->ezPlaceData($xleft, $xtop, "<b>Customer Sales Report</b>", 15, 'left');
+    $xtop -= 15;
+    $header = "<b>Pdf Report by: " . $report_user . " </b>";
+    $pdf->ezPlaceData($xleft, $xtop, $header, 9, 'left');
+    $xtop -= 15;
+    $pdf->ezPlaceData($xleft, $xtop, "30-Day Window : " . $head_window_start . " to " . $head_date_to, 10, 'left');
+    $xtop -= 15;
+    $pdf->ezPlaceData($xleft, $xtop, "Sorted By : " . $sort_field_label . " " . $sort_order, 10, 'left');
+    $xtop -= 15;
+    $pdf->ezPlaceData($xleft, $xtop, 'Date Printed : ' . $date_printed, 10, 'left');
+    $xtop -= 20;
 
-$pdf->setLineStyle(.5);
-$pdf->line($xleft, $xtop + 6, $line_right, $xtop + 6);
-$pdf->line($xleft, $xtop - 30, $line_right, $xtop - 30);
+    $pdf->setLineStyle(.5);
+    $pdf->line($xleft, $xtop + 6, $line_right, $xtop + 6);
+    $pdf->line($xleft, $xtop - 30, $line_right, $xtop - 30);
 
-$xheader_base_y = $xtop - 8;
+    $xheader_base_y = $xtop - 8;
 
-$pdf->ezPlaceData($col_item, $xheader_base_y, "<b>Item</b>", 10, 'left');
+    $pdf->ezPlaceData($col_item, $xheader_base_y, "<b>Item</b>", 10, 'left');
 
-$pdf->ezPlaceData($col_tiktok, $xheader_base_y + 4, "<b>Tiktok Qty</b>", 7, 'right');
-$pdf->ezPlaceData($col_tiktok, $xheader_base_y - 5, "<b>Sold Last</b>", 7, 'right');
-$pdf->ezPlaceData($col_tiktok, $xheader_base_y - 14, "<b>30 Days</b>", 7, 'right');
+    $pdf->ezPlaceData($col_tiktok, $xheader_base_y + 4, "<b>Tiktok Qty</b>", 7, 'right');
+    $pdf->ezPlaceData($col_tiktok, $xheader_base_y - 5, "<b>Sold Last</b>", 7, 'right');
+    $pdf->ezPlaceData($col_tiktok, $xheader_base_y - 14, "<b>30 Days</b>", 7, 'right');
 
-$pdf->ezPlaceData($col_lazada, $xheader_base_y + 4, "<b>Lazada Qty</b>", 7, 'right');
-$pdf->ezPlaceData($col_lazada, $xheader_base_y - 5, "<b>Sold Last</b>", 7, 'right');
-$pdf->ezPlaceData($col_lazada, $xheader_base_y - 14, "<b>30 Days</b>", 7, 'right');
+    $pdf->ezPlaceData($col_lazada, $xheader_base_y + 4, "<b>Lazada Qty</b>", 7, 'right');
+    $pdf->ezPlaceData($col_lazada, $xheader_base_y - 5, "<b>Sold Last</b>", 7, 'right');
+    $pdf->ezPlaceData($col_lazada, $xheader_base_y - 14, "<b>30 Days</b>", 7, 'right');
 
-$pdf->ezPlaceData($col_shopee, $xheader_base_y + 4, "<b>Shopee Qty</b>", 7, 'right');
-$pdf->ezPlaceData($col_shopee, $xheader_base_y - 5, "<b>Sold Last</b>", 7, 'right');
-$pdf->ezPlaceData($col_shopee, $xheader_base_y - 14, "<b>30 Days</b>", 7, 'right');
+    $pdf->ezPlaceData($col_shopee, $xheader_base_y + 4, "<b>Shopee Qty</b>", 7, 'right');
+    $pdf->ezPlaceData($col_shopee, $xheader_base_y - 5, "<b>Sold Last</b>", 7, 'right');
+    $pdf->ezPlaceData($col_shopee, $xheader_base_y - 14, "<b>30 Days</b>", 7, 'right');
 
-$pdf->ezPlaceData($col_total_online, $xheader_base_y + 4, "<b>Total Online</b>", 7, 'right');
-$pdf->ezPlaceData($col_total_online, $xheader_base_y - 5, "<b>Qty Sold</b>", 7, 'right');
-$pdf->ezPlaceData($col_total_online, $xheader_base_y - 14, "<b>Last 30 Days</b>", 7, 'right');
+    $pdf->ezPlaceData($col_total_online, $xheader_base_y + 4, "<b>Total Online</b>", 7, 'right');
+    $pdf->ezPlaceData($col_total_online, $xheader_base_y - 5, "<b>Qty Sold</b>", 7, 'right');
+    $pdf->ezPlaceData($col_total_online, $xheader_base_y - 14, "<b>Last 30 Days</b>", 7, 'right');
 
-$pdf->ezPlaceData($col_ryu, $xheader_base_y + 4, "<b>RYU Qty</b>", 7, 'right');
-$pdf->ezPlaceData($col_ryu, $xheader_base_y - 5, "<b>Sold Last</b>", 7, 'right');
-$pdf->ezPlaceData($col_ryu, $xheader_base_y - 14, "<b>30 Days</b>", 7, 'right');
+    $pdf->ezPlaceData($col_ryu, $xheader_base_y + 4, "<b>RYU Qty</b>", 7, 'right');
+    $pdf->ezPlaceData($col_ryu, $xheader_base_y - 5, "<b>Sold Last</b>", 7, 'right');
+    $pdf->ezPlaceData($col_ryu, $xheader_base_y - 14, "<b>30 Days</b>", 7, 'right');
 
-$pdf->ezPlaceData($col_ratio, $xheader_base_y + 4, "<b>30 Days</b>", 7, 'right');
-$pdf->ezPlaceData($col_ratio, $xheader_base_y - 5, "<b>Inventory</b>", 7, 'right');
-$pdf->ezPlaceData($col_ratio, $xheader_base_y - 14, "<b>Ratio</b>", 7, 'right');
+    $pdf->ezPlaceData($col_ratio, $xheader_base_y + 4, "<b>30 Days</b>", 7, 'right');
+    $pdf->ezPlaceData($col_ratio, $xheader_base_y - 5, "<b>Inventory</b>", 7, 'right');
+    $pdf->ezPlaceData($col_ratio, $xheader_base_y - 14, "<b>Ratio</b>", 7, 'right');
 
-$pdf->ezPlaceData($col_valuation, $xheader_base_y + 4, "<b>Current Total</b>", 7, 'right');
-$pdf->ezPlaceData($col_valuation, $xheader_base_y - 5, "<b>Inventory</b>", 7, 'right');
-$pdf->ezPlaceData($col_valuation, $xheader_base_y - 14, "<b>Valuation</b>", 7, 'right');
+    $pdf->ezPlaceData($col_valuation, $xheader_base_y + 4, "<b>Current Total</b>", 7, 'right');
+    $pdf->ezPlaceData($col_valuation, $xheader_base_y - 5, "<b>Inventory</b>", 7, 'right');
+    $pdf->ezPlaceData($col_valuation, $xheader_base_y - 14, "<b>Valuation</b>", 7, 'right');
 
-$pdf->restoreState();
-$pdf->closeObject();
-$pdf->addObject($xheader, 'all');
+    $pdf->restoreState();
+    $pdf->closeObject();
+    $pdf->addObject($xheader, 'all');
 
-$xtop = $detail_start_top;
+    $xtop = $detail_start_top;
+}
 
 $select_db_base = "SELECT
     itemfile.itmcde,
@@ -239,6 +243,7 @@ ORDER BY " . $sort_field_sql . " " . $sort_order . ", base.itmdsc ASC";
 $stmt_main = $link->prepare($select_db);
 $stmt_main->execute();
 
+$report_rows = array();
 $total_tiktok = 0;
 $total_lazada = 0;
 $total_shopee = 0;
@@ -247,6 +252,36 @@ $total_ryu = 0;
 $total_valuation = 0;
 
 while ($rs_main = $stmt_main->fetch()) {
+    $report_rows[] = $rs_main;
+
+    $total_tiktok += (float) $rs_main["tiktok_qty"];
+    $total_lazada += (float) $rs_main["lazada_qty"];
+    $total_shopee += (float) $rs_main["shopee_qty"];
+    $total_online += (float) $rs_main["total_online_qty"];
+    $total_ryu += (float) $rs_main["ryu_qty"];
+    $total_valuation += (float) $rs_main["current_inventory_valuation"];
+}
+
+if ($is_tab_export) {
+    export_customer_sales_xlsx(
+        $report_rows,
+        $report_user,
+        $head_window_start,
+        $head_date_to,
+        $sort_field_label,
+        $sort_order,
+        $date_printed,
+        $total_tiktok,
+        $total_lazada,
+        $total_shopee,
+        $total_online,
+        $total_ryu,
+        $total_valuation
+    );
+    exit;
+}
+
+foreach ($report_rows as $rs_main) {
     $item_desc = normalize_item_text($rs_main["itmdsc"]);
     $item_lines = wrap_str_two_lines($item_desc, 235, 9, 48);
     $has_two_lines = count($item_lines) > 1 && isset($item_lines[1]) && $item_lines[1] !== '';
@@ -280,13 +315,6 @@ while ($rs_main = $stmt_main->fetch()) {
     $pdf->ezPlaceData($col_ryu, $row_y, number_format($ryu_qty, 0), 9, "right");
     $pdf->ezPlaceData($col_ratio, $row_y, number_format($inventory_ratio, 2), 9, "right");
     $pdf->ezPlaceData($col_valuation, $row_y, number_format($current_inventory_valuation, 2), 9, "right");
-
-    $total_tiktok += $tiktok_qty;
-    $total_lazada += $lazada_qty;
-    $total_shopee += $shopee_qty;
-    $total_online += $total_online_qty;
-    $total_ryu += $ryu_qty;
-    $total_valuation += $current_inventory_valuation;
 }
 
 if (($xtop - 25) <= 60) {
@@ -303,16 +331,8 @@ $pdf->ezPlaceData($col_lazada, $xtop, number_format($total_lazada, 0), 9, "right
 $pdf->ezPlaceData($col_shopee, $xtop, number_format($total_shopee, 0), 9, "right");
 $pdf->ezPlaceData($col_total_online, $xtop, number_format($total_online, 0), 9, "right");
 $pdf->ezPlaceData($col_ryu, $xtop, number_format($total_ryu, 0), 9, "right");
-if ($is_tab_export) {
-    $pdf->ezPlaceData($col_ratio, $xtop, "", 9, "right");
-}
 $pdf->ezPlaceData($col_valuation, $xtop, number_format($total_valuation, 2), 9, "right");
-
-if ($is_tab_export) {
-    $pdf->ezStream($tab_file_type);
-} else {
-    $pdf->ezStream();
-}
+$pdf->ezStream();
 ob_end_flush();
 
 function normalize_report_date($value)
@@ -494,4 +514,103 @@ function fit_text_to_width($string, $max_wid, $fsize, $add_ellipsis = false)
     }
 
     return $xxstr;
+}
+
+function export_customer_sales_xlsx(
+    $rows,
+    $report_user,
+    $head_window_start,
+    $head_date_to,
+    $sort_field_label,
+    $sort_order,
+    $date_printed,
+    $total_tiktok,
+    $total_lazada,
+    $total_shopee,
+    $total_online,
+    $total_ryu,
+    $total_valuation
+) {
+    $spreadsheet = new Spreadsheet();
+    $sheet = $spreadsheet->getActiveSheet();
+    $sheet->setTitle('Customer Sales');
+
+    $sheet->mergeCells('A1:H1');
+    $sheet->setCellValue('A1', 'Customer Sales Report');
+    $sheet->setCellValue('A2', 'Pdf Report by: ' . $report_user);
+    $sheet->setCellValue('A3', '30-Day Window : ' . $head_window_start . ' to ' . $head_date_to);
+    $sheet->setCellValue('A4', 'Sorted By : ' . $sort_field_label . ' ' . $sort_order);
+    $sheet->setCellValue('A5', 'Date Printed : ' . $date_printed);
+
+    $header_row = 7;
+    $sheet->fromArray(array(
+        'Item',
+        'Tiktok Qty Sold Last 30 Days',
+        'Lazada Qty Sold Last 30 Days',
+        'Shopee Qty Sold Last 30 Days',
+        'Total Online Qty Sold Last 30 Days',
+        'RYU Qty Sold Last 30 Days',
+        '30 Days Inventory Ratio',
+        'Current Total Inventory Valuation'
+    ), null, 'A' . $header_row);
+
+    $row_num = $header_row + 1;
+    foreach ($rows as $row) {
+        $sheet->setCellValue('A' . $row_num, normalize_item_text($row['itmdsc']));
+        $sheet->setCellValue('B' . $row_num, (float) $row['tiktok_qty']);
+        $sheet->setCellValue('C' . $row_num, (float) $row['lazada_qty']);
+        $sheet->setCellValue('D' . $row_num, (float) $row['shopee_qty']);
+        $sheet->setCellValue('E' . $row_num, (float) $row['total_online_qty']);
+        $sheet->setCellValue('F' . $row_num, (float) $row['ryu_qty']);
+        $sheet->setCellValue('G' . $row_num, (float) $row['inventory_ratio']);
+        $sheet->setCellValue('H' . $row_num, (float) $row['current_inventory_valuation']);
+        $row_num++;
+    }
+
+    $sheet->setCellValue('A' . $row_num, 'Total');
+    $sheet->setCellValue('B' . $row_num, $total_tiktok);
+    $sheet->setCellValue('C' . $row_num, $total_lazada);
+    $sheet->setCellValue('D' . $row_num, $total_shopee);
+    $sheet->setCellValue('E' . $row_num, $total_online);
+    $sheet->setCellValue('F' . $row_num, $total_ryu);
+    $sheet->setCellValue('H' . $row_num, $total_valuation);
+
+    $sheet->getStyle('A1:A5')->getFont()->setBold(true);
+    $sheet->getStyle('A' . $header_row . ':H' . $header_row)->getFont()->setBold(true);
+    $sheet->getStyle('A' . $header_row . ':H' . $header_row)->getAlignment()->setWrapText(true);
+    $sheet->getStyle('A' . $header_row . ':H' . $row_num)->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
+    $sheet->getStyle('B' . ($header_row + 1) . ':F' . $row_num)->getNumberFormat()->setFormatCode('#,##0');
+    $sheet->getStyle('G' . ($header_row + 1) . ':G' . ($row_num - 1))->getNumberFormat()->setFormatCode('0.00');
+    $sheet->getStyle('H' . ($header_row + 1) . ':H' . $row_num)->getNumberFormat()->setFormatCode('#,##0.00');
+    $sheet->getStyle('B' . ($header_row + 1) . ':H' . $row_num)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+    $sheet->getStyle('A' . ($header_row + 1) . ':A' . $row_num)->getAlignment()->setWrapText(true);
+    $sheet->getStyle('A' . $row_num . ':H' . $row_num)->getFont()->setBold(true);
+
+    $sheet->getColumnDimension('A')->setWidth(48);
+    $sheet->getColumnDimension('B')->setWidth(16);
+    $sheet->getColumnDimension('C')->setWidth(16);
+    $sheet->getColumnDimension('D')->setWidth(16);
+    $sheet->getColumnDimension('E')->setWidth(18);
+    $sheet->getColumnDimension('F')->setWidth(16);
+    $sheet->getColumnDimension('G')->setWidth(18);
+    $sheet->getColumnDimension('H')->setWidth(22);
+    $sheet->freezePane('A8');
+
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+
+    $filename = 'customer_sales_report_' . date('Ymd_His') . '.xlsx';
+
+    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: max-age=0');
+    header('Cache-Control: max-age=1');
+    header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
+    header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+    header('Cache-Control: cache, must-revalidate');
+    header('Pragma: public');
+
+    $writer = new Xlsx($spreadsheet);
+    $writer->save('php://output');
 }
