@@ -1084,7 +1084,8 @@ if (!$is_entry_page) {
                    rel.warehouse_id AS related_warehouse_id,
                    rel_wh.warehouse_name AS related_warehouse_name,
                    staff.fname,
-                   staff.lname
+                   staff.lname,
+                   usr.userdesc AS transaction_userdesc
             FROM warehouse_stock_movement wsm
             INNER JOIN warehouse_floor src
                 ON src.warehouse_floor_id = wsm.floor_id
@@ -1380,7 +1381,7 @@ if ($show_form) {
                                                 )), ' /');
                                             }
                                             $staff_label = trim((string)$transaction['fname'] . ' ' . (string)$transaction['lname']);
-                                            $user_label = trim((string)$transaction['transaction_userdesc']);
+                                            $user_label = trim((string)($transaction['transaction_userdesc'] ?? ''));
                                             $view_payload = array(
                                                 'movement_id' => $transaction['display_movement_id'],
                                                 'movement_date' => display_movement_datetime($transaction['movement_date']),

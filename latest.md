@@ -13,6 +13,7 @@
   - `Remarks` now shows as its own info block in the same grid layout
   - `User` now shows `users.userdesc`
   - `Warehouse Staff` display remains the full staff name from `warehouse_staff`
+  - fixed the latest-transactions query so the card renderer always receives `transaction_userdesc`
 
 ## 2026-03-21
 - Reworked `customer_sales_pdf.php` into the actual `Customer Sales Report` filter page with:

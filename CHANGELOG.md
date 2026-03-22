@@ -13,6 +13,7 @@
   - `Remarks` now appears as its own card block instead of a separate text area below the grid
   - `Warehouse Staff` continues to show the full staff name from `warehouse_staff.fname + " " + warehouse_staff.lname`
   - `User` now shows `users.userdesc` instead of `warehouse_stock_movement.usercode`
+  - fixed the latest-transactions list query so `users.userdesc` is loaded consistently and no longer throws an undefined `transaction_userdesc` notice
 
 ## 2026-03-21
 - Replaced the copied draft UI in `customer_sales_pdf.php` with a dedicated `Customer Sales Report` filter page.

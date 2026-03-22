@@ -17,6 +17,7 @@
     - `Remarks` is now rendered as its own info block in the card grid
     - `Warehouse Staff` uses the full `warehouse_staff` name
     - `User` now resolves from `users.userdesc` instead of showing the raw saved `usercode`
+    - The latest-transactions list query was corrected to always load `transaction_userdesc`, preventing undefined-index notices in the card renderer
 
 ## Customer Sales Report (2026-03-21)
 
