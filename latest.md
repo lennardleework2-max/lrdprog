@@ -7,8 +7,12 @@
   - movement dates on the cards and in the modal now use `MM/DD/YYYY HH:MMPM` format, for example `03/18/2026 10:06PM`
 - Updated `mf_warehouse_transaction.php` stock-movement form validation:
   - for `REMOVE STOCK` and `TRANSFER STOCK`, the save button now disables when quantity is higher than current available stock
-  - users get an `Insufficient stock` alert when they enter an amount beyond available stock
+  - users get an `Insufficient stock` alert only when they press save with an amount beyond available stock
   - server-side stock validation still blocks invalid saves as a fallback
+- Updated `mf_warehouse_transaction.php` transaction card display:
+  - `Remarks` now shows as its own info block in the same grid layout
+  - `User` now shows `users.userdesc`
+  - `Warehouse Staff` display remains the full staff name from `warehouse_staff`
 
 ## 2026-03-21
 - Reworked `customer_sales_pdf.php` into the actual `Customer Sales Report` filter page with:

@@ -161,7 +161,8 @@ function load_movement_row($link, $recid, $warehouse_id, $floor_id)
                    rel.floor_name AS related_floor_name,
                    rel.floor_no AS related_floor_no,
                    staff.fname,
-                   staff.lname
+                   staff.lname,
+                   usr.userdesc AS transaction_userdesc
             FROM warehouse_stock_movement wsm
             INNER JOIN warehouse_floor src
                 ON src.warehouse_floor_id = wsm.floor_id
@@ -171,6 +172,8 @@ function load_movement_row($link, $recid, $warehouse_id, $floor_id)
                 ON itemfile.itmcde = wsm.itmcde
             LEFT JOIN warehouse_staff staff
                 ON staff.warehouse_staff_id = wsm.warehouse_staff_id
+            LEFT JOIN users usr
+                ON usr.usercode = wsm.usercode
             WHERE wsm.recid = ?
               AND src.warehouse_id = ?
               AND wsm.floor_id = ?";
@@ -189,7 +192,8 @@ function load_movement_row_any($link, $recid)
                    rel.floor_name AS related_floor_name,
                    rel.floor_no AS related_floor_no,
                    staff.fname,
-                   staff.lname
+                   staff.lname,
+                   usr.userdesc AS transaction_userdesc
             FROM warehouse_stock_movement wsm
             INNER JOIN warehouse_floor src
                 ON src.warehouse_floor_id = wsm.floor_id
@@ -199,6 +203,8 @@ function load_movement_row_any($link, $recid)
                 ON itemfile.itmcde = wsm.itmcde
             LEFT JOIN warehouse_staff staff
                 ON staff.warehouse_staff_id = wsm.warehouse_staff_id
+            LEFT JOIN users usr
+                ON usr.usercode = wsm.usercode
             WHERE wsm.recid = ?";
     $stmt = $link->prepare($sql);
     $stmt->execute(array($recid));
@@ -229,7 +235,8 @@ function find_transfer_pair($link, $row)
                    rel.warehouse_id AS related_warehouse_id,
                    rel_wh.warehouse_name AS related_warehouse_name,
                    staff.fname,
-                   staff.lname
+                   staff.lname,
+                   usr.userdesc AS transaction_userdesc
             FROM warehouse_stock_movement wsm
             INNER JOIN warehouse_floor src
                 ON src.warehouse_floor_id = wsm.floor_id
@@ -243,6 +250,8 @@ function find_transfer_pair($link, $row)
                 ON itemfile.itmcde = wsm.itmcde
             LEFT JOIN warehouse_staff staff
                 ON staff.warehouse_staff_id = wsm.warehouse_staff_id
+            LEFT JOIN users usr
+                ON usr.usercode = wsm.usercode
             WHERE wsm.recid <> ?
               AND wsm.movement_type = ?
               AND wsm.floor_id = ?
@@ -1088,7 +1097,9 @@ if (!$is_entry_page) {
             LEFT JOIN itemfile
                 ON itemfile.itmcde = wsm.itmcde
             LEFT JOIN warehouse_staff staff
-                ON staff.warehouse_staff_id = wsm.warehouse_staff_id"
+                ON staff.warehouse_staff_id = wsm.warehouse_staff_id
+            LEFT JOIN users usr
+                ON usr.usercode = wsm.usercode"
         . $where_sql .
         " ORDER BY " . implode(', ', array_unique($order_by)) . "
           LIMIT 150";
@@ -1369,6 +1380,7 @@ if ($show_form) {
                                                 )), ' /');
                                             }
                                             $staff_label = trim((string)$transaction['fname'] . ' ' . (string)$transaction['lname']);
+                                            $user_label = trim((string)$transaction['transaction_userdesc']);
                                             $view_payload = array(
                                                 'movement_id' => $transaction['display_movement_id'],
                                                 'movement_date' => display_movement_datetime($transaction['movement_date']),
@@ -1379,7 +1391,7 @@ if ($show_form) {
                                                 'source_floor' => $source_label,
                                                 'related_floor' => $related_label,
                                                 'staff' => $staff_label,
-                                                'usercode' => $transaction['usercode'],
+                                                'usercode' => $user_label,
                                                 'remarks' => (string)$transaction['remarks']
                                             );
                                         ?>
@@ -1415,11 +1427,13 @@ if ($show_form) {
                                                     </div>
                                                     <div class="transaction-meta-block">
                                                         <span class="transaction-meta-label">User</span>
-                                                        <span class="transaction-meta-value"><?php echo h($transaction['usercode'] !== '' ? $transaction['usercode'] : '-'); ?></span>
+                                                        <span class="transaction-meta-value"><?php echo h($user_label !== '' ? $user_label : '-'); ?></span>
+                                                    </div>
+                                                    <div class="transaction-meta-block">
+                                                        <span class="transaction-meta-label">Remarks</span>
+                                                        <span class="transaction-meta-value"><?php echo h(trim((string)$transaction['remarks']) !== '' ? $transaction['remarks'] : '-'); ?></span>
                                                     </div>
                                                 </div>
-
-                                                <div class="transaction-remarks"><?php echo h(trim((string)$transaction['remarks']) !== '' ? $transaction['remarks'] : 'No remarks provided.'); ?></div>
 
                                                 <div class="d-flex flex-wrap gap-2 mt-3">
                                                     <button
@@ -2256,7 +2270,7 @@ if ($show_form) {
 
         if (quantityInput) {
             quantityInput.addEventListener('input', function () {
-                updateSaveButtonState(true);
+                updateSaveButtonState(false);
             });
         }
 

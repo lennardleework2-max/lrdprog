@@ -11,8 +11,12 @@
     - example: `03/18/2026 10:06PM`
   - For `REMOVE STOCK` and `TRANSFER STOCK`, client-side save validation now also compares entered quantity against the fetched current available stock:
     - the save button is disabled when quantity is greater than available stock
-    - an `Insufficient stock` alert is shown before submit when the entered quantity exceeds available stock
+    - an `Insufficient stock` alert is shown only when save is pressed and the entered quantity exceeds available stock
     - backend stock validation remains active as the final safeguard
+  - Latest-transaction display fields were refined:
+    - `Remarks` is now rendered as its own info block in the card grid
+    - `Warehouse Staff` uses the full `warehouse_staff` name
+    - `User` now resolves from `users.userdesc` instead of showing the raw saved `usercode`
 
 ## Customer Sales Report (2026-03-21)
 
