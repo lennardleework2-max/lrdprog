@@ -1,5 +1,15 @@
 # LRD Program - Project Notes
 
+## Warehouse Transactions View-Only Update (2026-03-22)
+
+- `mf_warehouse_transaction.php`
+  - The transaction-details modal on the latest-transactions page is now view-only.
+  - The `Edit Transaction` footer action was removed from the modal.
+  - If an edit querystring is passed into this shared page, it now falls back to a warning that editing is disabled instead of opening edit mode.
+  - Displayed movement dates in the latest-transactions cards and modal now use this format:
+    - `MM/DD/YYYY HH:MMPM`
+    - example: `03/18/2026 10:06PM`
+
 ## Customer Sales Report (2026-03-21)
 
 - `customer_sales_pdf.php`

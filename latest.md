@@ -1,5 +1,11 @@
 # Latest
 
+## 2026-03-22
+- Updated `mf_warehouse_transaction.php` latest-transactions UI:
+  - transaction details modal is now view-only and no longer shows `Edit Transaction`
+  - edit-mode access through this page is blocked and shows a disabled-edit warning instead
+  - movement dates on the cards and in the modal now use `MM/DD/YYYY HH:MMPM` format, for example `03/18/2026 10:06PM`
+
 ## 2026-03-21
 - Reworked `customer_sales_pdf.php` into the actual `Customer Sales Report` filter page with:
   - `Date To` as the report anchor date

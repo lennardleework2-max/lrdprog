@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-03-22
+- Updated `mf_warehouse_transaction.php` latest-transactions view to make transaction details view-only:
+  - removed the `Edit Transaction` action from the details modal
+  - blocked edit-mode entry handling in this shared page and now shows a warning that editing is disabled
+- Updated warehouse-transaction datetime display formatting in `mf_warehouse_transaction.php` from `YYYY-MM-DD HH:MM` to `MM/DD/YYYY HH:MMPM` (example: `03/18/2026 10:06PM`) in both the transaction cards and the details modal.
+
 ## 2026-03-21
 - Replaced the copied draft UI in `customer_sales_pdf.php` with a dedicated `Customer Sales Report` filter page.
 - Added `customer_sales_rep.php` as a new PDF/XLSX export backend for Customer Sales, matching the `top_sales_item_pdf.php` landscape report style.
