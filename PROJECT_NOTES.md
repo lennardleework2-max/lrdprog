@@ -1,5 +1,20 @@
 # LRD Program - Project Notes
 
+## Inventory Adjustment Warehouse Fields (2026-03-22)
+
+- `trn_invadjfile2.php`
+  - Added a read-only `User` field below remarks that displays `users.userdesc` from the current session user.
+  - Added `Warehouse`, `Warehouse Floor`, and `Warehouse Staff` selectors to both add and edit inventory-adjustment line-item modals.
+  - The warehouse-floor dropdown now depends on the selected warehouse and displays `warehouse_floor.floor_no`.
+
+- `trn_invadjfile2_ajax.php`
+  - Inventory-adjustment header saves now store the current session `usercode` in `tranfile1.usercode`.
+  - Inventory-adjustment line saves and edits now persist:
+    - `tranfile2.warcde`
+    - `tranfile2.warehouse_floor_id`
+    - `tranfile2.warehouse_staff_id`
+  - Edit payloads now return those warehouse-related fields so the edit modal can preload them correctly.
+
 ## Warehouse Code Schema Update (2026-03-22)
 
 - `mf_warehouse.php`

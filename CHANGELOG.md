@@ -1,6 +1,12 @@
 # Changelog
 
 ## 2026-03-22
+- Updated `trn_invadjfile2.php` and `trn_invadjfile2_ajax.php` for the inventory-adjustment warehouse metadata flow:
+  - added `Warehouse`, dependent `Warehouse Floor`, and `Warehouse Staff` fields to the add/edit line-item modals
+  - warehouse-floor options now refresh from the selected warehouse and display `warehouse_floor.floor_no`
+  - line-item saves now write `tranfile2.warcde`, `tranfile2.warehouse_floor_id`, and `tranfile2.warehouse_staff_id`
+  - added a read-only `User` field below remarks that shows `users.userdesc`
+  - header saves now persist the current session `usercode` into `tranfile1.usercode`
 - Updated `mf_warehouse.php`, `mf_warehouse_floor.php`, and `pager/pager_ajax.class.php` for the warehouse schema rename:
   - warehouse pages now use `warehouse.warcde` instead of `warehouse_id`
   - the Warehouse -> Floors redirect now posts `warcde`

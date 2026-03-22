@@ -21,6 +21,16 @@
     $xret["error1"] = 0;
     $xret["error2"] = 0;
     $xret["error3"] = 0;
+    $xret["error4"] = 0;
+    $xret["error5"] = 0;
+    $xret["error6"] = 0;
+
+    $current_usercode = '';
+    if(isset($_POST['usercode_1']) && trim((string)$_POST['usercode_1']) !== ''){
+        $current_usercode = trim((string)$_POST['usercode_1']);
+    }else if(isset($_SESSION['usercode']) && trim((string)$_SESSION['usercode']) !== ''){
+        $current_usercode = trim((string)$_SESSION['usercode']);
+    }
 
 
 
@@ -233,6 +243,7 @@
                 // $arr_record['paydetails'] 	= $_POST['payment_details_1'];
                 $arr_record['ordernum'] 	= $_POST['ordernum_1'];
                 $arr_record['remarks'] 	= $_POST['remarks_1'];
+                $arr_record['usercode'] 	= $current_usercode;
                 
                 $arr_record['trncde'] 	= $trncde;
     
@@ -269,6 +280,7 @@
                 // $arr_record_update['paydetails'] 	= $_POST['payment_details_1'];
                 $arr_record_update['remarks'] 	= $_POST['remarks_1'];
                 $arr_record_update['ordernum'] 	= $_POST['ordernum_1'];
+                $arr_record_update['usercode'] 	= $current_usercode;
                 PDO_UpdateRecord($link,"tranfile1",$arr_record_update,"recid = ?",array($recid),false); 
             }
 
@@ -339,6 +351,39 @@
 
         }       
 
+        if(!isset($_POST['warcde_add']) || empty($_POST['warcde_add'])){
+
+            if($xret["error1"] == 1 || $xret["error2"] == 1 || $xret["error3"] == 1){
+                $xret["msg"] .= "</br>";
+            }
+
+            $xret["msg"] .= "<b>Warehouse</b> Cannot Be Empty";
+            $xret["status"] = 0;
+            $xret["error4"] = 1;
+        }
+
+        if(!isset($_POST['warehouse_floor_id_add']) || empty($_POST['warehouse_floor_id_add'])){
+
+            if($xret["error1"] == 1 || $xret["error2"] == 1 || $xret["error3"] == 1 || $xret["error4"] == 1){
+                $xret["msg"] .= "</br>";
+            }
+
+            $xret["msg"] .= "<b>Warehouse Floor</b> Cannot Be Empty";
+            $xret["status"] = 0;
+            $xret["error5"] = 1;
+        }
+
+        if(!isset($_POST['warehouse_staff_id_add']) || empty($_POST['warehouse_staff_id_add'])){
+
+            if($xret["error1"] == 1 || $xret["error2"] == 1 || $xret["error3"] == 1 || $xret["error4"] == 1 || $xret["error5"] == 1){
+                $xret["msg"] .= "</br>";
+            }
+
+            $xret["msg"] .= "<b>Warehouse Staff</b> Cannot Be Empty";
+            $xret["status"] = 0;
+            $xret["error6"] = 1;
+        }
+
 
 
         if($xret["status"] ==  1){
@@ -357,6 +402,7 @@
                 // $arr_record_file1['paydetails'] = $_POST['payment_details_1'];
                 $arr_record_file1['remarks'] 	= $_POST['remarks_1'];
                 $arr_record_file1['ordernum'] 	= $_POST['ordernum_1'];
+                $arr_record_file1['usercode']   = $current_usercode;
                 $arr_record_file1['trncde']     = $trncde;
     
                 PDO_InsertRecord($link,'tranfile1',$arr_record_file1, false);
@@ -373,6 +419,9 @@
             $arr_record['stkqty'] 	= $_POST['itmqty_add'];
             $arr_record['untprc'] 	= $_POST['price_add'];
             $arr_record['extprc'] 	= $_POST['amount_add'];
+            $arr_record['warcde'] 	= $_POST['warcde_add'];
+            $arr_record['warehouse_floor_id'] = $_POST['warehouse_floor_id_add'];
+            $arr_record['warehouse_staff_id'] = $_POST['warehouse_staff_id_add'];
             $arr_record['trncde']     = 'ADJ';
     
             PDO_InsertRecord($link,'tranfile2',$arr_record, false);
@@ -384,7 +433,7 @@
 
     if(isset($_POST["event_action"]) && $_POST["event_action"] == "getEdit"){
 
-        $select_tranfile2="SELECT tranfile2.itmcde as 'itmcde', tranfile2.itmqty, tranfile2.untprc, tranfile2.extprc, itemfile.itmdsc, tranfile2.recid as tranfile2_recid FROM tranfile2 LEFT JOIN itemfile ON itemfile.itmcde = tranfile2.itmcde WHERE tranfile2.recid=?";
+        $select_tranfile2="SELECT tranfile2.itmcde as 'itmcde', tranfile2.itmqty, tranfile2.untprc, tranfile2.extprc, tranfile2.warcde, tranfile2.warehouse_floor_id, tranfile2.warehouse_staff_id, itemfile.itmdsc, tranfile2.recid as tranfile2_recid FROM tranfile2 LEFT JOIN itemfile ON itemfile.itmcde = tranfile2.itmcde WHERE tranfile2.recid=?";
         $stmt_tranfile2	= $link->prepare($select_tranfile2);
         $stmt_tranfile2->execute(array($_POST["recid"]));
         $rs_tranfile2 = $stmt_tranfile2->fetch();
@@ -402,6 +451,9 @@
             "itmqty" =>  $rs_tranfile2["itmqty"],
             "untprc" =>  $rs_tranfile2["untprc"],
             "extprc" =>  $rs_tranfile2["extprc"],
+            "warcde" =>  isset($rs_tranfile2["warcde"]) ? $rs_tranfile2["warcde"] : '',
+            "warehouse_floor_id" =>  isset($rs_tranfile2["warehouse_floor_id"]) ? $rs_tranfile2["warehouse_floor_id"] : '',
+            "warehouse_staff_id" =>  isset($rs_tranfile2["warehouse_staff_id"]) ? $rs_tranfile2["warehouse_staff_id"] : '',
             "recid" =>  $rs_tranfile2["tranfile2_recid"]
         ];
 
@@ -451,7 +503,40 @@
             $xret["status"] = 0;
             $xret["error3"] = 1;
 
-        }      
+        }
+
+        if(!isset($_POST['warcde_edit']) || empty($_POST['warcde_edit'])){
+
+            if($xret["error1"] == 1 || $xret["error2"] == 1 || $xret["error3"] == 1){
+                $xret["msg"] .= "</br>";
+            }
+
+            $xret["msg"] .= "<b>Warehouse</b> Cannot Be Empty";
+            $xret["status"] = 0;
+            $xret["error4"] = 1;
+        }
+
+        if(!isset($_POST['warehouse_floor_id_edit']) || empty($_POST['warehouse_floor_id_edit'])){
+
+            if($xret["error1"] == 1 || $xret["error2"] == 1 || $xret["error3"] == 1 || $xret["error4"] == 1){
+                $xret["msg"] .= "</br>";
+            }
+
+            $xret["msg"] .= "<b>Warehouse Floor</b> Cannot Be Empty";
+            $xret["status"] = 0;
+            $xret["error5"] = 1;
+        }
+
+        if(!isset($_POST['warehouse_staff_id_edit']) || empty($_POST['warehouse_staff_id_edit'])){
+
+            if($xret["error1"] == 1 || $xret["error2"] == 1 || $xret["error3"] == 1 || $xret["error4"] == 1 || $xret["error5"] == 1){
+                $xret["msg"] .= "</br>";
+            }
+
+            $xret["msg"] .= "<b>Warehouse Staff</b> Cannot Be Empty";
+            $xret["status"] = 0;
+            $xret["error6"] = 1;
+        }
         
         
         if($xret["status"] == 1){
@@ -462,6 +547,9 @@
             $arr_record['stkqty'] 	= $_POST['itmqty_edit'];
             $arr_record['untprc'] 	= $_POST['price_edit'];
             $arr_record['extprc'] 	= $_POST['amount_edit'];
+            $arr_record['warcde'] 	= $_POST['warcde_edit'];
+            $arr_record['warehouse_floor_id'] = $_POST['warehouse_floor_id_edit'];
+            $arr_record['warehouse_staff_id'] = $_POST['warehouse_staff_id_edit'];
     
             PDO_UpdateRecord($link,"tranfile2",$arr_record,"recid = ?",array($_POST['recid']));   
             $xret["msg"] = "submitEdit";
