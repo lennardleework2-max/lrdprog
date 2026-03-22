@@ -1,5 +1,16 @@
 # LRD Program - Project Notes
 
+## Stock Transfer Entry Reuse (2026-03-22)
+
+- `stock_transfer_transaction.php`
+  - New stock-transfer list page copied from the inventory-adjustment list-page pattern.
+  - It reuses the existing pager and CRUD handlers by passing `trncde='STT'`.
+
+- `trn_invadjfile2.php`
+  - The shared detail page now derives its label set, back target, and first doc-number fallback from `trncde_hidden`.
+  - `ADJ` stays on the inventory-adjustment wording and `ADJ-00001`.
+  - `STT` switches to `Stock Transfer`, goes back to `stock_transfer_transaction.php`, and defaults new docs to `STT-0000001`.
+
 ## Inventory Adjustment Warehouse Fields (2026-03-22)
 
 - `trn_invadjfile2.php`

@@ -15,6 +15,20 @@ date_default_timezone_set('Asia/Manila');
 
 $header_usercode = '';
 $is_edit_mode = false;
+$trncde_value = isset($_POST['trncde_hidden']) ? trim((string)$_POST['trncde_hidden']) : 'ADJ';
+$page_title = 'Inventory Adjustments';
+$add_modal_title = 'Add Inventory Adjustments';
+$edit_modal_title = 'Edit Inventory Adjustment';
+$back_page = 'trn_invadjfile1.php';
+$default_docnum = 'ADJ-00001';
+
+if($trncde_value === 'STT'){
+    $page_title = 'Stock Transfer';
+    $add_modal_title = 'Add Stock Transfer';
+    $edit_modal_title = 'Edit Stock Transfer';
+    $back_page = 'stock_transfer_transaction.php';
+    $default_docnum = 'STT-0000001';
+}
 
 if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
     $is_edit_mode = true;
@@ -56,14 +70,14 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
 
     }
 }else{
-    $select_db_docnum="SELECT * FROM tranfile1  WHERE trncde='".$_POST['trncde_hidden']."' ORDER BY docnum DESC LIMIT 1";
+    $select_db_docnum="SELECT * FROM tranfile1  WHERE trncde='".$trncde_value."' ORDER BY docnum DESC LIMIT 1";
     $stmt_docnum	= $link->prepare($select_db_docnum);
     $stmt_docnum->execute();
     $rs_docnum = $stmt_docnum->fetch();
     
     $docnum  = Lnexts($rs_docnum['docnum']);
     if(empty($rs_docnum)){
-        $docnum  = "ADJ-00001";
+        $docnum  = $default_docnum;
     }
 
     $trndate = date('m/d/Y');
@@ -201,7 +215,7 @@ while($rs_staff = $stmt_staff->fetch()){
                                             <div class="row">
                                                 <div class="col-md-4 col-12">
                                                     <div class="m-2">
-                                                        <h2>Inventory Adjustments</h2>
+                                                        <h2><?php echo htmlspecialchars($page_title, ENT_QUOTES); ?></h2>
                                                     </div>
                                                 </div>
 
@@ -342,7 +356,7 @@ while($rs_staff = $stmt_staff->fetch()){
                 <div class="modal-dialog">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title" id="exampleModalLabel">Add Inventory Adjustments</h5>
+                            <h5 class="modal-title" id="exampleModalLabel"><?php echo htmlspecialchars($add_modal_title, ENT_QUOTES); ?></h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
@@ -430,7 +444,7 @@ while($rs_staff = $stmt_staff->fetch()){
                 <div class="modal-dialog">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title" id="exampleModalLabel">Edit Inventory Adjustment</h5>
+                            <h5 class="modal-title" id="exampleModalLabel"><?php echo htmlspecialchars($edit_modal_title, ENT_QUOTES); ?></h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
@@ -672,7 +686,7 @@ while($rs_staff = $stmt_staff->fetch()){
 
             document.forms.myforms.target = "_self";
             document.forms.myforms.method = "post";
-            document.forms.myforms.action = "trn_invadjfile1.php";
+            document.forms.myforms.action = <?php echo json_encode($back_page); ?>;
             document.forms.myforms.submit();
         }
 
@@ -1007,7 +1021,7 @@ while($rs_staff = $stmt_staff->fetch()){
                             
                             document.forms.myforms.target = "_self";
                             document.forms.myforms.method = "post";
-                            document.forms.myforms.action = "trn_invadjfile1.php";
+                            document.forms.myforms.action = <?php echo json_encode($back_page); ?>;
                             document.forms.myforms.submit();
                             return;
                         }
