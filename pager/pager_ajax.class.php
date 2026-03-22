@@ -69,9 +69,9 @@ if($_POST["event_action"] == "delete"){
 
     try{
         if($_POST['tablename'] == "warehouse"){
-            $warehouse_id = isset($rs_delete["warehouse_id"]) ? $rs_delete["warehouse_id"] : "";
-            if($warehouse_id === ""){
-                throw new Exception("Warehouse ID is missing.");
+            $warcde = isset($rs_delete["warcde"]) ? $rs_delete["warcde"] : "";
+            if($warcde === ""){
+                throw new Exception("Warehouse code is missing.");
             }
 
             $link->beginTransaction();
@@ -80,13 +80,13 @@ if($_POST["event_action"] == "delete"){
                                       FROM warehouse_stock_movement wsm
                                       INNER JOIN warehouse_floor wf
                                         ON wf.warehouse_floor_id = wsm.floor_id
-                                      WHERE wf.warehouse_id = ?";
+                                      WHERE wf.warcde = ?";
             $stmt_delete_movement = $link->prepare($delete_movement_query);
-            $stmt_delete_movement->execute(array($warehouse_id));
+            $stmt_delete_movement->execute(array($warcde));
 
-            $delete_floor_query = "DELETE FROM warehouse_floor WHERE warehouse_id = ?";
+            $delete_floor_query = "DELETE FROM warehouse_floor WHERE warcde = ?";
             $stmt_delete_floor = $link->prepare($delete_floor_query);
-            $stmt_delete_floor->execute(array($warehouse_id));
+            $stmt_delete_floor->execute(array($warcde));
 
             $delete_warehouse_query = "DELETE FROM warehouse WHERE recid = ?";
             $stmt_delete_warehouse = $link->prepare($delete_warehouse_query);
@@ -336,14 +336,14 @@ else if($_POST["event_action"] == "insert")
 
         if($_POST["tablename"] == "warehouse_floor"){
             if(
-                (!isset($arr_record_data["warehouse_id"]) || $arr_record_data["warehouse_id"] === "" || $arr_record_data["warehouse_id"] === NULL) &&
+                (!isset($arr_record_data["warcde"]) || $arr_record_data["warcde"] === "" || $arr_record_data["warcde"] === NULL) &&
                 isset($_SESSION["warehouse_floor_context_id"]) &&
                 $_SESSION["warehouse_floor_context_id"] !== ""
             ){
-                $arr_record_data["warehouse_id"] = $_SESSION["warehouse_floor_context_id"];
+                $arr_record_data["warcde"] = $_SESSION["warehouse_floor_context_id"];
             }
 
-            if(!isset($arr_record_data["warehouse_id"]) || $arr_record_data["warehouse_id"] === "" || $arr_record_data["warehouse_id"] === NULL){
+            if(!isset($arr_record_data["warcde"]) || $arr_record_data["warcde"] === "" || $arr_record_data["warcde"] === NULL){
                 $xret["status"] = 0;
                 $xret["msg"] = "Warehouse context is missing. Please go back to Warehouse and click Floors again.";
             }

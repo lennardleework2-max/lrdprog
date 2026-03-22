@@ -1,6 +1,10 @@
 # Latest
 
 ## 2026-03-22
+- Updated warehouse master pages for the new warehouse-code schema:
+  - `mf_warehouse.php` now uses `warcde`
+  - `mf_warehouse_floor.php` now loads and filters floors by `warcde`
+  - the pager AJAX handler now carries warehouse-floor context and delete cleanup by `warcde`
 - Updated `mf_warehouse_transaction.php` latest-transactions UI:
   - transaction details modal is now view-only and no longer shows `Edit Transaction`
   - edit-mode access through this page is blocked and shows a disabled-edit warning instead

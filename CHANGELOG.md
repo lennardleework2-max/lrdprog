@@ -1,6 +1,11 @@
 # Changelog
 
 ## 2026-03-22
+- Updated `mf_warehouse.php`, `mf_warehouse_floor.php`, and `pager/pager_ajax.class.php` for the warehouse schema rename:
+  - warehouse pages now use `warehouse.warcde` instead of `warehouse_id`
+  - the Warehouse -> Floors redirect now posts `warcde`
+  - warehouse-floor filtering and context injection now use `warehouse_floor.warcde`
+  - warehouse delete cleanup now removes matching floors and stock-movement rows by `warcde`
 - Updated `mf_warehouse_transaction.php` latest-transactions view to make transaction details view-only:
   - removed the `Edit Transaction` action from the details modal
   - blocked edit-mode entry handling in this shared page and now shows a warning that editing is disabled

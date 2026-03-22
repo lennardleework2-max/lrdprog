@@ -6,26 +6,26 @@ error_reporting(E_ALL);
 require "includes/main_header.php";
 require "pager/pager_main.class.php";
 
-$warehouse_id = '';
-if(isset($_POST['warehouse_id'])){
-    $warehouse_id = trim($_POST['warehouse_id']);
-    $_SESSION['warehouse_floor_context_id'] = $warehouse_id;
+$warcde = '';
+if(isset($_POST['warcde'])){
+    $warcde = trim($_POST['warcde']);
+    $_SESSION['warehouse_floor_context_id'] = $warcde;
 }else if(isset($_SESSION['warehouse_floor_context_id'])){
-    $warehouse_id = trim($_SESSION['warehouse_floor_context_id']);
+    $warcde = trim($_SESSION['warehouse_floor_context_id']);
 }
 $warehouse_name = '';
 
-if($warehouse_id !== ''){
-    $select_db_wh = "SELECT warehouse_name FROM warehouse WHERE warehouse_id=?";
+if($warcde !== ''){
+    $select_db_wh = "SELECT warehouse_name FROM warehouse WHERE warcde=?";
     $stmt_wh = $link->prepare($select_db_wh);
-    $stmt_wh->execute(array($warehouse_id));
+    $stmt_wh->execute(array($warcde));
     $rs_wh = $stmt_wh->fetch();
     if(!empty($rs_wh)){
         $warehouse_name = $rs_wh["warehouse_name"];
     }
 }
 
-$has_valid_warehouse = ($warehouse_id !== '' && $warehouse_name !== '');
+$has_valid_warehouse = ($warcde !== '' && $warehouse_name !== '');
 ?>
 
     <style>
@@ -81,8 +81,8 @@ $has_valid_warehouse = ($warehouse_id !== '' && $warehouse_name !== '');
                             $table1->table_order_by["field"] = "floor_no";
                             $table1->table_order_by["type"] = "ASC";
 
-                            $table1->table_filter_field = "warehouse_id";
-                            $table1->table_filter_value = $warehouse_id;
+                            $table1->table_filter_field = "warcde";
+                            $table1->table_filter_value = $warcde;
 
                             $table1->field_type_dis["floor_name"] = "text";
                             $table1->field_name_dis["floor_name"] = "floor_name";
@@ -98,7 +98,7 @@ $has_valid_warehouse = ($warehouse_id !== '' && $warehouse_name !== '');
                             $table1->field_is_required["floor_name"] = "N";
                             $table1->field_is_unique["floor_name"] = "N";
 
-                            $table1->field_type_crud["floor_no"] = "number";
+                            $table1->field_type_crud["floor_no"] = "text";
                             $table1->field_name_crud["floor_no"] = "floor_no";
                             $table1->field_header_crud["floor_no"] = "Floor No";
                             $table1->field_is_required["floor_no"] = "N";

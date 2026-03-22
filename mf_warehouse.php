@@ -21,8 +21,8 @@ require "pager/pager_main.class.php";
     </style>
 
     <script>
-        function goWarehouseFloors(warehouseId){
-            if(!warehouseId){
+        function goWarehouseFloors(warcde){
+            if(!warcde){
                 return;
             }
             var form = document.createElement("form");
@@ -31,8 +31,8 @@ require "pager/pager_main.class.php";
 
             var input = document.createElement("input");
             input.type = "hidden";
-            input.name = "warehouse_id";
-            input.value = warehouseId;
+            input.name = "warcde";
+            input.value = warcde;
 
             form.appendChild(input);
             document.body.appendChild(form);
@@ -66,15 +66,15 @@ require "pager/pager_main.class.php";
                             $table1->view_crud = $view_crud;
                             $table1->export_crud = $export_crud;
 
-                            $table1->field_code = "warehouse_id";
+                            $table1->field_code = "warcde";
                             $table1->field_code_init = "WHS-0000001";
 
                             $table1->table_order_by["field"] = "warehouse_name";
                             $table1->table_order_by["type"] = "ASC";
 
-                            $table1->field_type_dis["warehouse_id"] = "text";
-                            $table1->field_name_dis["warehouse_id"] = "warehouse_id";
-                            $table1->field_header_dis["warehouse_id"] = "Warehouse ID";
+                            // $table1->field_type_dis["warcde"] = "text";
+                            // $table1->field_name_dis["warcde"] = "warcde";
+                            // $table1->field_header_dis["warcde"] = "Warehouse ID";
 
                             $table1->field_type_dis["warehouse_name"] = "text";
                             $table1->field_name_dis["warehouse_name"] = "warehouse_name";
@@ -104,7 +104,7 @@ require "pager/pager_main.class.php";
 
                             $table1->btn_header[0] = "Floors";
                             $table1->btn_logo[0] = "<i class='fas fa-layer-group'></i>";
-                            $table1->btn_function[0] = "goWarehouseFloors('{warehouse_id}')";
+                            $table1->btn_function[0] = "goWarehouseFloors('{warcde}')";
                             $table1->btn_color[0] = "#ff8c00";
 
                             $table1->alert_del = "Y";
@@ -113,7 +113,7 @@ require "pager/pager_main.class.php";
                             $table1->alert_del_logo_h = $logo_height;
 
                             $table1->ua_field1  = "warehouse_name";
-                            $table1->ua_field2  = "warehouse_id";
+                            $table1->ua_field2  = "warcde";
 
                             $table1->display_table();
                         ?>

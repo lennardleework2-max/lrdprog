@@ -1,5 +1,19 @@
 # LRD Program - Project Notes
 
+## Warehouse Code Schema Update (2026-03-22)
+
+- `mf_warehouse.php`
+  - The warehouse master page now uses `warehouse.warcde` as its record code field.
+  - The Floors action now posts `warcde` to the floor page.
+
+- `mf_warehouse_floor.php`
+  - Warehouse floor context now loads from `warcde` instead of `warehouse_id`.
+  - Warehouse name lookup and floor-table filtering now use `warehouse_floor.warcde`.
+
+- `pager/pager_ajax.class.php`
+  - Warehouse delete cleanup now removes related `warehouse_floor` and `warehouse_stock_movement` rows by `warcde`.
+  - New `warehouse_floor` records now inherit the active warehouse context through `warcde`.
+
 ## Warehouse Transactions View-Only Update (2026-03-22)
 
 - `mf_warehouse_transaction.php`
