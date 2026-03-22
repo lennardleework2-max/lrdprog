@@ -1373,7 +1373,7 @@ if ($show_form) {
                                                 'movement_id' => $transaction['display_movement_id'],
                                                 'movement_date' => display_movement_datetime($transaction['movement_date']),
                                                 'movement_type' => $transaction['display_movement_type'],
-                                                'item_label' => item_label($transaction),
+                                                'item_label' => $transaction['itmdsc'],
                                                 'qty' => qty_display($transaction['qty']),
                                                 'stkqty' => $transaction['display_stkqty_label'],
                                                 'source_floor' => $source_label,
