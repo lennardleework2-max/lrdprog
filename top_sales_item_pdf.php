@@ -268,7 +268,8 @@ $select_db = "SELECT base.itmdsc,
 
         $item_desc = normalize_item_text($rs_main["itmdsc"]);
         $item_lines = wrap_str_two_lines($item_desc, 120, 9, 20);
-        $row_height = count($item_lines) > 1 ? 25 : 15;
+        $line_count = count($item_lines);
+        $row_height = 15 + (max(1, $line_count) - 1) * 10;
         if(($xtop - $row_height) <= 60){
             $pdf->ezNewPage();
             $xtop = 485;
@@ -276,10 +277,11 @@ $select_db = "SELECT base.itmdsc,
 
                 $xtop -= 32;
         $row_y = $xtop;
-        $pdf->ezPlaceData($col_item,$row_y,$item_lines[0]??'',9,"left");
-        if(isset($item_lines[1]) && !empty($item_lines[1])){
-            $pdf->ezPlaceData($col_item,$row_y-10,$item_lines[1],9,"left");
-            $xtop -= 10;
+        foreach($item_lines as $item_line_index => $item_line_text){
+            $pdf->ezPlaceData($col_item, $row_y - ($item_line_index * 10), $item_line_text, 9, "left");
+        }
+        if($line_count > 1){
+            $xtop -= (($line_count - 1) * 10);
         }
         $pdf->ezPlaceData($col_amount,$row_y,number_format($rs_main["tot_extprc"],"2"),9,"right");
         $pdf->ezPlaceData($col_qty,$row_y,number_format($rs_main["tot_itmqty"],"0"),9,"right");
@@ -350,10 +352,10 @@ $select_db = "SELECT base.itmdsc,
             return array('');
         }
 
-        // Keep single-line values for tab/xlsx export, but clamp length
-        // so long descriptions do not spill into numeric columns.
+        // Keep full text for tab/xlsx export and let the spreadsheet handle
+        // the cell width instead of truncating with ellipses.
         if(get_class($pdf) == 'tab_ezpdf'){
-            return array(trim_text_by_chars($string, $tab_max_chars));
+            return array($string);
         }
 
         $max_wid -= 5;
@@ -361,37 +363,37 @@ $select_db = "SELECT base.itmdsc,
             return array($string);
         }
 
-        $line1 = fit_text_to_width($string, $max_wid, $fsize, false);
-        $remaining = ltrim(substr($string, strlen($line1)));
+        $wrapped_lines = array();
+        $remaining = $string;
 
-        // Try to wrap on a word boundary for the first line.
-        $last_space = strrpos($line1, ' ');
-        if($last_space !== false && $last_space > 0){
-            $line1 = rtrim(substr($line1, 0, $last_space));
-            $remaining = ltrim(substr($string, strlen($line1)));
+        while($remaining !== ''){
+            if($pdf->getTextWidth($fsize, $remaining) <= $max_wid){
+                $wrapped_lines[] = $remaining;
+                break;
+            }
+
+            $line = fit_text_to_width($remaining, $max_wid, $fsize, false);
+            if($line === ''){
+                $line = substr($remaining, 0, 1);
+            }
+
+            $last_space = strrpos($line, ' ');
+            if($last_space !== false && $last_space > 0){
+                $candidate_line = rtrim(substr($line, 0, $last_space));
+                if($candidate_line !== ''){
+                    $line = $candidate_line;
+                }
+            }
+
+            $wrapped_lines[] = rtrim($line);
+            $remaining = ltrim(substr($remaining, strlen($line)));
         }
 
-        $line2 = fit_text_to_width($remaining, $max_wid, $fsize, true);
-        return array($line1, $line2);
-    }
-
-    function trim_text_by_chars($string, $max_chars = 52)
-    {
-        $string = trim((string)$string);
-        if($string === ''){
-            return '';
+        if(empty($wrapped_lines)){
+            $wrapped_lines[] = $string;
         }
 
-        if(strlen($string) <= $max_chars){
-            return $string;
-        }
-
-        $cut = rtrim(substr($string, 0, $max_chars));
-        $last_space = strrpos($cut, ' ');
-        if($last_space !== false && $last_space > 0){
-            $cut = rtrim(substr($cut, 0, $last_space));
-        }
-        return $cut.'...';
+        return $wrapped_lines;
     }
 
     function normalize_item_text($string)
@@ -474,7 +476,6 @@ $select_db = "SELECT base.itmdsc,
 
 
 ?>
-
 
 
 
