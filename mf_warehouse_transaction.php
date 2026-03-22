@@ -1390,7 +1390,7 @@ if ($show_form) {
                                                     <span class="badge bg-secondary"><?php echo h($transaction['display_movement_type']); ?></span>
                                                 </div>
                                                 <div class="transaction-id"><?php echo h($transaction['display_movement_id']); ?></div>
-                                                <div class="transaction-item mt-2"><?php echo h(item_label($transaction)); ?></div>
+                                                <div class="transaction-item mt-2"><?php echo h($transaction['itmdsc']); ?></div>
 
                                                 <div class="transaction-meta">
                                                     <div class="transaction-meta-block">
