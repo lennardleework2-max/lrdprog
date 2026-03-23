@@ -9,6 +9,7 @@
   - added current-stock display and save-time insufficient-quantity blocking based on the selected source warehouse, source floor, item, and transaction date
   - corrected the current-stock lookup to match the requested SQL filter using `tranfile1.trndte`, `tranfile2.warcde`, `tranfile2.warehouse_floor_id`, and `tranfile2.itmcde`
   - removed the quantity-field live stock AJAX refresh so the modal no longer reloads while typing quantity
+  - removed `Warehouse Staff` from the stock-transfer list table to save space and increased spacing between the `Edit` and `Delete` actions
 
 ## 2026-03-22
 - Updated `customer_sales_rep.php` XLSX export generation:

@@ -24,6 +24,9 @@
     - `tranfile2.itmcde`
   - The modal no longer refreshes current stock while typing quantity.
   - Current stock now refreshes only when the selected item, source warehouse, source floor, or transfer date changes, and the save button still revalidates quantity before insert.
+  - The stock-transfer table no longer shows `Warehouse Staff` in the list view.
+  - `Warehouse Staff` remains available in the add/edit modals and still saves into both transfer-detail inserts.
+  - The `Edit` and `Delete` actions now render with larger spacing for easier use.
 
 ## Customer Sales XLSX Export Fix (2026-03-22)
 
