@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-03-23
+- Adjusted the `User` field layout in `trn_invadjfile2_shared.php` so the inventory-adjustment header now aligns with `Doc. Num.`, `Ref Number`, and `Remarks` while keeping the field at the smaller doc-number width.
 - Tightened the `User` field width in `stock_transfer_transaction_file2.php` so it now matches the `Doc. Num.` width instead of spanning the full row.
 - Updated `trn_invadjfile1_ajax_pager.php` for `trncde='STT'` list rendering so the stock transfer list now shows `Reference Number` in the right-side desktop summary slot instead of the always-zero `trntot` value.
 - Reworked `stock_transfer_transaction_file2.php` into a stock-transfer-specific entry page:

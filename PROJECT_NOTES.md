@@ -32,6 +32,12 @@
 - `trn_invadjfile1_ajax_pager.php`
   - The shared transaction-list pager now renders `Reference Number` in the right-hand desktop summary slot when `trncde='STT'`, so stock transfer rows no longer show the always-zero `trntot` there.
 
+## Inventory Adjustment Header Alignment (2026-03-23)
+
+- `trn_invadjfile2_shared.php`
+  - The `User` field wrapper was changed to use the same left spacing as the `Ref Number` and `Remarks` sections.
+  - The field keeps the narrower doc-number-sized width instead of stretching across the full row.
+
 ## Customer Sales XLSX Export Fix (2026-03-22)
 
 - `customer_sales_rep.php`

@@ -282,8 +282,8 @@ while($rs_staff = $stmt_staff->fetch()){
 
                                     <tr class="m-1 edit_row salesfile1" style="border-bottom:3px solid #cccccc ">
                                         <td colspan="3">
-                                            <div class="row px-2">
-                                                <div class="p-3 col-md-4 col-6">
+                                            <div class="m-3" style="max-width:33.333333%;min-width:260px;">
+                                                <div>
                                                     <label for="userdesc_display" style="font-weight:bold">User:</label>
                                                     <input type="text" class="form-control" name="userdesc_display" id="userdesc_display" value="<?php echo htmlspecialchars($display_userdesc, ENT_QUOTES); ?>" readonly>
                                                     <input type="hidden" name="usercode_1" id="usercode_1" value="<?php echo htmlspecialchars($display_usercode, ENT_QUOTES); ?>">
