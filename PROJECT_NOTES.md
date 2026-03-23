@@ -22,6 +22,8 @@
     - `tranfile2.warehouse_floor_id`
     - `tranfile1.trndte <= selected transfer date`
     - `tranfile2.itmcde`
+  - The modal no longer refreshes current stock while typing quantity.
+  - Current stock now refreshes only when the selected item, source warehouse, source floor, or transfer date changes, and the save button still revalidates quantity before insert.
 
 ## Customer Sales XLSX Export Fix (2026-03-22)
 

@@ -7,6 +7,7 @@
   - each saved transfer line now writes paired `tranfile2` stock rows for source-out and destination-in
   - save-time validation now blocks transfers when the requested quantity is higher than the current stock in the selected source location
   - the current-stock lookup now follows the requested joined SQL filter using source warehouse, source floor, transaction date, and item
+  - typing in quantity no longer triggers the current-stock AJAX refresh
 
 ## 2026-03-22
 - Updated `customer_sales_rep.php` XLSX export:

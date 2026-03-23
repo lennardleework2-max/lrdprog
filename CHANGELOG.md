@@ -8,6 +8,7 @@
   - transfer header saves now keep `tranfile1.trntot` at `0`, while transfer detail saves keep `tranfile2.untprc` and `tranfile2.extprc` at `0`
   - added current-stock display and save-time insufficient-quantity blocking based on the selected source warehouse, source floor, item, and transaction date
   - corrected the current-stock lookup to match the requested SQL filter using `tranfile1.trndte`, `tranfile2.warcde`, `tranfile2.warehouse_floor_id`, and `tranfile2.itmcde`
+  - removed the quantity-field live stock AJAX refresh so the modal no longer reloads while typing quantity
 
 ## 2026-03-22
 - Updated `customer_sales_rep.php` XLSX export generation:
