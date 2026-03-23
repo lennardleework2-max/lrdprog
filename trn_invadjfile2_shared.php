@@ -517,6 +517,7 @@ while($rs_staff = $stmt_staff->fetch()){
                             </div>
 
                             <input type="hidden" name="itmcde_edit_hidden" id="itmcde_edit_hidden">
+                            <input type="hidden" name="allow_empty_location_edit" id="allow_empty_location_edit" value="0">
                             <div class="row m-2">
                                 <div class="error_msg_edit_modal"></div>
                             </div>
@@ -635,7 +636,7 @@ while($rs_staff = $stmt_staff->fetch()){
             });
         });
 
-        function setEditNoneOption(selectId, placeholderText, selectedValue){
+        function setEditNoneOption(selectId, placeholderText, selectedValue, allowNone){
             var $select = $("#" + selectId);
             if($select.length === 0){
                 return;
@@ -643,7 +644,7 @@ while($rs_staff = $stmt_staff->fetch()){
 
             $select.find("option[value='']").remove();
 
-            if(selectedValue === ""){
+            if(allowNone && selectedValue === ""){
                 $select.prepend("<option value=''>None</option>");
             }else{
                 $select.prepend("<option value=''>" + placeholderText + "</option>");
@@ -1050,9 +1051,11 @@ while($rs_staff = $stmt_staff->fetch()){
                             $("#price_edit").val(xdata["retEdit"]["untprc"]);
                             $("#amount_edit").val(xdata["retEdit"]["extprc"]);
                             $("#itmqty_edit").val(xdata["retEdit"]["itmqty"]);
-                            setEditNoneOption("warcde_edit", "Select Warehouse", xdata["retEdit"]["warcde"]);
-                            rebuildFloorOptions("warehouse_floor_id_edit", xdata["retEdit"]["warcde"], xdata["retEdit"]["warehouse_floor_id"], xdata["retEdit"]["warehouse_floor_id"] === "");
-                            setEditNoneOption("warehouse_staff_id_edit", "Select Warehouse Staff", xdata["retEdit"]["warehouse_staff_id"]);
+                            $("#allow_empty_location_edit").val(xdata["retEdit"]["allow_empty_location"] || "0");
+                            var allowEmptyLocation = (xdata["retEdit"]["allow_empty_location"] || "0") === "1";
+                            setEditNoneOption("warcde_edit", "Select Warehouse", xdata["retEdit"]["warcde"], allowEmptyLocation);
+                            rebuildFloorOptions("warehouse_floor_id_edit", xdata["retEdit"]["warcde"], xdata["retEdit"]["warehouse_floor_id"], allowEmptyLocation);
+                            setEditNoneOption("warehouse_staff_id_edit", "Select Warehouse Staff", xdata["retEdit"]["warehouse_staff_id"], false);
                             // $("#itmcde_edit option[text=" + xdata["retEdit"]["itmdsc"] +"]").prop("selected", true);
                             // $("#itmcde_edit option:contains("+xdata["retEdit"]["itmdsc"]+")").prop("selected", true);
                             // var optionsThatContainValue = $("#itmcde_edit").find('option').filter(function() {

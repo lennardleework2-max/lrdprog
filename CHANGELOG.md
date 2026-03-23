@@ -1,6 +1,11 @@
 # Changelog
 
 ## 2026-03-23
+- Updated inventory-adjustment line validation in `trn_invadjfile2_ajax.php` and `trn_invadjfile2_shared.php`:
+  - add mode now again requires `Warehouse` and `Warehouse Floor`
+  - edit mode also requires `Warehouse` and `Warehouse Floor` for normal rows
+  - only detail rows that were already saved with both blank `warcde` and blank `warehouse_floor_id` now get a `None` option and may stay blank on edit
+  - `Warehouse Staff` remains optional in both add and edit
 - Updated `trn_invadjfile2_ajax.php` so inventory-adjustment add mode now also allows blank `Warehouse` and `Warehouse Floor`; add and edit now both allow `warcde`, `warehouse_floor_id`, and `warehouse_staff_id` to save as blank.
 - Updated `trn_invadjfile2_ajax.php` so `Warehouse Staff` is now optional in inventory-adjustment add mode as well as edit mode; blank values now save cleanly to `tranfile2.warehouse_staff_id`.
 - Updated inventory adjustment edit behavior in `trn_invadjfile2_shared.php` and `trn_invadjfile2_ajax.php`:

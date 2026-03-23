@@ -352,7 +352,29 @@
             $xret["status"] = 0;
             $xret["error3"] = 1;
 
-        }       
+        }
+
+        if($_POST['warcde_add'] === ''){
+
+            if($xret["error1"] == 1 || $xret["error2"] == 1 || $xret["error3"] == 1){
+                $xret["msg"] .= "</br>";
+            }
+
+            $xret["msg"] .= "<b>Warehouse</b> Cannot Be Empty";
+            $xret["status"] = 0;
+            $xret["error4"] = 1;
+        }
+
+        if($_POST['warehouse_floor_id_add'] === ''){
+
+            if($xret["error1"] == 1 || $xret["error2"] == 1 || $xret["error3"] == 1 || $xret["error4"] == 1){
+                $xret["msg"] .= "</br>";
+            }
+
+            $xret["msg"] .= "<b>Warehouse Floor</b> Cannot Be Empty";
+            $xret["status"] = 0;
+            $xret["error5"] = 1;
+        }
 
         if($xret["status"] ==  1){
             if(empty($rs_check)){
@@ -422,6 +444,7 @@
             "warcde" =>  isset($rs_tranfile2["warcde"]) ? $rs_tranfile2["warcde"] : '',
             "warehouse_floor_id" =>  isset($rs_tranfile2["warehouse_floor_id"]) ? $rs_tranfile2["warehouse_floor_id"] : '',
             "warehouse_staff_id" =>  isset($rs_tranfile2["warehouse_staff_id"]) ? $rs_tranfile2["warehouse_staff_id"] : '',
+            "allow_empty_location" =>  (empty($rs_tranfile2["warcde"]) && empty($rs_tranfile2["warehouse_floor_id"])) ? '1' : '0',
             "recid" =>  $rs_tranfile2["tranfile2_recid"]
         ];
 
@@ -440,6 +463,7 @@
         $_POST['warcde_edit'] = isset($_POST['warcde_edit']) ? trim((string)$_POST['warcde_edit']) : '';
         $_POST['warehouse_floor_id_edit'] = isset($_POST['warehouse_floor_id_edit']) ? trim((string)$_POST['warehouse_floor_id_edit']) : '';
         $_POST['warehouse_staff_id_edit'] = isset($_POST['warehouse_staff_id_edit']) ? trim((string)$_POST['warehouse_staff_id_edit']) : '';
+        $allow_empty_location = isset($_POST['allow_empty_location_edit']) && $_POST['allow_empty_location_edit'] === '1';
 
         if(empty($_POST['xtrndte_1'])){
             $xret["status"] = 0;
@@ -475,6 +499,41 @@
             $xret["status"] = 0;
             $xret["error3"] = 1;
 
+        }
+
+        if($allow_empty_location){
+            if(($_POST['warcde_edit'] === '' && $_POST['warehouse_floor_id_edit'] !== '') || ($_POST['warcde_edit'] !== '' && $_POST['warehouse_floor_id_edit'] === '')){
+
+                if($xret["error1"] == 1 || $xret["error2"] == 1 || $xret["error3"] == 1){
+                    $xret["msg"] .= "</br>";
+                }
+
+                $xret["msg"] .= "<b>Warehouse</b> and <b>Warehouse Floor</b> must both be filled or both be None";
+                $xret["status"] = 0;
+                $xret["error4"] = 1;
+            }
+        }else{
+            if($_POST['warcde_edit'] === ''){
+
+                if($xret["error1"] == 1 || $xret["error2"] == 1 || $xret["error3"] == 1){
+                    $xret["msg"] .= "</br>";
+                }
+
+                $xret["msg"] .= "<b>Warehouse</b> Cannot Be Empty";
+                $xret["status"] = 0;
+                $xret["error4"] = 1;
+            }
+
+            if($_POST['warehouse_floor_id_edit'] === ''){
+
+                if($xret["error1"] == 1 || $xret["error2"] == 1 || $xret["error3"] == 1 || $xret["error4"] == 1){
+                    $xret["msg"] .= "</br>";
+                }
+
+                $xret["msg"] .= "<b>Warehouse Floor</b> Cannot Be Empty";
+                $xret["status"] = 0;
+                $xret["error5"] = 1;
+            }
         }
 
         if($xret["status"] == 1){

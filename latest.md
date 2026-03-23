@@ -1,6 +1,11 @@
 # Latest
 
 ## 2026-03-23
+- Refined inventory-adjustment warehouse rules again:
+  - add mode now requires `Warehouse` and `Warehouse Floor`
+  - edit mode also requires them unless that specific detail row was already saved with both fields blank
+  - legacy blank rows now show `None` and can stay blank on edit
+  - `Warehouse Staff` stays optional
 - Updated inventory adjustments so add mode now allows blank `Warehouse` and `Warehouse Floor` too; add and edit both now permit all three warehouse fields to stay blank.
 - Updated inventory adjustments so `Warehouse Staff` can now be left blank in add mode too; edit mode already allows it to stay blank.
 - Updated inventory adjustment edit modals:
