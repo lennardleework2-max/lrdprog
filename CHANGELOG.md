@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-03-23
+- Reworked `stock_transfer_transaction_file2.php` into a stock-transfer-specific entry page:
+  - the line-item modal now uses `Warehouse From`, `Warehouse Floor From`, `Warehouse To`, `Warehouse Floor To`, and one `Warehouse Staff`
+  - removed the inventory-adjustment `Price`, `Amount`, and header `Total` behavior from the stock-transfer screen
+  - saves now create paired `tranfile2` rows per transfer line: negative stock from the source location and positive stock to the destination location
+  - transfer header saves now keep `tranfile1.trntot` at `0`, while transfer detail saves keep `tranfile2.untprc` and `tranfile2.extprc` at `0`
+  - added current-stock display and save-time insufficient-quantity blocking based on the selected source warehouse, source floor, item, and transaction date
+
 ## 2026-03-22
 - Updated `customer_sales_rep.php` XLSX export generation:
   - replaced the old tab-delimited pseudo-`xlsx` stream with a real `PhpSpreadsheet` `.xlsx` writer

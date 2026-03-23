@@ -1,5 +1,12 @@
 # Latest
 
+## 2026-03-23
+- Reworked `stock_transfer_transaction_file2.php` into a transfer-specific entry page:
+  - the modal now uses `Warehouse From`, `Warehouse Floor From`, `Warehouse To`, `Warehouse Floor To`, and one `Warehouse Staff`
+  - the stock-transfer page no longer uses `Price`, `Amount`, or header `Total`
+  - each saved transfer line now writes paired `tranfile2` stock rows for source-out and destination-in
+  - save-time validation now blocks transfers when the requested quantity is higher than the current stock in the selected source location
+
 ## 2026-03-22
 - Updated `customer_sales_rep.php` XLSX export:
   - now generates a real `.xlsx` file with `PhpSpreadsheet`

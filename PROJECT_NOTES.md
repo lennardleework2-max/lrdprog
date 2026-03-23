@@ -1,5 +1,23 @@
 # LRD Program - Project Notes
 
+## Stock Transfer Detail Rewrite (2026-03-23)
+
+- `stock_transfer_transaction_file2.php`
+  - The file was rewritten to handle stock transfer directly instead of reusing the inventory-adjustment detail behavior.
+  - The line-item modal now captures source and destination locations separately:
+    - `Warehouse From`
+    - `Warehouse Floor From`
+    - `Warehouse To`
+    - `Warehouse Floor To`
+    - one `Warehouse Staff`
+  - The stock-transfer page no longer uses pricing fields on the UI.
+  - Header saves keep `tranfile1.trntot` at `0`.
+  - Transfer line saves keep `tranfile2.untprc` and `tranfile2.extprc` at `0`.
+  - Each transfer line now saves as two `tranfile2` rows:
+    - one negative `stkqty` row for the source location
+    - one positive `stkqty` row for the destination location
+  - Save-time validation checks the selected source warehouse, source floor, item, and transaction date before allowing the transfer quantity.
+
 ## Customer Sales XLSX Export Fix (2026-03-22)
 
 - `customer_sales_rep.php`
