@@ -308,6 +308,8 @@
 
     if(isset($_POST["event_action"]) && $_POST["event_action"] == "insert"){
 
+        $_POST['warcde_add'] = isset($_POST['warcde_add']) ? trim((string)$_POST['warcde_add']) : '';
+        $_POST['warehouse_floor_id_add'] = isset($_POST['warehouse_floor_id_add']) ? trim((string)$_POST['warehouse_floor_id_add']) : '';
         $_POST['warehouse_staff_id_add'] = isset($_POST['warehouse_staff_id_add']) ? trim((string)$_POST['warehouse_staff_id_add']) : '';
 
         $select_check="SELECT * FROM tranfile1 WHERE docnum=?";
@@ -351,28 +353,6 @@
             $xret["error3"] = 1;
 
         }       
-
-        if(!isset($_POST['warcde_add']) || empty($_POST['warcde_add'])){
-
-            if($xret["error1"] == 1 || $xret["error2"] == 1 || $xret["error3"] == 1){
-                $xret["msg"] .= "</br>";
-            }
-
-            $xret["msg"] .= "<b>Warehouse</b> Cannot Be Empty";
-            $xret["status"] = 0;
-            $xret["error4"] = 1;
-        }
-
-        if(!isset($_POST['warehouse_floor_id_add']) || empty($_POST['warehouse_floor_id_add'])){
-
-            if($xret["error1"] == 1 || $xret["error2"] == 1 || $xret["error3"] == 1 || $xret["error4"] == 1){
-                $xret["msg"] .= "</br>";
-            }
-
-            $xret["msg"] .= "<b>Warehouse Floor</b> Cannot Be Empty";
-            $xret["status"] = 0;
-            $xret["error5"] = 1;
-        }
 
         if($xret["status"] ==  1){
             if(empty($rs_check)){

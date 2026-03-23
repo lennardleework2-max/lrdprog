@@ -47,6 +47,7 @@
 - `trn_invadjfile2_ajax.php`
   - Edit saves now allow blank `warcde`, `warehouse_floor_id`, and `warehouse_staff_id` values so records with no warehouse metadata can be edited and saved back cleanly.
   - Add saves now also allow blank `warehouse_staff_id`, so warehouse staff is optional during inventory-adjustment line insertion.
+  - Add saves now also allow blank `warcde` and `warehouse_floor_id`, so all three warehouse-related detail fields are optional during insert and edit.
 
 ## Customer Sales XLSX Export Fix (2026-03-22)
 

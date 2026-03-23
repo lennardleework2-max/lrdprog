@@ -1,6 +1,7 @@
 # Latest
 
 ## 2026-03-23
+- Updated inventory adjustments so add mode now allows blank `Warehouse` and `Warehouse Floor` too; add and edit both now permit all three warehouse fields to stay blank.
 - Updated inventory adjustments so `Warehouse Staff` can now be left blank in add mode too; edit mode already allows it to stay blank.
 - Updated inventory adjustment edit modals:
   - `Warehouse`, `Warehouse Floor`, and `Warehouse Staff` now show `None` only when the existing saved value is blank
