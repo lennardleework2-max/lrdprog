@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-03-23
+- Updated `trn_invadjfile2_ajax.php` so `Warehouse Staff` is now optional in inventory-adjustment add mode as well as edit mode; blank values now save cleanly to `tranfile2.warehouse_staff_id`.
 - Updated inventory adjustment edit behavior in `trn_invadjfile2_shared.php` and `trn_invadjfile2_ajax.php`:
   - edit mode now shows `None` for `Warehouse`, `Warehouse Floor`, and `Warehouse Staff` only when the existing saved value is blank
   - add mode still has no `None` option and still uses the normal required warehouse selections

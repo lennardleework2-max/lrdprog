@@ -308,6 +308,8 @@
 
     if(isset($_POST["event_action"]) && $_POST["event_action"] == "insert"){
 
+        $_POST['warehouse_staff_id_add'] = isset($_POST['warehouse_staff_id_add']) ? trim((string)$_POST['warehouse_staff_id_add']) : '';
+
         $select_check="SELECT * FROM tranfile1 WHERE docnum=?";
         $stmt_check	= $link->prepare($select_check);
         $stmt_check->execute(array($_POST["docnum"]));
@@ -371,19 +373,6 @@
             $xret["status"] = 0;
             $xret["error5"] = 1;
         }
-
-        if(!isset($_POST['warehouse_staff_id_add']) || empty($_POST['warehouse_staff_id_add'])){
-
-            if($xret["error1"] == 1 || $xret["error2"] == 1 || $xret["error3"] == 1 || $xret["error4"] == 1 || $xret["error5"] == 1){
-                $xret["msg"] .= "</br>";
-            }
-
-            $xret["msg"] .= "<b>Warehouse Staff</b> Cannot Be Empty";
-            $xret["status"] = 0;
-            $xret["error6"] = 1;
-        }
-
-
 
         if($xret["status"] ==  1){
             if(empty($rs_check)){
