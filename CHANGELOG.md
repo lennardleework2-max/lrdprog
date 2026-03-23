@@ -1,6 +1,8 @@
 # Changelog
 
 ## 2026-03-23
+- Tightened the `User` field width in `stock_transfer_transaction_file2.php` so it now matches the `Doc. Num.` width instead of spanning the full row.
+- Updated `trn_invadjfile1_ajax_pager.php` for `trncde='STT'` list rendering so the stock transfer list now shows `Reference Number` in the right-side desktop summary slot instead of the always-zero `trntot` value.
 - Reworked `stock_transfer_transaction_file2.php` into a stock-transfer-specific entry page:
   - the line-item modal now uses `Warehouse From`, `Warehouse Floor From`, `Warehouse To`, `Warehouse Floor To`, and one `Warehouse Staff`
   - removed the inventory-adjustment `Price`, `Amount`, and header `Total` behavior from the stock-transfer screen

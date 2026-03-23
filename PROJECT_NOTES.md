@@ -3,6 +3,7 @@
 ## Stock Transfer Detail Rewrite (2026-03-23)
 
 - `stock_transfer_transaction_file2.php`
+  - The header `User` field was narrowed so it visually matches the `Doc. Num.` field width.
   - The file was rewritten to handle stock transfer directly instead of reusing the inventory-adjustment detail behavior.
   - The line-item modal now captures source and destination locations separately:
     - `Warehouse From`
@@ -27,6 +28,9 @@
   - The stock-transfer table no longer shows `Warehouse Staff` in the list view.
   - `Warehouse Staff` remains available in the add/edit modals and still saves into both transfer-detail inserts.
   - The `Edit` and `Delete` actions now render with larger spacing for easier use.
+
+- `trn_invadjfile1_ajax_pager.php`
+  - The shared transaction-list pager now renders `Reference Number` in the right-hand desktop summary slot when `trncde='STT'`, so stock transfer rows no longer show the always-zero `trntot` there.
 
 ## Customer Sales XLSX Export Fix (2026-03-22)
 

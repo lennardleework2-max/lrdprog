@@ -215,6 +215,10 @@ while($row_main = $stmt->fetch()){
     }else{
         $row_main['tranfile1_trntot'] = '&nbsp;';
     }
+    $right_display = $row_main['tranfile1_trntot'];
+    if($trncde === 'STT'){
+        $right_display = !empty($row_main['tranfile1_ordernum']) ? $row_main['tranfile1_ordernum'] : '&nbsp;';
+    }
 
     $xret["html"] .= "<tr class='tr_striped'>";
         $xret["html"] .= "<td data-label='Username' style='width:80%;font-size:20px;".$xtop_border_action."'>
@@ -232,7 +236,7 @@ while($row_main = $stmt->fetch()){
                         </td>
 
                         <td style='width:200px;text-align:right;padding:0.3rem'>
-                        ".$row_main['tranfile1_trntot']."
+                        ".$right_display."
                         </td>
                     </tr>
 

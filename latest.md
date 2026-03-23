@@ -1,6 +1,9 @@
 # Latest
 
 ## 2026-03-23
+- Updated stock transfer UI polish:
+  - the `User` field in `stock_transfer_transaction_file2.php` now uses the same width as `Doc. Num.`
+  - the stock transfer list now shows `Reference Number` in the desktop summary area instead of the always-zero total
 - Reworked `stock_transfer_transaction_file2.php` into a transfer-specific entry page:
   - the modal now uses `Warehouse From`, `Warehouse Floor From`, `Warehouse To`, `Warehouse Floor To`, and one `Warehouse Staff`
   - the stock-transfer page no longer uses `Price`, `Amount`, or header `Total`
