@@ -1,6 +1,10 @@
 # Latest
 
 ## 2026-03-23
+- Updated inventory adjustment edit modals:
+  - `Warehouse`, `Warehouse Floor`, and `Warehouse Staff` now show `None` only when the existing saved value is blank
+  - add mode still does not show `None`
+  - saving edit mode with `None` now preserves those three fields as blank in `tranfile2`
 - Adjusted the inventory-adjustment header `User` field so it now lines up with the `Doc. Num.`, `Ref Number`, and `Remarks` blocks while keeping the smaller field width.
 - Updated stock transfer UI polish:
   - the `User` field in `stock_transfer_transaction_file2.php` now uses the same width as `Doc. Num.`

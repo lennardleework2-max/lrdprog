@@ -1,6 +1,10 @@
 # Changelog
 
 ## 2026-03-23
+- Updated inventory adjustment edit behavior in `trn_invadjfile2_shared.php` and `trn_invadjfile2_ajax.php`:
+  - edit mode now shows `None` for `Warehouse`, `Warehouse Floor`, and `Warehouse Staff` only when the existing saved value is blank
+  - add mode still has no `None` option and still uses the normal required warehouse selections
+  - saving edit mode with `None` now writes blank `warcde`, `warehouse_floor_id`, and `warehouse_staff_id` values back to `tranfile2`
 - Adjusted the `User` field layout in `trn_invadjfile2_shared.php` so the inventory-adjustment header now aligns with `Doc. Num.`, `Ref Number`, and `Remarks` while keeping the field at the smaller doc-number width.
 - Tightened the `User` field width in `stock_transfer_transaction_file2.php` so it now matches the `Doc. Num.` width instead of spanning the full row.
 - Updated `trn_invadjfile1_ajax_pager.php` for `trncde='STT'` list rendering so the stock transfer list now shows `Reference Number` in the right-side desktop summary slot instead of the always-zero `trntot` value.

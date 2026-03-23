@@ -468,6 +468,10 @@
             $_POST['amount_edit'] = str_replace(",","",$_POST['amount_edit']);
         }
 
+        $_POST['warcde_edit'] = isset($_POST['warcde_edit']) ? trim((string)$_POST['warcde_edit']) : '';
+        $_POST['warehouse_floor_id_edit'] = isset($_POST['warehouse_floor_id_edit']) ? trim((string)$_POST['warehouse_floor_id_edit']) : '';
+        $_POST['warehouse_staff_id_edit'] = isset($_POST['warehouse_staff_id_edit']) ? trim((string)$_POST['warehouse_staff_id_edit']) : '';
+
         if(empty($_POST['xtrndte_1'])){
             $xret["status"] = 0;
             $xret["error1"] = 1;
@@ -504,40 +508,6 @@
 
         }
 
-        if(!isset($_POST['warcde_edit']) || empty($_POST['warcde_edit'])){
-
-            if($xret["error1"] == 1 || $xret["error2"] == 1 || $xret["error3"] == 1){
-                $xret["msg"] .= "</br>";
-            }
-
-            $xret["msg"] .= "<b>Warehouse</b> Cannot Be Empty";
-            $xret["status"] = 0;
-            $xret["error4"] = 1;
-        }
-
-        if(!isset($_POST['warehouse_floor_id_edit']) || empty($_POST['warehouse_floor_id_edit'])){
-
-            if($xret["error1"] == 1 || $xret["error2"] == 1 || $xret["error3"] == 1 || $xret["error4"] == 1){
-                $xret["msg"] .= "</br>";
-            }
-
-            $xret["msg"] .= "<b>Warehouse Floor</b> Cannot Be Empty";
-            $xret["status"] = 0;
-            $xret["error5"] = 1;
-        }
-
-        if(!isset($_POST['warehouse_staff_id_edit']) || empty($_POST['warehouse_staff_id_edit'])){
-
-            if($xret["error1"] == 1 || $xret["error2"] == 1 || $xret["error3"] == 1 || $xret["error4"] == 1 || $xret["error5"] == 1){
-                $xret["msg"] .= "</br>";
-            }
-
-            $xret["msg"] .= "<b>Warehouse Staff</b> Cannot Be Empty";
-            $xret["status"] = 0;
-            $xret["error6"] = 1;
-        }
-        
-        
         if($xret["status"] == 1){
             $arr_record = array();
             $arr_record['docnum'] 	= $_POST['docnum'];

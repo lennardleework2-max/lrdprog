@@ -38,6 +38,15 @@
   - The `User` field wrapper was changed to use the same left spacing as the `Ref Number` and `Remarks` sections.
   - The field keeps the narrower doc-number-sized width instead of stretching across the full row.
 
+## Inventory Adjustment Edit None Options (2026-03-23)
+
+- `trn_invadjfile2_shared.php`
+  - Edit mode now injects a `None` option into `Warehouse`, `Warehouse Floor`, and `Warehouse Staff` only when the existing value for that field is blank.
+  - Add mode was left unchanged and still shows only the normal selection placeholders.
+
+- `trn_invadjfile2_ajax.php`
+  - Edit saves now allow blank `warcde`, `warehouse_floor_id`, and `warehouse_staff_id` values so records with no warehouse metadata can be edited and saved back cleanly.
+
 ## Customer Sales XLSX Export Fix (2026-03-22)
 
 - `customer_sales_rep.php`
