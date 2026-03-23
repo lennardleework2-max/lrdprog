@@ -17,6 +17,11 @@
     - one negative `stkqty` row for the source location
     - one positive `stkqty` row for the destination location
   - Save-time validation checks the selected source warehouse, source floor, item, and transaction date before allowing the transfer quantity.
+  - The current-stock display now uses the joined stock-balance query pattern based on:
+    - `tranfile2.warcde`
+    - `tranfile2.warehouse_floor_id`
+    - `tranfile1.trndte <= selected transfer date`
+    - `tranfile2.itmcde`
 
 ## Customer Sales XLSX Export Fix (2026-03-22)
 
