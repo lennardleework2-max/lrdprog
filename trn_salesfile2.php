@@ -12,7 +12,11 @@ require "includes/main_header.php";
 //     // loop here
 // }
 
+$header_usercode = '';
+$is_edit_mode = false;
+
 if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
+    $is_edit_mode = true;
     $select_db_docnum1='SELECT * FROM tranfile1 
      LEFT JOIN mf_buyers ON tranfile1.buyer_id = mf_buyers.buyer_id
      LEFT JOIN mf_salesman ON tranfile1.salesman_id = mf_salesman.salesman_id
@@ -105,6 +109,7 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
         //}
 
         $can_change_ordernum = $rs_docnum1['can_change_ordernum'];
+        $header_usercode = isset($rs_docnum1['usercode']) ? trim((string)$rs_docnum1['usercode']) : '';
 
     }
 }else{
@@ -149,6 +154,59 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
 
     $image_loc = null;
 
+}
+
+$session_usercode = '';
+if(isset($_SESSION['usercode']) && trim((string)$_SESSION['usercode']) !== ''){
+    $session_usercode = trim((string)$_SESSION['usercode']);
+}else if(isset($_POST["usercode_hidden"]) && trim((string)$_POST["usercode_hidden"]) !== ''){
+    $session_usercode = trim((string)$_POST["usercode_hidden"]);
+}
+
+$display_usercode = $is_edit_mode ? $header_usercode : $session_usercode;
+$display_userdesc = '';
+if($display_usercode !== ''){
+    $select_user = "SELECT userdesc FROM users WHERE usercode = ? LIMIT 1";
+    $stmt_user = $link->prepare($select_user);
+    $stmt_user->execute(array($display_usercode));
+    $rs_user = $stmt_user->fetch();
+    if(!empty($rs_user) && isset($rs_user['userdesc'])){
+        $display_userdesc = $rs_user['userdesc'];
+    }
+}
+
+$warehouse_options = array();
+$stmt_warehouse = $link->prepare("SELECT warcde, warehouse_name FROM warehouse ORDER BY warehouse_name ASC");
+$stmt_warehouse->execute();
+while($rs_warehouse = $stmt_warehouse->fetch()){
+    $warehouse_options[] = array(
+        'warcde' => $rs_warehouse['warcde'],
+        'warehouse_name' => $rs_warehouse['warehouse_name']
+    );
+}
+
+$warehouse_floor_map = array();
+$stmt_floor = $link->prepare("SELECT warehouse_floor_id, warcde, floor_no, floor_name FROM warehouse_floor ORDER BY floor_no ASC, floor_name ASC, warehouse_floor_id ASC");
+$stmt_floor->execute();
+while($rs_floor = $stmt_floor->fetch()){
+    $floor_warcde = isset($rs_floor['warcde']) ? (string)$rs_floor['warcde'] : '';
+    if(!isset($warehouse_floor_map[$floor_warcde])){
+        $warehouse_floor_map[$floor_warcde] = array();
+    }
+    $warehouse_floor_map[$floor_warcde][] = array(
+        'warehouse_floor_id' => $rs_floor['warehouse_floor_id'],
+        'floor_no' => trim((string)($rs_floor['floor_no'] !== '' ? $rs_floor['floor_no'] : $rs_floor['floor_name']))
+    );
+}
+
+$warehouse_staff_options = array();
+$stmt_staff = $link->prepare("SELECT warehouse_staff_id, fname, lname FROM warehouse_staff ORDER BY fname ASC, lname ASC");
+$stmt_staff->execute();
+while($rs_staff = $stmt_staff->fetch()){
+    $warehouse_staff_options[] = array(
+        'warehouse_staff_id' => $rs_staff['warehouse_staff_id'],
+        'staff_name' => trim($rs_staff['fname'].' '.$rs_staff['lname'])
+    );
 }
 
 
@@ -608,6 +666,18 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                                         </td>                                  
                                     </tr>
 
+                                    <tr class="m-1 edit_row salesfile1" style="border-bottom:3px solid #cccccc ">
+                                        <td colspan="3">
+                                            <div class="m-3" style="max-width:33.333333%;min-width:260px;">
+                                                <div>
+                                                    <label for="userdesc_display" style="font-weight:bold">User:</label>
+                                                    <input type="text" class="form-control" name="userdesc_display" id="userdesc_display" value="<?php echo htmlspecialchars($display_userdesc, ENT_QUOTES); ?>" readonly>
+                                                    <input type="hidden" name="usercode_1" id="usercode_1" value="<?php echo htmlspecialchars($display_usercode, ENT_QUOTES); ?>">
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+
                                     <tr  style="border-bottom:3px solid #cccccc ">
                                         <td colspan="3">
                                             <div class="m-3" style=::>
@@ -796,6 +866,39 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                                 </div>
                             </div>                          
 
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="warcde_add">Warehouse</label>
+                                    <select name="warcde_add" id="warcde_add" class="form-select">
+                                        <option value="">Select Warehouse</option>
+                                        <?php foreach($warehouse_options as $warehouse_option): ?>
+                                            <option value="<?php echo htmlspecialchars($warehouse_option['warcde'], ENT_QUOTES); ?>"><?php echo htmlspecialchars($warehouse_option['warehouse_name'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="warehouse_floor_id_add">Warehouse Floor</label>
+                                    <select name="warehouse_floor_id_add" id="warehouse_floor_id_add" class="form-select">
+                                        <option value="">Select Warehouse Floor</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="warehouse_staff_id_add">Warehouse Staff</label>
+                                    <select name="warehouse_staff_id_add" id="warehouse_staff_id_add" class="form-select">
+                                        <option value="">Select Warehouse Staff</option>
+                                        <?php foreach($warehouse_staff_options as $staff_option): ?>
+                                            <option value="<?php echo htmlspecialchars($staff_option['warehouse_staff_id'], ENT_QUOTES); ?>"><?php echo htmlspecialchars($staff_option['staff_name'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
 
                             <!-- <div class="row m-3">
                                 <div class="col-12">
@@ -907,6 +1010,39 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                                     </div>
                                 </div>
                             </div>                            
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="warcde_edit">Warehouse</label>
+                                    <select name="warcde_edit" id="warcde_edit" class="form-select">
+                                        <option value="">Select Warehouse</option>
+                                        <?php foreach($warehouse_options as $warehouse_option): ?>
+                                            <option value="<?php echo htmlspecialchars($warehouse_option['warcde'], ENT_QUOTES); ?>"><?php echo htmlspecialchars($warehouse_option['warehouse_name'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="warehouse_floor_id_edit">Warehouse Floor</label>
+                                    <select name="warehouse_floor_id_edit" id="warehouse_floor_id_edit" class="form-select">
+                                        <option value="">Select Warehouse Floor</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="warehouse_staff_id_edit">Warehouse Staff</label>
+                                    <select name="warehouse_staff_id_edit" id="warehouse_staff_id_edit" class="form-select">
+                                        <option value="">Select Warehouse Staff</option>
+                                        <?php foreach($warehouse_staff_options as $staff_option): ?>
+                                            <option value="<?php echo htmlspecialchars($staff_option['warehouse_staff_id'], ENT_QUOTES); ?>"><?php echo htmlspecialchars($staff_option['staff_name'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
                             
                             <!-- <div class="row m-3">
                                 <div class="col-12">
@@ -1155,6 +1291,25 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
         }
 
         var trncde = $("#trncde_hidden").val();
+        var warehouseFloorMap = <?php echo json_encode($warehouse_floor_map); ?>;
+
+        function rebuildFloorOptions(selectId, warcde, selectedFloorId){
+            var $select = $("#" + selectId);
+            if($select.length === 0){
+                return;
+            }
+
+            var options = "<option value=''>Select Warehouse Floor</option>";
+            var floors = warehouseFloorMap[warcde] || [];
+
+            for(var i = 0; i < floors.length; i++){
+                var floor = floors[i];
+                var selected = (selectedFloorId && selectedFloorId === floor.warehouse_floor_id) ? " selected" : "";
+                options += "<option value='" + floor.warehouse_floor_id + "'" + selected + ">" + floor.floor_no + "</option>";
+            }
+
+            $select.html(options);
+        }
 
         $(document).ready(function(){
             var docnum = $("#docnum_hidden").val();
@@ -1171,7 +1326,15 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                         $("#tbody_main_mobile").html(xdata["html_mobile"]);
                     }
 
-            })
+            });
+
+            $("#warcde_add").on("change", function(){
+                rebuildFloorOptions("warehouse_floor_id_add", $(this).val(), "");
+            });
+
+            $("#warcde_edit").on("change", function(){
+                rebuildFloorOptions("warehouse_floor_id_edit", $(this).val(), "");
+            });
         });
 
         function return_po(){
@@ -1737,6 +1900,9 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                     $("#itmcde_add").val('');
                     $("#so_add").val('');
                     $("#recid_so_hidden").val('');
+                    $("#warcde_add").val('');
+                    rebuildFloorOptions("warehouse_floor_id_add", "", "");
+                    $("#warehouse_staff_id_add").val('');
 
                     // $("#itmcde_add").val($("#itmcde_add option:first").val());
                     $("#itmcde_add_hidden").val('');
@@ -1911,6 +2077,9 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                             $("#amount_edit").val(xdata["retEdit"]["extprc"]);
                             $("#itmqty_edit").val(xdata["retEdit"]["itmqty"]);
                             $("#wholesaleprc_edit").val(xdata["retEdit"]["wholesaleprc"]);
+                            $("#warcde_edit").val(xdata["retEdit"]["warcde"]);
+                            rebuildFloorOptions("warehouse_floor_id_edit", xdata["retEdit"]["warcde"], xdata["retEdit"]["warehouse_floor_id"]);
+                            $("#warehouse_staff_id_edit").val(xdata["retEdit"]["warehouse_staff_id"]);
 
                             $("#so_edit").val(xdata["retEdit"]["matched_so"]);
                             $("#so_edit_hidden").val(xdata["retEdit"]["matched_so"]);

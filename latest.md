@@ -1,6 +1,10 @@
 # Latest
 
 ## 2026-03-23
+- Updated sales entry details to match the inventory-adjustment metadata additions:
+  - `trn_salesfile2.php` now shows the header `User` field and includes `Warehouse`, dependent `Warehouse Floor`, and `Warehouse Staff` in sales line add/edit modals
+  - `trn_salesfile2_ajax.php` now saves those warehouse fields into `tranfile2` and saves the current session `usercode` into new `tranfile1` sales headers
+  - the sales line-items table now displays `Warehouse` and `Warehouse Floor`
 - Refined inventory-adjustment warehouse rules again:
   - add mode now requires `Warehouse` and `Warehouse Floor`
   - edit mode also requires them unless that specific detail row was already saved with both fields blank

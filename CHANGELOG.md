@@ -1,6 +1,11 @@
 # Changelog
 
 ## 2026-03-23
+- Updated `trn_salesfile2.php` and `trn_salesfile2_ajax.php` to mirror the inventory-adjustment warehouse/user additions:
+  - added header `User` display using `users.userdesc`, with new sales headers saving the current session `usercode` into `tranfile1.usercode`
+  - added `Warehouse`, dependent `Warehouse Floor`, and `Warehouse Staff` to the sales line-item add/edit modals
+  - line-item saves and edits now persist `tranfile2.warcde`, `tranfile2.warehouse_floor_id`, and `tranfile2.warehouse_staff_id`
+  - the sales detail table now shows `Warehouse` and `Warehouse Floor` for each line item
 - Updated inventory-adjustment line validation in `trn_invadjfile2_ajax.php` and `trn_invadjfile2_shared.php`:
   - add mode now again requires `Warehouse` and `Warehouse Floor`
   - edit mode also requires `Warehouse` and `Warehouse Floor` for normal rows

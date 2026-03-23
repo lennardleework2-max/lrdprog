@@ -22,6 +22,12 @@
     $xret["error4"] = 0;
     $xret["itm_search"] = '';
     $trncde = 'SAL';
+    $current_usercode = '';
+    if(isset($_POST['usercode_1']) && trim((string)$_POST['usercode_1']) !== ''){
+        $current_usercode = trim((string)$_POST['usercode_1']);
+    }else if(isset($_SESSION['usercode']) && trim((string)$_SESSION['usercode']) !== ''){
+        $current_usercode = trim((string)$_SESSION['usercode']);
+    }
 
     $xret["retEdit"] = array();
 
@@ -254,6 +260,7 @@
                     $arr_record['paydetails'] 	= $_POST['payment_details_1'];
                     $arr_record['ordernum'] 	= $_POST['ordernum_1'];
                     $arr_record['remarks'] 	= $_POST['remarks_1'];
+                    $arr_record['usercode']   = $current_usercode;
                     //$arr_record['order_status'] 	= $_POST['order_status_select1'];
                     $arr_record['trncde'] 	= $trncde;
         
@@ -390,6 +397,10 @@
 
     if(isset($_POST["event_action"]) && $_POST["event_action"] == "insert"){
 
+        $_POST['warcde_add'] = isset($_POST['warcde_add']) ? trim((string)$_POST['warcde_add']) : '';
+        $_POST['warehouse_floor_id_add'] = isset($_POST['warehouse_floor_id_add']) ? trim((string)$_POST['warehouse_floor_id_add']) : '';
+        $_POST['warehouse_staff_id_add'] = isset($_POST['warehouse_staff_id_add']) ? trim((string)$_POST['warehouse_staff_id_add']) : '';
+
         $select_check="SELECT * FROM tranfile1 WHERE docnum=?";
         $stmt_check	= $link->prepare($select_check);
         $stmt_check->execute(array($_POST["docnum"]));
@@ -455,6 +466,7 @@
                 $arr_record_file1['paydetails'] = $_POST['payment_details_1'];
                 $arr_record_file1['remarks'] 	= $_POST['remarks_1'];
                 $arr_record_file1['ordernum'] 	= $_POST['ordernum_1'];
+                $arr_record_file1['usercode']   = $current_usercode;
                 //$arr_record_file1['order_status'] 	= $_POST['order_status_select1'];
                 $arr_record_file1['trncde']     = $trncde;
                 PDO_InsertRecord($link,'tranfile1',$arr_record_file1, false);
@@ -472,6 +484,9 @@
             $arr_record['untprc'] 	= $_POST['price_add'];
             $arr_record['extprc'] 	= $_POST['amount_add'];
             $arr_record['wholesaleprc'] 	= $_POST['wholesaleprc_add'];
+            $arr_record['warcde'] 	= $_POST['warcde_add'];
+            $arr_record['warehouse_floor_id'] = $_POST['warehouse_floor_id_add'];
+            $arr_record['warehouse_staff_id'] = $_POST['warehouse_staff_id_add'];
             //$arr_record['order_status'] 	= $_POST['order_status_select1'];
             $arr_record['trncde']     = $trncde;
             $arr_record['so_recid']     = $_POST['xrecid_so_hidden'];
@@ -611,7 +626,7 @@
 
     if(isset($_POST["event_action"]) && $_POST["event_action"] == "getEdit"){
 
-        $select_tranfile2="SELECT tranfile2.wholesaleprc as wholesaleprc, tranfile2.itmcde as 'itmcde', tranfile2.so_recid as 'tranfile2_so_recid', tranfile2.order_status as tranfile2_order_status, tranfile2.itmqty, tranfile2.untprc, tranfile2.extprc, itemfile.itmdsc, tranfile2.recid as tranfile2_recid FROM tranfile2 LEFT JOIN itemfile ON itemfile.itmcde = tranfile2.itmcde WHERE tranfile2.recid=?";
+        $select_tranfile2="SELECT tranfile2.wholesaleprc as wholesaleprc, tranfile2.itmcde as 'itmcde', tranfile2.so_recid as 'tranfile2_so_recid', tranfile2.order_status as tranfile2_order_status, tranfile2.itmqty, tranfile2.untprc, tranfile2.extprc, tranfile2.warcde, tranfile2.warehouse_floor_id, tranfile2.warehouse_staff_id, itemfile.itmdsc, tranfile2.recid as tranfile2_recid FROM tranfile2 LEFT JOIN itemfile ON itemfile.itmcde = tranfile2.itmcde WHERE tranfile2.recid=?";
         $stmt_tranfile2	= $link->prepare($select_tranfile2);
         $stmt_tranfile2->execute(array($_POST["recid"]));
         $rs_tranfile2 = $stmt_tranfile2->fetch();
@@ -642,6 +657,9 @@
             "order_status" =>  $rs_tranfile2["tranfile2_order_status"],
             "wholesaleprc" =>  $rs_tranfile2["wholesaleprc"],
             "so_recid" =>  $rs_tranfile2["tranfile2_so_recid"],
+            "warcde" =>  isset($rs_tranfile2["warcde"]) ? $rs_tranfile2["warcde"] : '',
+            "warehouse_floor_id" =>  isset($rs_tranfile2["warehouse_floor_id"]) ? $rs_tranfile2["warehouse_floor_id"] : '',
+            "warehouse_staff_id" =>  isset($rs_tranfile2["warehouse_staff_id"]) ? $rs_tranfile2["warehouse_staff_id"] : '',
             "matched_so" =>  $matched_so,
             "recid" =>  $rs_tranfile2["tranfile2_recid"]
         ];
@@ -666,6 +684,9 @@
         if(!empty($_POST['wholesaleprc_edit'])){
             $_POST['wholesaleprc_edit'] = str_replace(",","",$_POST['wholesaleprc_edit']);
         }
+        $_POST['warcde_edit'] = isset($_POST['warcde_edit']) ? trim((string)$_POST['warcde_edit']) : '';
+        $_POST['warehouse_floor_id_edit'] = isset($_POST['warehouse_floor_id_edit']) ? trim((string)$_POST['warehouse_floor_id_edit']) : '';
+        $_POST['warehouse_staff_id_edit'] = isset($_POST['warehouse_staff_id_edit']) ? trim((string)$_POST['warehouse_staff_id_edit']) : '';
 
         if(empty($_POST['xtrndte_1'])){
             $xret["status"] = 0;
@@ -713,6 +734,9 @@
             $arr_record['untprc'] 	= $_POST['price_edit'];
             $arr_record['extprc'] 	= $_POST['amount_edit'];
             $arr_record['wholesaleprc'] 	= $_POST['wholesaleprc_edit'];
+            $arr_record['warcde'] 	= $_POST['warcde_edit'];
+            $arr_record['warehouse_floor_id'] = $_POST['warehouse_floor_id_edit'];
+            $arr_record['warehouse_staff_id'] = $_POST['warehouse_staff_id_edit'];
             //$arr_record['order_status'] 	= $_POST['order_status_select1'];
 
 
@@ -1040,6 +1064,8 @@
 
     $xret["html"] .= "<tr style='font-weight:bold'>";
         $xret["html"] .= "<td>Item</td>";
+        $xret["html"] .= "<td>Warehouse</td>";
+        $xret["html"] .= "<td>Warehouse Floor</td>";
         $xret["html"] .= "<td>Quantity</td>";
         $xret["html"] .= "<td style='text-align:right'>Price</td>";
         $xret["html"] .= "<td style='text-align:right'>Amount</td>";
@@ -1048,8 +1074,10 @@
         $xret["html"] .= "<td class='text-center'>Action</td>";
     $xret["html"] .= "</tr>";  
 
-    $select_salesfile2="SELECT tranfile2.wholesaleprc as wholesaleprc, tranfile2.itmcde as 'tranfile2_itmcde', tranfile2.itmqty as 'tranfile2_itmqty', tranfile2.so_recid as 'so_recid', tranfile2.order_status as tranfile2_order_status, itemfile.itmdsc as itemfile_itmdsc,itemfile.itmcde as itemfile_itmcde, tranfile2.itmqty, tranfile2.untprc, tranfile2.extprc, tranfile2.recid as tranfile2_recid
-    FROM tranfile2 LEFT JOIN itemfile ON itemfile.itmcde = tranfile2.itmcde WHERE docnum=?";
+    $select_salesfile2="SELECT tranfile2.wholesaleprc as wholesaleprc, tranfile2.itmcde as 'tranfile2_itmcde', tranfile2.itmqty as 'tranfile2_itmqty', tranfile2.so_recid as 'so_recid', tranfile2.order_status as tranfile2_order_status, itemfile.itmdsc as itemfile_itmdsc,itemfile.itmcde as itemfile_itmcde, tranfile2.itmqty, tranfile2.untprc, tranfile2.extprc, tranfile2.recid as tranfile2_recid, warehouse.warehouse_name, warehouse_floor.floor_no
+    FROM tranfile2 LEFT JOIN itemfile ON itemfile.itmcde = tranfile2.itmcde
+    LEFT JOIN warehouse ON warehouse.warcde = tranfile2.warcde
+    LEFT JOIN warehouse_floor ON warehouse_floor.warehouse_floor_id = tranfile2.warehouse_floor_id WHERE docnum=?";
     $stmt_salesfile2	= $link->prepare($select_salesfile2);
     $stmt_salesfile2->execute(array($docnum));
     $trntot = 0;
@@ -1088,6 +1116,8 @@
 
         $xret["html"] .= "<tr>";
             $xret["html"] .= "<td>".htmlspecialchars($rs_salesfile2['itemfile_itmdsc'],ENT_QUOTES)."</td>";
+            $xret["html"] .= "<td>".htmlspecialchars((string)($rs_salesfile2['warehouse_name'] ?? ''),ENT_QUOTES)."</td>";
+            $xret["html"] .= "<td>".htmlspecialchars((string)($rs_salesfile2['floor_no'] ?? ''),ENT_QUOTES)."</td>";
             $xret["html"] .= "<td style='text-align:right'>".$rs_salesfile2['itmqty']."</td>";
             $xret["html"] .= "<td style='text-align:right'>".$rs_salesfile2['untprc']."</td>";
             $xret["html"] .= "<td style='text-align:right'>".$rs_salesfile2['extprc']."</td>";
@@ -1118,6 +1148,16 @@
         $xret["html_mobile"] .= "<tr>";
             $xret["html_mobile"] .= "<td class='fw-bold'>Item</td>";
             $xret["html_mobile"] .= "<td>".htmlspecialchars($rs_salesfile2['itemfile_itmdsc'],ENT_QUOTES)."</td>";
+        $xret["html_mobile"] .= "</tr>";
+
+        $xret["html_mobile"] .= "<tr>";
+            $xret["html_mobile"] .= "<td class='fw-bold'>Warehouse</td>";
+            $xret["html_mobile"] .= "<td>".htmlspecialchars((string)($rs_salesfile2['warehouse_name'] ?? ''),ENT_QUOTES)."</td>";
+        $xret["html_mobile"] .= "</tr>";
+
+        $xret["html_mobile"] .= "<tr>";
+            $xret["html_mobile"] .= "<td class='fw-bold'>Warehouse Floor</td>";
+            $xret["html_mobile"] .= "<td>".htmlspecialchars((string)($rs_salesfile2['floor_no'] ?? ''),ENT_QUOTES)."</td>";
         $xret["html_mobile"] .= "</tr>";
 
         $xret["html_mobile"] .= "<tr>";

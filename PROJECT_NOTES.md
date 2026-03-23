@@ -53,6 +53,21 @@
     - edit also requires those fields unless that specific existing `tranfile2` row already has both fields blank
     - `warehouse_staff_id` remains optional in both cases
 
+## Sales Detail Warehouse Metadata (2026-03-23)
+
+- `trn_salesfile2.php`
+  - Added the header `User` field below remarks, showing `users.userdesc`.
+  - Added `Warehouse`, dependent `Warehouse Floor`, and `Warehouse Staff` controls to both sales line-item add and edit modals.
+  - Added the warehouse-floor dependency map so floor choices refresh from the selected warehouse.
+
+- `trn_salesfile2_ajax.php`
+  - New sales headers now save the current session `usercode` into `tranfile1.usercode`.
+  - Sales line inserts and edits now persist:
+    - `tranfile2.warcde`
+    - `tranfile2.warehouse_floor_id`
+    - `tranfile2.warehouse_staff_id`
+  - The line-items renderer now joins `warehouse` and `warehouse_floor` so it can display `Warehouse` and `Warehouse Floor` in both desktop and mobile output.
+
 ## Customer Sales XLSX Export Fix (2026-03-22)
 
 - `customer_sales_rep.php`
