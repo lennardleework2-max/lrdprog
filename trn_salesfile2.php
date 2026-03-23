@@ -1042,7 +1042,7 @@ while($rs_staff = $stmt_staff->fetch()){
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
-                            </div>
+                            </div>                            
                             
                             <!-- <div class="row m-3">
                                 <div class="col-12">
@@ -1055,6 +1055,7 @@ while($rs_staff = $stmt_staff->fetch()){
                             </div>        -->
 
                             <input type="hidden" name="itmcde_edit_hidden" id="itmcde_edit_hidden">
+                            <input type="hidden" name="allow_empty_location_edit" id="allow_empty_location_edit" value="0">
                             <div class="row m-2">
                                 <div class="error_msg_edit_modal"></div>
                             </div>
@@ -1293,13 +1294,13 @@ while($rs_staff = $stmt_staff->fetch()){
         var trncde = $("#trncde_hidden").val();
         var warehouseFloorMap = <?php echo json_encode($warehouse_floor_map); ?>;
 
-        function rebuildFloorOptions(selectId, warcde, selectedFloorId){
+        function rebuildFloorOptions(selectId, warcde, selectedFloorId, allowNone){
             var $select = $("#" + selectId);
             if($select.length === 0){
                 return;
             }
 
-            var options = "<option value=''>Select Warehouse Floor</option>";
+            var options = allowNone ? "<option value=''>None</option>" : "<option value=''>Select Warehouse Floor</option>";
             var floors = warehouseFloorMap[warcde] || [];
 
             for(var i = 0; i < floors.length; i++){
@@ -1309,6 +1310,23 @@ while($rs_staff = $stmt_staff->fetch()){
             }
 
             $select.html(options);
+        }
+
+        function setEditNoneOption(selectId, placeholderText, selectedValue, allowNone){
+            var $select = $("#" + selectId);
+            if($select.length === 0){
+                return;
+            }
+
+            $select.find("option[value='']").remove();
+
+            if(allowNone && selectedValue === ""){
+                $select.prepend("<option value=''>None</option>");
+            }else{
+                $select.prepend("<option value=''>" + placeholderText + "</option>");
+            }
+
+            $select.val(selectedValue);
         }
 
         $(document).ready(function(){
@@ -1329,11 +1347,11 @@ while($rs_staff = $stmt_staff->fetch()){
             });
 
             $("#warcde_add").on("change", function(){
-                rebuildFloorOptions("warehouse_floor_id_add", $(this).val(), "");
+                rebuildFloorOptions("warehouse_floor_id_add", $(this).val(), "", false);
             });
 
             $("#warcde_edit").on("change", function(){
-                rebuildFloorOptions("warehouse_floor_id_edit", $(this).val(), "");
+                rebuildFloorOptions("warehouse_floor_id_edit", $(this).val(), "", $(this).find("option:selected").text() === "None");
             });
         });
 
@@ -1901,7 +1919,7 @@ while($rs_staff = $stmt_staff->fetch()){
                     $("#so_add").val('');
                     $("#recid_so_hidden").val('');
                     $("#warcde_add").val('');
-                    rebuildFloorOptions("warehouse_floor_id_add", "", "");
+                    rebuildFloorOptions("warehouse_floor_id_add", "", "", false);
                     $("#warehouse_staff_id_add").val('');
 
                     // $("#itmcde_add").val($("#itmcde_add option:first").val());
@@ -2077,8 +2095,10 @@ while($rs_staff = $stmt_staff->fetch()){
                             $("#amount_edit").val(xdata["retEdit"]["extprc"]);
                             $("#itmqty_edit").val(xdata["retEdit"]["itmqty"]);
                             $("#wholesaleprc_edit").val(xdata["retEdit"]["wholesaleprc"]);
-                            $("#warcde_edit").val(xdata["retEdit"]["warcde"]);
-                            rebuildFloorOptions("warehouse_floor_id_edit", xdata["retEdit"]["warcde"], xdata["retEdit"]["warehouse_floor_id"]);
+                            $("#allow_empty_location_edit").val(xdata["retEdit"]["allow_empty_location"] || "0");
+                            var allowEmptyLocation = (xdata["retEdit"]["allow_empty_location"] || "0") === "1";
+                            setEditNoneOption("warcde_edit", "Select Warehouse", xdata["retEdit"]["warcde"], allowEmptyLocation);
+                            rebuildFloorOptions("warehouse_floor_id_edit", xdata["retEdit"]["warcde"], xdata["retEdit"]["warehouse_floor_id"], allowEmptyLocation);
                             $("#warehouse_staff_id_edit").val(xdata["retEdit"]["warehouse_staff_id"]);
 
                             $("#so_edit").val(xdata["retEdit"]["matched_so"]);

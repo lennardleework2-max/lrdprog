@@ -67,6 +67,11 @@
     - `tranfile2.warehouse_floor_id`
     - `tranfile2.warehouse_staff_id`
   - The line-items renderer now joins `warehouse` and `warehouse_floor` so it can display `Warehouse` and `Warehouse Floor` in both desktop and mobile output.
+  - The validation was then tightened to match inventory adjustments:
+    - add requires `warcde` and `warehouse_floor_id`
+    - edit also requires them unless that specific existing `tranfile2` row already has both fields blank
+    - only those legacy blank rows get a `None` option on edit
+    - `warehouse_staff_id` remains optional
 
 ## Customer Sales XLSX Export Fix (2026-03-22)
 

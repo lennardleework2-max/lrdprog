@@ -1,6 +1,11 @@
 # Changelog
 
 ## 2026-03-23
+- Tightened the new sales warehouse metadata flow in `trn_salesfile2.php` and `trn_salesfile2_ajax.php` to match `trn_invadjfile2.php`:
+  - add mode now requires `Warehouse` and `Warehouse Floor`
+  - edit mode also requires them for normal rows
+  - only sales detail rows already saved with both blank `warcde` and blank `warehouse_floor_id` now get a `None` option and may stay blank on edit
+  - `Warehouse Staff` remains optional
 - Updated `trn_salesfile2.php` and `trn_salesfile2_ajax.php` to mirror the inventory-adjustment warehouse/user additions:
   - added header `User` display using `users.userdesc`, with new sales headers saving the current session `usercode` into `tranfile1.usercode`
   - added `Warehouse`, dependent `Warehouse Floor`, and `Warehouse Staff` to the sales line-item add/edit modals

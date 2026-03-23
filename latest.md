@@ -1,6 +1,11 @@
 # Latest
 
 ## 2026-03-23
+- Corrected the new sales warehouse validation to match inventory adjustments:
+  - add mode now blocks blank `Warehouse` and `Warehouse Floor`
+  - normal edits also require them
+  - only legacy blank sales detail rows can keep `None` on edit
+  - `Warehouse Staff` remains optional
 - Updated sales entry details to match the inventory-adjustment metadata additions:
   - `trn_salesfile2.php` now shows the header `User` field and includes `Warehouse`, dependent `Warehouse Floor`, and `Warehouse Staff` in sales line add/edit modals
   - `trn_salesfile2_ajax.php` now saves those warehouse fields into `tranfile2` and saves the current session `usercode` into new `tranfile1` sales headers
