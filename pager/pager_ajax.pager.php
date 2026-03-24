@@ -501,7 +501,7 @@
 
                     if(!empty($field_decimal_place)){
                         $xret["html"] .= "<td style='font-weight:".$field_fw.";text-align:right' data-label='".$xfields_arr_val[3]["data-field-header"]."'>";
-                            $xret["html"].= "<span>".number_format($row["".$field_name.""],$field_decimal_place)."</span>";
+                            $xret["html"].= "<span>".number_format((float)$row["".$field_name.""],$field_decimal_place)."</span>";
                         $xret["html"] .= "</td>";
                     }else{
                         $xret["html"] .= "<td style='font-weight:".$field_fw."' data-label='".$xfields_arr_val[3]["data-field-header"]."'>";
@@ -657,7 +657,7 @@
 
                 if(!empty($field_decimal_place)){
                     $xret["html_mobile"] .= "<td style='font-weight:".$field_fw.";text-align:right' data-label='".$xfields_arr_val[3]["data-field-header"]."'>";
-                        $xret["html_mobile"].= "<span>".number_format($row["".$field_name.""],$field_decimal_place)."</span>";
+                        $xret["html_mobile"].= "<span>".number_format((float)$row["".$field_name.""],$field_decimal_place)."</span>";
                     $xret["html_mobile"] .= "</td>";
                 }else{
                     $xret["html_mobile"] .= "<td style='font-weight:".$field_fw."' data-label='".$xfields_arr_val[3]["data-field-header"]."'>";

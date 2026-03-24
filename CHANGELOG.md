@@ -1,6 +1,11 @@
 # Changelog
 
 ## 2026-03-24
+- Fixed `number_format()` warning in `pager/pager_ajax.pager.php`:
+  - added float casting before `number_format()` calls on lines 504 and 660
+  - prevents "expects parameter 1 to be float, string given" warnings when displaying decimal fields
+  - safe change that only affects fields with `field_decimal_place_dis` set (e.g., conversion, salary, price fields)
+  - handles cases where database returns numeric values as strings
 - Fixed `mf_item_uom.php` dropdown configuration:
   - corrected field_type_dis and field_type_crud to use "dropdown_custom" instead of invalid "lookup" and "dropdown" types
   - properly configured field_dropdown_field_name_dis, field_dropdown_field_name_value_dis, field_dropdown_tablename_dis for display
