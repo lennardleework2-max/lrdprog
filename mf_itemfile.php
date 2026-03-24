@@ -25,6 +25,24 @@ require "pager/pager_main.class.php";
         function john(event2, id){
             alert(event2+","+id);
         }
+
+        function goItemUnitOfMeasure(itmcde){
+            if(!itmcde){
+                return;
+            }
+            var form = document.createElement("form");
+            form.method = "POST";
+            form.action = "mf_item_uom.php";
+
+            var input = document.createElement("input");
+            input.type = "hidden";
+            input.name = "itmcde";
+            input.value = itmcde;
+
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
+        }
     </script>
 
     <form name='myforms' id="myforms" method="post" target="_self"> 
@@ -146,6 +164,12 @@ require "pager/pager_main.class.php";
                             //user activity log
                             $table1->ua_field1  = "itmdsc";
                             $table1->ua_field2  = "itmcde";
+
+                            // Custom button for Unit of Measure
+                            $table1->btn_header[0] = "Unit of Measure";
+                            $table1->btn_logo[0] = "<i class='fas fa-ruler'></i>";
+                            $table1->btn_function[0] = "goItemUnitOfMeasure('{itmcde}')";
+                            $table1->btn_color[0] = "#17a2b8";
 
                             //CRUD
                             $table1->display_table();

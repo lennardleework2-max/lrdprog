@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-03-24
+- Added `mf_item_uom.php` for managing item-specific unit of measure conversions:
+  - new page displays unit conversions for a selected item from `itemunitfile` table
+  - follows the warehouse/warehouse_floor pattern with context-based filtering
+  - filters conversions by selected item's `itmcde`
+  - `itmunitcde` field auto-generates starting at `ITMUNT-000000001`
+  - displays `Unit of Measure` dropdown populated from `itemunitmeasurefile.unmdsc` but saves `unmcde`
+  - includes `Conversion` field for decimal conversion values
+  - supports add/edit/delete operations for multiple unit conversions per item
+- Updated `mf_itemfile.php` to add `Unit of Measure` action button:
+  - added row-level action button in items table
+  - button navigates to `mf_item_uom.php` with selected item context via POST
+  - uses teal color (#17a2b8) and ruler icon for visual distinction
+
 ## 2026-03-23
 - Tightened the new sales warehouse metadata flow in `trn_salesfile2.php` and `trn_salesfile2_ajax.php` to match `trn_invadjfile2.php`:
   - add mode now requires `Warehouse` and `Warehouse Floor`
