@@ -1,6 +1,13 @@
 # Changelog
 
 ## 2026-03-24
+- Fixed `mf_item_uom.php` dropdown configuration:
+  - corrected field_type_dis and field_type_crud to use "dropdown_custom" instead of invalid "lookup" and "dropdown" types
+  - properly configured field_dropdown_field_name_dis, field_dropdown_field_name_value_dis, field_dropdown_tablename_dis for display
+  - properly configured field_dropdown_field_name_crud, field_dropdown_field_name_value_crud, field_dropdown_tablename_crud, field_dropdown_orderby_field_crud for CRUD
+  - now correctly displays `unmdsc` (description) in table while saving `unmcde` (code) to database
+  - fixed "NO RECORDS" colspan calculation by using recognized dropdown_custom type
+  - added decimal place formatting (2 places) for conversion field display
 - Added `mf_item_uom.php` for managing item-specific unit of measure conversions:
   - new page displays unit conversions for a selected item from `itemunitfile` table
   - follows the warehouse/warehouse_floor pattern with context-based filtering

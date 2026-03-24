@@ -85,26 +85,28 @@ $has_valid_item = ($itmcde !== '' && $itmdsc !== '');
                             $table1->table_filter_value = $itmcde;
 
                             // Display fields
-                            $table1->field_type_dis["unmcde"] = "lookup";
+                            $table1->field_type_dis["unmcde"] = "dropdown_custom";
                             $table1->field_name_dis["unmcde"] = "unmcde";
                             $table1->field_header_dis["unmcde"] = "Unit of Measure";
-                            $table1->field_lkup_link["unmcde"] = "itemunitmeasurefile";
-                            $table1->field_lkup_code["unmcde"] = "unmcde";
-                            $table1->field_lkup_field["unmcde"] = "unmdsc";
+                            $table1->field_dropdown_field_name_dis["unmcde"] = "unmcde";
+                            $table1->field_dropdown_field_name_value_dis["unmcde"] = "unmdsc";
+                            $table1->field_dropdown_tablename_dis["unmcde"] = "itemunitmeasurefile";
 
                             $table1->field_type_dis["conversion"] = "number";
                             $table1->field_name_dis["conversion"] = "conversion";
                             $table1->field_header_dis["conversion"] = "Conversion";
+                            $table1->field_decimal_place_dis["conversion"] = 2;
 
                             // CRUD fields
-                            $table1->field_type_crud["unmcde"] = "dropdown";
+                            $table1->field_type_crud["unmcde"] = "dropdown_custom";
                             $table1->field_name_crud["unmcde"] = "unmcde";
                             $table1->field_header_crud["unmcde"] = "Unit of Measure";
                             $table1->field_is_required["unmcde"] = "Y";
                             $table1->field_is_unique["unmcde"] = "N";
-                            $table1->field_drp_link["unmcde"] = "itemunitmeasurefile";
-                            $table1->field_drp_code["unmcde"] = "unmcde";
-                            $table1->field_drp_field["unmcde"] = "unmdsc";
+                            $table1->field_dropdown_field_name_crud["unmcde"] = "unmcde";
+                            $table1->field_dropdown_field_name_value_crud["unmcde"] = "unmdsc";
+                            $table1->field_dropdown_tablename_crud["unmcde"] = "itemunitmeasurefile";
+                            $table1->field_dropdown_orderby_field_crud["unmcde"] = "unmdsc";
 
                             $table1->field_type_crud["conversion"] = "text";
                             $table1->field_name_crud["conversion"] = "conversion";
