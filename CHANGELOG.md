@@ -1,6 +1,17 @@
 # Changelog
 
 ## 2026-03-24
+- Created custom PDF export for `mf_item_uom.php`:
+  - new `mf_item_uom_pdf.php` generates PDF/TXT showing item code, description, and unit conversions
+  - displays only data for the selected item (not all items like prog_pdf.php)
+  - custom PDF export configured via `exp_pdf` and `exp_txt` properties
+- Protected 'pcs' unit of measure in `mf_uom.php`:
+  - Edit/Delete buttons hidden for rows where unmdsc = 'pcs'
+  - uses JavaScript MutationObserver to maintain protection after table refreshes
+  - prevents accidental modification/deletion of base unit
+- Enhanced `mf_item_uom.php`:
+  - 'pcs' excluded from Unit of Measure dropdown in add/edit modals
+  - `unmcde` now unique per item (cannot add same unit twice for one item)
 - Added Default UOM column to `mf_itemfile.php`:
   - new display column shows `unmdsc` (unit description) from `itemunitmeasurefile` table
   - saves `unmcde` (unit code) to `itemfile.unmcde` column

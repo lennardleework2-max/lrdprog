@@ -102,7 +102,7 @@ $has_valid_item = ($itmcde !== '' && $itmdsc !== '');
                             $table1->field_name_crud["unmcde"] = "unmcde";
                             $table1->field_header_crud["unmcde"] = "Unit of Measure";
                             $table1->field_is_required["unmcde"] = "Y";
-                            $table1->field_is_unique["unmcde"] = "N";
+                            $table1->field_is_unique["unmcde"] = "Y";
                             $table1->field_dropdown_field_name_crud["unmcde"] = "unmcde";
                             $table1->field_dropdown_field_name_value_crud["unmcde"] = "unmdsc";
                             $table1->field_dropdown_tablename_crud["unmcde"] = "itemunitmeasurefile";
@@ -119,6 +119,10 @@ $has_valid_item = ($itmcde !== '' && $itmdsc !== '');
 
                             $table1->show_export = "Y";
                             $table1->show_search = "Y";
+
+                            // Custom PDF export
+                            $table1->exp_pdf = "mf_item_uom_pdf.php";
+                            $table1->exp_txt = "mf_item_uom_pdf.php";
 
                             $table1->alert_del = "N";
                             $table1->alert_del_logo_dir = $logo_dir;
@@ -155,7 +159,24 @@ $has_valid_item = ($itmcde !== '' && $itmdsc !== '');
 
 <!-- PAGER JS -->
 <?php if($has_valid_item): ?>
-<script src="pager/pager_js.class.js"> </script>
+<script src="pager/pager_js.class.js"></script>
+<script>
+// Exclude 'pcs' from Unit of Measure dropdown in add/edit modal
+$(document).ready(function(){
+    // Listen for modal shown event
+    $('#crudModal').on('shown.bs.modal', function(){
+        // Find the unmcde dropdown and remove 'pcs' option
+        var $dropdown = $('#unmcde_crudModal');
+        if($dropdown.length){
+            $dropdown.find('option').each(function(){
+                if($(this).text().toLowerCase().trim() === 'pcs'){
+                    $(this).remove();
+                }
+            });
+        }
+    });
+});
+</script>
 <?php endif; ?>
 <?php
 require "includes/main_footer.php";
