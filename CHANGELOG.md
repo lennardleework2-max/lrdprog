@@ -1,6 +1,11 @@
 # Changelog
 
 ## 2026-03-24
+- Added Default UOM column to `mf_itemfile.php`:
+  - new display column shows `unmdsc` (unit description) from `itemunitmeasurefile` table
+  - saves `unmcde` (unit code) to `itemfile.unmcde` column
+  - add/edit modal shows dropdown of unit descriptions, saves the code
+  - uses dropdown_custom type for both display and CRUD
 - Fixed `number_format()` warning in `pager/pager_ajax.pager.php`:
   - added float casting before `number_format()` calls on lines 504 and 660
   - prevents "expects parameter 1 to be float, string given" warnings when displaying decimal fields
