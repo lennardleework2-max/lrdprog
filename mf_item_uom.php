@@ -102,7 +102,7 @@ $has_valid_item = ($itmcde !== '' && $itmdsc !== '');
                             $table1->field_name_crud["unmcde"] = "unmcde";
                             $table1->field_header_crud["unmcde"] = "Unit of Measure";
                             $table1->field_is_required["unmcde"] = "Y";
-                            $table1->field_is_unique["unmcde"] = "Y";
+                            $table1->field_is_unique["unmcde"] = "N";
                             $table1->field_dropdown_field_name_crud["unmcde"] = "unmcde";
                             $table1->field_dropdown_field_name_value_crud["unmcde"] = "unmdsc";
                             $table1->field_dropdown_tablename_crud["unmcde"] = "itemunitmeasurefile";
@@ -161,21 +161,64 @@ $has_valid_item = ($itmcde !== '' && $itmdsc !== '');
 <?php if($has_valid_item): ?>
 <script src="pager/pager_js.class.js"></script>
 <script>
-// Exclude 'pcs' from Unit of Measure dropdown in add/edit modal
-$(document).ready(function(){
-    // Listen for modal shown event
-    $('#crudModal').on('shown.bs.modal', function(){
-        // Find the unmcde dropdown and remove 'pcs' option
-        var $dropdown = $('#unmcde_crudModal');
-        if($dropdown.length){
-            $dropdown.find('option').each(function(){
-                if($(this).text().toLowerCase().trim() === 'pcs'){
-                    $(this).remove();
+(function(){
+    var itmcde = '<?php echo addslashes($itmcde); ?>';
+    var originalAjaxFunc = window.ajaxFunc;
+
+    // Override ajaxFunc to add custom unique validation
+    window.ajaxFunc = function(event, recid, custom_param){
+        // Intercept submitInsert and submitEdit to check uniqueness
+        if(event === 'submitInsert' || event === 'submitEdit'){
+            var unmcde = $('#unmcde_crudModal').val();
+            var currentRecid = (event === 'submitEdit') ? $('#recid_hidden').val() : '';
+
+            // Check uniqueness via AJAX
+            $.ajax({
+                url: 'mf_item_uom_ajax.php',
+                type: 'POST',
+                data: {
+                    action: 'check_unique',
+                    itmcde: itmcde,
+                    unmcde: unmcde,
+                    recid: currentRecid
+                },
+                async: false,
+                success: function(response){
+                    if(response.exists){
+                        $('.error_msg').html('<div class="alert alert-danger">This Unit of Measure already exists for this item.</div>');
+                        return;
+                    }
+                    // If not duplicate, proceed with original function
+                    originalAjaxFunc(event, recid, custom_param);
+                },
+                error: function(){
+                    // On error, proceed anyway
+                    originalAjaxFunc(event, recid, custom_param);
                 }
             });
+            return;
         }
+
+        // For all other events, use original function
+        return originalAjaxFunc(event, recid, custom_param);
+    };
+
+    // Exclude 'pcs' from Unit of Measure dropdown in add/edit modal
+    $(document).ready(function(){
+        // Listen for modal shown event
+        $('#crudModal').on('shown.bs.modal', function(){
+            // Find the unmcde dropdown and remove 'pcs' option
+            var $dropdown = $('#unmcde_crudModal');
+            if($dropdown.length){
+                $dropdown.find('option').each(function(){
+                    if($(this).text().toLowerCase().trim() === 'pcs'){
+                        $(this).remove();
+                    }
+                });
+            }
+        });
     });
-});
+})();
 </script>
 <?php endif; ?>
 <?php

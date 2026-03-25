@@ -1,6 +1,13 @@
 # Changelog
 
 ## 2026-03-24
+- Bug fixes for UOM features:
+  - Fixed PDF header line overlap in `mf_item_uom_pdf.php` by adjusting spacing
+  - Fixed 'pcs' Edit/Delete button hiding in `mf_uom.php` (corrected selector to target dropdown menu `<li>` items)
+  - Fixed unique validation in `mf_item_uom.php` to check within same item only:
+    - disabled pager's global unique check
+    - created `mf_item_uom_ajax.php` for custom uniqueness check
+    - added JavaScript to validate before save (checks if unmcde exists for this specific itmcde)
 - Created custom PDF export for `mf_item_uom.php`:
   - new `mf_item_uom_pdf.php` generates PDF/TXT showing item code, description, and unit conversions
   - displays only data for the selected item (not all items like prog_pdf.php)

@@ -138,15 +138,22 @@ require "pager/pager_main.class.php";
             // Get the first td which contains the unmdsc value
             var unmdscText = $row.find('td:first span').text().toLowerCase().trim();
             if(unmdscText === 'pcs'){
-                // Hide the action buttons (Edit and Delete)
-                $row.find('.btn_edit_class, .btn_delete_class').hide();
+                // Hide the Edit and Delete li items in the dropdown
+                $row.find('.dropdown-menu li').each(function(){
+                    var liText = $(this).text().toLowerCase().trim();
+                    if(liText === 'edit' || liText === 'delete'){
+                        $(this).hide();
+                    }
+                });
             }
         });
     }
 
     // Run on page load and after AJAX updates
     $(document).ready(function(){
-        hidePcsButtons();
+        // Initial run with delay to ensure table is loaded
+        setTimeout(hidePcsButtons, 500);
+
         // Also run after table refresh (observer for dynamic content)
         var observer = new MutationObserver(function(mutations){
             hidePcsButtons();

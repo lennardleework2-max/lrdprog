@@ -74,18 +74,20 @@
     $xtop -= 15;
 
     $pdf->ezPlaceData($xleft, $xtop, "<b>Date Printed:</b> ".$date_printed, 9, 'left');
-    $xtop -= 20;
+    $xtop -= 25;
 
-    // Table header line
+    // Table header line (top)
     $pdf->setLineStyle(.5);
-    $pdf->line($xleft, $xtop+5, 570, $xtop+5);
-    $pdf->line($xleft, $xtop-12, 570, $xtop-12);
+    $pdf->line($xleft, $xtop+12, 570, $xtop+12);
 
     // Column headers
     $pdf->ezPlaceData($xleft, $xtop, "<b>Unit of Measure</b>", 10, 'left');
     $pdf->ezPlaceData(350, $xtop, "<b>Conversion</b>", 10, 'right');
 
-    $xtop -= 25;
+    // Table header line (bottom)
+    $pdf->line($xleft, $xtop-5, 570, $xtop-5);
+
+    $xtop -= 20;
 
     $pdf->restoreState();
     $pdf->closeObject();
