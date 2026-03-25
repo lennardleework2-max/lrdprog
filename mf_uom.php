@@ -131,37 +131,27 @@ require "pager/pager_main.class.php";
         };
     })();
 
-    // Hide Edit/Delete buttons for 'pcs' rows
-    function hidePcsButtons(){
-        $('.data_table tbody tr').each(function(){
-            var $row = $(this);
-            // Get the first td which contains the unmdsc value
+    // Hide Edit/Delete buttons for 'pcs' rows when dropdown is shown
+    $(document).ready(function(){
+        // Use event delegation for dropdown show event
+        $(document).on('show.bs.dropdown', '.data_table .dropdown', function(){
+            var $dropdown = $(this);
+            var $row = $dropdown.closest('tr');
             var unmdscText = $row.find('td:first span').text().toLowerCase().trim();
+
             if(unmdscText === 'pcs'){
-                // Hide the Edit and Delete li items in the dropdown
-                $row.find('.dropdown-menu li').each(function(){
+                // Hide Edit and Delete options
+                $dropdown.find('.dropdown-menu li').each(function(){
                     var liText = $(this).text().toLowerCase().trim();
                     if(liText === 'edit' || liText === 'delete'){
                         $(this).hide();
                     }
                 });
+            } else {
+                // Make sure they're visible for non-pcs rows
+                $dropdown.find('.dropdown-menu li').show();
             }
         });
-    }
-
-    // Run on page load and after AJAX updates
-    $(document).ready(function(){
-        // Initial run with delay to ensure table is loaded
-        setTimeout(hidePcsButtons, 500);
-
-        // Also run after table refresh (observer for dynamic content)
-        var observer = new MutationObserver(function(mutations){
-            hidePcsButtons();
-        });
-        var tableBody = document.querySelector('.data_table tbody');
-        if(tableBody){
-            observer.observe(tableBody, { childList: true, subtree: true });
-        }
     });
 </script>
 <?php

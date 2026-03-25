@@ -164,18 +164,21 @@ $has_valid_item = ($itmcde !== '' && $itmdsc !== '');
 (function(){
     var itmcde = '<?php echo addslashes($itmcde); ?>';
     var originalAjaxFunc = window.ajaxFunc;
+    var isValidating = false;
 
     // Override ajaxFunc to add custom unique validation
     window.ajaxFunc = function(event, recid, custom_param){
         // Intercept submitInsert and submitEdit to check uniqueness
-        if(event === 'submitInsert' || event === 'submitEdit'){
+        if((event === 'submitInsert' || event === 'submitEdit') && !isValidating){
             var unmcde = $('#unmcde_crudModal').val();
             var currentRecid = (event === 'submitEdit') ? $('#recid_hidden').val() : '';
 
-            // Check uniqueness via AJAX
+            // Check uniqueness via synchronous AJAX
+            var isDuplicate = false;
             $.ajax({
                 url: 'mf_item_uom_ajax.php',
                 type: 'POST',
+                dataType: 'json',
                 data: {
                     action: 'check_unique',
                     itmcde: itmcde,
@@ -184,18 +187,25 @@ $has_valid_item = ($itmcde !== '' && $itmdsc !== '');
                 },
                 async: false,
                 success: function(response){
-                    if(response.exists){
-                        $('.error_msg').html('<div class="alert alert-danger">This Unit of Measure already exists for this item.</div>');
-                        return;
+                    if(response && response.exists === true){
+                        isDuplicate = true;
                     }
-                    // If not duplicate, proceed with original function
-                    originalAjaxFunc(event, recid, custom_param);
                 },
-                error: function(){
-                    // On error, proceed anyway
-                    originalAjaxFunc(event, recid, custom_param);
+                error: function(xhr, status, error){
+                    console.log('AJAX Error:', error);
+                    isDuplicate = false;
                 }
             });
+
+            if(isDuplicate){
+                $('.error_msg').html('<div class="alert alert-danger">This Unit of Measure already exists for this item.</div>');
+                return false;
+            }
+
+            // Proceed with original function
+            isValidating = true;
+            originalAjaxFunc(event, recid, custom_param);
+            isValidating = false;
             return;
         }
 

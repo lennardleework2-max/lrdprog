@@ -1,6 +1,9 @@
 # Changelog
 
 ## 2026-03-24
+- Second round of bug fixes for UOM features:
+  - Fixed 'pcs' Edit/Delete hiding in `mf_uom.php`: now uses Bootstrap dropdown `show.bs.dropdown` event to hide buttons when dropdown opens (previous approach didn't work because dropdown content wasn't in DOM until opened)
+  - Fixed unique validation in `mf_item_uom.php`: added `dataType: 'json'` to AJAX call, restructured validation logic to properly block duplicate saves
 - Bug fixes for UOM features:
   - Fixed PDF header line overlap in `mf_item_uom_pdf.php` by adjusting spacing
   - Fixed 'pcs' Edit/Delete button hiding in `mf_uom.php` (corrected selector to target dropdown menu `<li>` items)
