@@ -1155,7 +1155,7 @@
 	            }
 
 	            if($log_format_number(isset($log_old_record['untprc']) ? $log_old_record['untprc'] : '') !== $log_format_number($_POST['price_edit'])){
-	                $log_change_parts[] = "price from '" . $log_format_number(isset($log_old_record['untprc']) ? $log_old_record['untprc'] : '') . "' to '" . $log_format_number($_POST['price_edit']) . "'";
+	                $log_change_parts[] = "price per unit from '" . $log_format_number(isset($log_old_record['untprc']) ? $log_old_record['untprc'] : '') . "' to '" . $log_format_number($_POST['price_edit']) . "'";
 	            }
 
 	            if(trim((string)(isset($log_old_record['warcde']) ? $log_old_record['warcde'] : '')) !== trim((string)$_POST['warcde_edit'])){
