@@ -28,9 +28,35 @@ $page_output = ob_get_clean();
 $validation_script = <<<'HTML'
 <script>
 (function(){
-    function showWarehouseStaffRequiredModal(){
-        $("#alert_modal_body_system").html("Warehouse staff is required");
-        $("#alert_modal_system").modal("show");
+    function getErrorContainer(event){
+        if(event === "insert"){
+            return $(".error_msg_add_modal");
+        }
+
+        if(event === "submitEdit"){
+            return $(".error_msg_edit_modal");
+        }
+
+        return $();
+    }
+
+    function clearWarehouseStaffValidationMessage(event){
+        var $container = getErrorContainer(event);
+        if(!$container.length){
+            return;
+        }
+
+        $container.find("[data-warehouse-staff-required='1']").remove();
+    }
+
+    function showWarehouseStaffRequiredMessage(event){
+        var $container = getErrorContainer(event);
+        if(!$container.length){
+            return;
+        }
+
+        clearWarehouseStaffValidationMessage(event);
+        $container.append("<div class='alert alert-danger m-2' role='alert' data-warehouse-staff-required='1'>Warehouse staff is required</div>");
     }
 
     function getWarehouseStaffFieldValue(event){
@@ -48,9 +74,11 @@ $validation_script = <<<'HTML'
     function validateWarehouseStaffAndContinue(originalSalesfile2, event, xrecid){
         var warehouseStaffId = getWarehouseStaffFieldValue(event);
         if(warehouseStaffId === ""){
-            showWarehouseStaffRequiredModal();
+            showWarehouseStaffRequiredMessage(event);
             return false;
         }
+
+        clearWarehouseStaffValidationMessage(event);
 
         $.ajax({
             data: {
@@ -62,14 +90,15 @@ $validation_script = <<<'HTML'
             url: "trn_invadjfile2.php",
             success: function(xdata){
                 if(!xdata || String(xdata.status) !== "1"){
-                    showWarehouseStaffRequiredModal();
+                    showWarehouseStaffRequiredMessage(event);
                     return;
                 }
 
+                clearWarehouseStaffValidationMessage(event);
                 originalSalesfile2(event, xrecid);
             },
             error: function(){
-                showWarehouseStaffRequiredModal();
+                showWarehouseStaffRequiredMessage(event);
             }
         });
 
