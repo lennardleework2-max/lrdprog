@@ -3,19 +3,137 @@ if(isset($_POST['warehouse_staff_validate_action']) && $_POST['warehouse_staff_v
     session_start();
     header('Content-Type: application/json');
 
-    $warehouse_staff_id = isset($_POST['warehouse_staff_id']) ? trim((string)$_POST['warehouse_staff_id']) : '';
-    if($warehouse_staff_id === ''){
-        echo json_encode(array(
-            'status' => 0,
-            'msg' => 'Warehouse staff is required'
-        ));
-        exit;
+    $xret = array(
+        'status' => 1,
+        'msg' => '',
+        'error1' => 0,
+        'error2' => 0,
+        'error3' => 0,
+        'error4' => 0,
+        'error5' => 0,
+        'error6' => 0,
+        'error7' => 0
+    );
+
+    $validation_mode = isset($_POST['validation_mode']) ? trim((string)$_POST['validation_mode']) : '';
+
+    $append_error = function($message, $error_key) use (&$xret){
+        if($xret['msg'] !== ''){
+            $xret['msg'] .= "</br>";
+        }
+
+        $xret['msg'] .= $message;
+        $xret['status'] = 0;
+        if($error_key !== ''){
+            $xret[$error_key] = 1;
+        }
+    };
+
+    $is_invalid_uom = function($uom_value){
+        $uom_value = trim((string)$uom_value);
+        return $uom_value === '' || strtolower($uom_value) === 'none';
+    };
+
+    if($validation_mode === 'add'){
+        $trndte = isset($_POST['trndte_1']) ? trim((string)$_POST['trndte_1']) : '';
+        $itmcde_hidden = isset($_POST['itmcde_add_hidden']) ? trim((string)$_POST['itmcde_add_hidden']) : '';
+        $itmcde_text = isset($_POST['itmcde_add']) ? trim((string)$_POST['itmcde_add']) : '';
+        $itmqty = isset($_POST['itmqty_add']) ? trim((string)$_POST['itmqty_add']) : '';
+        $unmcde = isset($_POST['unmcde_add']) ? trim((string)$_POST['unmcde_add']) : '';
+        $warcde = isset($_POST['warcde_add']) ? trim((string)$_POST['warcde_add']) : '';
+        $warehouse_floor_id = isset($_POST['warehouse_floor_id_add']) ? trim((string)$_POST['warehouse_floor_id_add']) : '';
+        $warehouse_staff_id = isset($_POST['warehouse_staff_id_add']) ? trim((string)$_POST['warehouse_staff_id_add']) : '';
+
+        if($trndte === ''){
+            $append_error("<b>Tran. Date</b> cannot be empty.", 'error1');
+        }
+
+        if($itmcde_hidden === ''){
+            if($itmcde_text === ''){
+                $append_error("<b>Item</b> Cannot Be Empty", 'error2');
+            }else{
+                $append_error("Invalid <b>Item</b>", 'error2');
+            }
+        }
+
+        if($itmqty === '' || $itmqty === '0'){
+            $append_error("<b>Quantity</b> Cannot Be Empty or 0", 'error3');
+        }
+
+        if($is_invalid_uom($unmcde)){
+            $append_error("<b>Unit of Measure</b> must be selected and cannot be None", 'error6');
+        }
+
+        if($warcde === ''){
+            $append_error("<b>Warehouse</b> Cannot Be Empty", 'error4');
+        }
+
+        if($warehouse_floor_id === ''){
+            $append_error("<b>Warehouse Floor</b> Cannot Be Empty", 'error5');
+        }
+
+        if($warehouse_staff_id === ''){
+            $append_error("<b>Warehouse Staff</b> Cannot Be Empty", 'error7');
+        }
+    }else if($validation_mode === 'edit'){
+        $trndte = isset($_POST['xtrndte_1']) ? trim((string)$_POST['xtrndte_1']) : '';
+        $itmcde_hidden = isset($_POST['itmcde_edit_hidden']) ? trim((string)$_POST['itmcde_edit_hidden']) : '';
+        $itmcde_text = isset($_POST['itmcde_edit']) ? trim((string)$_POST['itmcde_edit']) : '';
+        $itmqty = isset($_POST['itmqty_edit']) ? trim((string)$_POST['itmqty_edit']) : '';
+        $unmcde = isset($_POST['unmcde_edit']) ? trim((string)$_POST['unmcde_edit']) : '';
+        $warcde = isset($_POST['warcde_edit']) ? trim((string)$_POST['warcde_edit']) : '';
+        $warehouse_floor_id = isset($_POST['warehouse_floor_id_edit']) ? trim((string)$_POST['warehouse_floor_id_edit']) : '';
+        $warehouse_staff_id = isset($_POST['warehouse_staff_id_edit']) ? trim((string)$_POST['warehouse_staff_id_edit']) : '';
+        $allow_empty_location = isset($_POST['allow_empty_location_edit']) && trim((string)$_POST['allow_empty_location_edit']) === '1';
+
+        if($trndte === ''){
+            $append_error("<b>Tran. Date</b> cannot be empty.", 'error1');
+        }
+
+        if($itmcde_hidden === ''){
+            if($itmcde_text === ''){
+                $append_error("<b>Item</b> Cannot Be Empty", 'error2');
+            }else{
+                $append_error("Invalid <b>Item</b>", 'error2');
+            }
+        }
+
+        if($itmqty === '' || $itmqty === '0'){
+            $append_error("<b>Quantity</b> Cannot Be Empty or 0", 'error3');
+        }
+
+        if($is_invalid_uom($unmcde)){
+            $append_error("<b>Unit of Measure</b> must be selected and cannot be None", 'error6');
+        }
+
+        if($allow_empty_location){
+            $filled_location_count = 0;
+            if($warcde !== ''){
+                $filled_location_count++;
+            }
+            if($warehouse_floor_id !== ''){
+                $filled_location_count++;
+            }
+
+            if($filled_location_count !== 0 && $filled_location_count !== 2){
+                $append_error("<b>Warehouse</b> and <b>Warehouse Floor</b> must both be filled or both be None", 'error4');
+            }
+        }else{
+            if($warcde === ''){
+                $append_error("<b>Warehouse</b> Cannot Be Empty", 'error4');
+            }
+
+            if($warehouse_floor_id === ''){
+                $append_error("<b>Warehouse Floor</b> Cannot Be Empty", 'error5');
+            }
+        }
+
+        if($warehouse_staff_id === ''){
+            $append_error("<b>Warehouse Staff</b> Cannot Be Empty", 'error7');
+        }
     }
 
-    echo json_encode(array(
-        'status' => 1,
-        'msg' => ''
-    ));
+    echo json_encode($xret);
     exit;
 }
 
@@ -40,65 +158,79 @@ $validation_script = <<<'HTML'
         return $();
     }
 
-    function clearWarehouseStaffValidationMessage(event){
+    function clearValidationContainer(event){
         var $container = getErrorContainer(event);
         if(!$container.length){
             return;
         }
 
-        $container.find("[data-warehouse-staff-required='1']").remove();
+        $container.html("");
     }
 
-    function showWarehouseStaffRequiredMessage(event){
+    function showValidationMessage(event, message){
         var $container = getErrorContainer(event);
         if(!$container.length){
             return;
         }
 
-        clearWarehouseStaffValidationMessage(event);
-        $container.append("<div class='alert alert-danger m-2' role='alert' data-warehouse-staff-required='1'>Warehouse staff is required</div>");
+        $container.html("<div class='alert alert-danger m-2' role='alert'>" + message + "</div>");
     }
 
-    function getWarehouseStaffFieldValue(event){
+    function buildValidationRequest(event){
         if(event === "insert"){
-            return $.trim($("#warehouse_staff_id_add").val() || "");
+            return {
+                warehouse_staff_validate_action: "1",
+                validation_mode: "add",
+                trndte_1: $("#trndte_1").val(),
+                itmcde_add_hidden: $("#itmcde_add_hidden").val(),
+                itmcde_add: $("#itmcde_add").val(),
+                itmqty_add: $("#itmqty_add").val(),
+                unmcde_add: $("#unmcde_add").val(),
+                warcde_add: $("#warcde_add").val(),
+                warehouse_floor_id_add: $("#warehouse_floor_id_add").val(),
+                warehouse_staff_id_add: $("#warehouse_staff_id_add").val()
+            };
         }
 
         if(event === "submitEdit"){
-            return $.trim($("#warehouse_staff_id_edit").val() || "");
+            return {
+                warehouse_staff_validate_action: "1",
+                validation_mode: "edit",
+                xtrndte_1: $("#trndte_1").val(),
+                itmcde_edit_hidden: $("#itmcde_edit_hidden").val(),
+                itmcde_edit: $("#itmcde_edit").val(),
+                itmqty_edit: $("#itmqty_edit").val(),
+                unmcde_edit: $("#unmcde_edit").val(),
+                warcde_edit: $("#warcde_edit").val(),
+                warehouse_floor_id_edit: $("#warehouse_floor_id_edit").val(),
+                warehouse_staff_id_edit: $("#warehouse_staff_id_edit").val(),
+                allow_empty_location_edit: $("#allow_empty_location_edit").val()
+            };
         }
 
-        return "";
+        return {};
     }
 
     function validateWarehouseStaffAndContinue(originalSalesfile2, event, xrecid){
-        var warehouseStaffId = getWarehouseStaffFieldValue(event);
-        if(warehouseStaffId === ""){
-            showWarehouseStaffRequiredMessage(event);
-            return false;
-        }
-
-        clearWarehouseStaffValidationMessage(event);
+        var requestData = buildValidationRequest(event);
+        clearValidationContainer(event);
 
         $.ajax({
-            data: {
-                warehouse_staff_validate_action: "1",
-                warehouse_staff_id: warehouseStaffId
-            },
+            data: requestData,
             dataType: "json",
             type: "post",
             url: "trn_invadjfile2.php",
             success: function(xdata){
                 if(!xdata || String(xdata.status) !== "1"){
-                    showWarehouseStaffRequiredMessage(event);
+                    showValidationMessage(event, (xdata && xdata.msg) ? xdata.msg : "<b>Warehouse Staff</b> Cannot Be Empty");
                     return;
                 }
 
-                clearWarehouseStaffValidationMessage(event);
+                clearValidationContainer(event);
                 originalSalesfile2(event, xrecid);
             },
             error: function(){
-                showWarehouseStaffRequiredMessage(event);
+                showValidationMessage(event, "<b>Warehouse Staff</b> Cannot Be Empty");
             }
         });
 
