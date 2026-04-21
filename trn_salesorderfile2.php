@@ -11,9 +11,11 @@ require "includes/main_header.php";
 //     $password   = $rs_salesfile1['password'];
 //     // loop here
 // }
-
+$header_usercode = '';
+$is_edit_mode = false;
 
 if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
+    $is_edit_mode = true;
 
     $select_db_docnum1='SELECT * FROM salesorderfile1 WHERE recid=?';
     $stmt_docnum1	= $link->prepare($select_db_docnum1);
@@ -73,6 +75,7 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
         $order_num  = $rs_docnum1['ordernum'];
         $waybill_num  = $rs_docnum1['waybill_number'];
         $buyer_id  = $rs_docnum1['buyer_id'];
+        $header_usercode = isset($rs_docnum1['usercode']) ? trim((string)$rs_docnum1['usercode']) : '';
         //$ordernum  = $rs_docnum1['ordernum'];
 
         $file_created_date = $rs_docnum1['file_created_date'];
@@ -112,6 +115,57 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
     //$ordernum  = "";
 }
 
+$session_usercode = '';
+if(isset($_SESSION['usercode']) && trim((string)$_SESSION['usercode']) !== ''){
+    $session_usercode = trim((string)$_SESSION['usercode']);
+}else if(isset($_POST["usercode_hidden"]) && trim((string)$_POST["usercode_hidden"]) !== ''){
+    $session_usercode = trim((string)$_POST["usercode_hidden"]);
+}
+
+$display_usercode = $is_edit_mode ? $header_usercode : $session_usercode;
+$display_userdesc = '';
+if($display_usercode !== ''){
+    $select_user = "SELECT userdesc FROM users WHERE usercode = ? LIMIT 1";
+    $stmt_user = $link->prepare($select_user);
+    $stmt_user->execute(array($display_usercode));
+    $rs_user = $stmt_user->fetch();
+    if(!empty($rs_user) && isset($rs_user['userdesc'])){
+        $display_userdesc = $rs_user['userdesc'];
+    }
+}
+
+
+// Fetch all Unit of Measure options
+$uom_options = array();
+$stmt_uom = $link->prepare("SELECT unmcde, unmdsc FROM itemunitmeasurefile ORDER BY unmdsc ASC");
+$stmt_uom->execute();
+while($rs_uom = $stmt_uom->fetch()){
+    $uom_options[] = array(
+        'unmcde' => $rs_uom['unmcde'],
+        'unmdsc' => $rs_uom['unmdsc']
+    );
+}
+$default_uom_code = '';
+$default_uom_desc = '';
+$ordered_uom_options = array();
+foreach($uom_options as $uom_option){
+    $uom_code = trim((string)$uom_option['unmcde']);
+    $uom_desc = strtolower(trim((string)$uom_option['unmdsc']));
+    if($default_uom_code === '' && ($uom_desc === 'pcs' || strtolower($uom_code) === 'pcs')){
+        $default_uom_code = $uom_code;
+        $default_uom_desc = trim((string)$uom_option['unmdsc']);
+        array_unshift($ordered_uom_options, $uom_option);
+        continue;
+    }
+
+    $ordered_uom_options[] = $uom_option;
+}
+
+if($default_uom_desc === '' && !empty($ordered_uom_options)){
+    $default_uom_desc = trim((string)$ordered_uom_options[0]['unmdsc']);
+}
+
+$base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uom_desc;
 
 ?>
 
@@ -349,6 +403,18 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                                         
                                     </tr>
 
+                                    <tr class="m-1 edit_row salesfile1" style="border-bottom:3px solid #cccccc ">
+                                        <td colspan="3">
+                                            <div class="m-3" style="max-width:33.333333%;min-width:260px;">
+                                                <div>
+                                                    <label for="userdesc_display" style="font-weight:bold">User:</label>
+                                                    <input type="text" class="form-control" name="userdesc_display" id="userdesc_display" value="<?php echo htmlspecialchars($display_userdesc, ENT_QUOTES); ?>" readonly>
+                                                    <input type="hidden" name="usercode_1" id="usercode_1" value="<?php echo htmlspecialchars($display_usercode, ENT_QUOTES); ?>">
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+
                                     <tr>
                                         <td>
                                             <span class="error_msg_span" id="error_msg_span">
@@ -448,7 +514,21 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
 
                             <div class="row m-3">
                                 <div class="col-12">
-                                    <label for="">Price</label>
+                                    <label for="">Unit of Measure</label>
+                                    <select name="unmcde_add" id="unmcde_add" class="form-select" disabled>
+                                        <?php if($default_uom_code === ''): ?>
+                                            <option value="">Select Unit of Measure</option>
+                                        <?php endif; ?>
+                                        <?php foreach($ordered_uom_options as $uom_option): ?>
+                                            <option value="<?php echo htmlspecialchars($uom_option['unmcde'], ENT_QUOTES); ?>" data-default-label="<?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?>" <?php echo ($default_uom_code !== '' && $uom_option['unmcde'] === $default_uom_code) ? 'selected' : ''; ?>><?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="">Price per unit</label>
                                     <input type="text" name="price_add" id="price_add" class="form-control" autocomplete="off" oninput="calcTotal('add')">
                                 </div>
                             </div>
@@ -520,7 +600,21 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
 
                             <div class="row m-3">
                                 <div class="col-12">
-                                    <label for="">Price</label>
+                                    <label for="">Unit of Measure</label>
+                                    <select name="unmcde_edit" id="unmcde_edit" class="form-select" disabled>
+                                        <?php if($default_uom_code === ''): ?>
+                                            <option value="">Select Unit of Measure</option>
+                                        <?php endif; ?>
+                                        <?php foreach($ordered_uom_options as $uom_option): ?>
+                                            <option value="<?php echo htmlspecialchars($uom_option['unmcde'], ENT_QUOTES); ?>" data-default-label="<?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?>" <?php echo ($default_uom_code !== '' && $uom_option['unmcde'] === $default_uom_code) ? 'selected' : ''; ?>><?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="">Price per unit</label>
                                     <input type="text" name="price_edit" id="price_edit" class="form-control" autocomplete="off" oninput="calcTotal('edit')">
                                 </div>
                             </div>
@@ -617,6 +711,8 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
         <script>
 
         var trncde = $("#trncde_hidden").val();
+        var defaultUomCode = <?php echo json_encode($default_uom_code); ?>;
+        var baseUomDisplay = <?php echo json_encode($base_uom_display); ?>;
 
         $(document).ready(function(){
             var docnum = $("#docnum_hidden").val();
@@ -679,6 +775,143 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                 $("#amount_edit").val(amount);
             }
             
+        }
+
+        function formatUomConversionValue(conversion){
+            var numericConversion = Number(conversion);
+
+            if(!isFinite(numericConversion)){
+                return "";
+            }
+
+            return numericConversion.toString();
+        }
+
+        function resetUomOptionLabels(selectSelector){
+            $(selectSelector).find("option").each(function(){
+                var defaultLabel = $(this).data("default-label");
+                if(typeof defaultLabel !== "undefined"){
+                    $(this).text(defaultLabel);
+                }
+                $(this).show();
+            });
+        }
+
+        function applyItemUomLabels(selectSelector, uomLabels, filterByItem){
+            resetUomOptionLabels(selectSelector);
+
+            $(selectSelector).find("option").each(function(){
+                var optionValue = $(this).val();
+                var defaultLabel = $(this).data("default-label");
+
+                if(typeof defaultLabel === "undefined" || optionValue === ""){
+                    return;
+                }
+
+                // If filtering by item, hide options not in uomLabels (but always show pcs)
+                if(filterByItem){
+                    if(optionValue === defaultUomCode){
+                        $(this).show();
+                    } else if(!uomLabels || !uomLabels[optionValue]){
+                        $(this).hide();
+                        return;
+                    } else {
+                        $(this).show();
+                    }
+                }
+
+                if(
+                    uomLabels &&
+                    uomLabels[optionValue] &&
+                    uomLabels[optionValue].conversion !== null &&
+                    uomLabels[optionValue].conversion !== ""
+                ){
+                    var formattedConversion = formatUomConversionValue(uomLabels[optionValue].conversion);
+                    if(formattedConversion !== ""){
+                        $(this).text(defaultLabel + " (" + formattedConversion + " " + baseUomDisplay + ")");
+                    }
+                }
+            });
+        }
+
+        function updateItemUomDropdown(selectSelector, itmcde, selectedUomCode, preserveSelectedUom){
+            var $select = $(selectSelector);
+            var strictEditSelection = preserveSelectedUom === true;
+            var normalizedSelectedUomCode = $.trim(selectedUomCode || "");
+
+            $select.data("current-itmcde", itmcde || "");
+            resetUomOptionLabels(selectSelector);
+            $select.find("option").show();
+
+            if(!itmcde){
+                if(typeof selectedUomCode !== "undefined"){
+                    $select.val(strictEditSelection ? normalizedSelectedUomCode : (normalizedSelectedUomCode || defaultUomCode || ""));
+                }else{
+                    $select.val(defaultUomCode || "");
+                }
+                $select.prop("disabled", true);
+                return;
+            }
+
+            $select.val(strictEditSelection ? normalizedSelectedUomCode : (normalizedSelectedUomCode || defaultUomCode || ""));
+            $select.prop("disabled", false);
+
+            $.ajax({
+                data: {
+                    event_action: "get_item_uom_labels",
+                    itmcde: itmcde
+                },
+                dataType: "json",
+                type: "post",
+                url: "trn_salesorderfile2_ajax.php",
+                success: function(xdata){
+                    if($select.data("current-itmcde") !== itmcde){
+                        return;
+                    }
+
+                    var uomLabels = xdata["uom_labels"] || {};
+                    applyItemUomLabels(selectSelector, uomLabels, true);
+
+                    var nextUomCode = "";
+                    if(strictEditSelection){
+                        $select.find("option").each(function(){
+                            if($.trim($(this).val()) === normalizedSelectedUomCode){
+                                nextUomCode = normalizedSelectedUomCode;
+                                return false;
+                            }
+                        });
+                    }else{
+                        $select.find("option:visible").each(function(){
+                            if($(this).val() !== ""){
+                                nextUomCode = $(this).val();
+                                return false;
+                            }
+                        });
+                    }
+                    var finalUomCode = strictEditSelection ? nextUomCode : (nextUomCode || defaultUomCode || "");
+                    $select.find("option").prop("selected", false);
+                    (strictEditSelection ? $select.find("option") : $select.find("option:visible")).each(function(){
+                        if($.trim($(this).val()) === $.trim(finalUomCode)){
+                            $(this).prop("selected", true);
+                            return false;
+                        }
+                    });
+                    if(finalUomCode !== ""){
+                        $select.val(finalUomCode).trigger("change");
+                    }
+                    $select.prop("disabled", false);
+                }
+            });
+        }
+
+        function setInitialUomDropdownState(selectSelector){
+            var $select = $(selectSelector);
+
+            $select.data("current-itmcde", "");
+            resetUomOptionLabels(selectSelector);
+            $select.find("option").show();
+            $select.val(defaultUomCode || "");
+            $select.prop("disabled", true);
         }
 
         function print_pdf(){
@@ -752,6 +985,7 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                 $("#itmcde_add").prop("readonly", true);
                 $("#insert_modal_sales").modal("show");
                 $("#current_stock_add").val(xcurrent_stock);
+                updateItemUomDropdown("#unmcde_add", xitmcde, $("#unmcde_add").val() || defaultUomCode);
             }else if(xevent_action == 'edit'){
 
                 $(".error_msg_edit_modal").html("");
@@ -767,7 +1001,8 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                 $("#wholesaleprc_edit").val(xwholesaleprc);
 
                 $("#view_itm_search").modal("hide");
-                $("#edit_modal_sales").modal("show");   
+                $("#edit_modal_sales").modal("show");
+                updateItemUomDropdown("#unmcde_edit", xitmcde, $("#unmcde_edit").val() || defaultUomCode);
             }
 
             $(".error_msg_itm_view").html("");
@@ -929,6 +1164,7 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                     $("#price_add").val('');
                     $("#amount_add").val('');
                     $("#itmqty_add").val('');
+                    setInitialUomDropdownState("#unmcde_add");
                     $("#itmcde_add").val('');
                     $("#itmcde_add_hidden").val('');
                     $(".error_msg_add_modal").html('');
@@ -1052,6 +1288,7 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                             $("#price_edit").val(xdata["retEdit"]["untprc"]);
                             $("#amount_edit").val(xdata["retEdit"]["extprc"]);
                             $("#itmqty_edit").val(xdata["retEdit"]["itmqty"]);
+                            updateItemUomDropdown("#unmcde_edit", xdata["retEdit"]["itmcde"], xdata["retEdit"]["unmcde"], true);
                             $("#wholesaleprc_edit").val(xdata["retEdit"]["wholesaleprc"]);
                             $(".error_msg_edit_modal").html('');
 
@@ -1079,4 +1316,3 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
 <?php
     require "includes/main_footer.php";
 ?>
-

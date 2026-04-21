@@ -66,6 +66,13 @@
     $xret["error3"] = 0;
     $xret["error4"] = 0;
 
+    $current_usercode = '';
+    if(isset($_POST['usercode_1']) && trim((string)$_POST['usercode_1']) !== ''){
+        $current_usercode = trim((string)$_POST['usercode_1']);
+    }else if(isset($_SESSION['usercode']) && trim((string)$_SESSION['usercode']) !== ''){
+        $current_usercode = trim((string)$_SESSION['usercode']);
+    }
+
     function purchasesorder_resolve_untmea($link, $unmcde, $untmea){
         $unmcde = trim((string)$unmcde);
         $untmea = trim((string)$untmea);
@@ -329,7 +336,7 @@
                 $arr_record['ordernum'] 	= $_POST['ordernum_1'];
                 $arr_record['remarks'] 	= $_POST['remarks_1'];
                 $arr_record['po_qr_id'] 	= $_POST['purchase_order_qr_id_1'];
-                
+                $arr_record['usercode'] 	= $current_usercode;
                 $arr_record['trncde'] 	= $trncde;
 
                 PDO_InsertRecord($link,'purchasesorderfile1',$arr_record, false);
@@ -369,6 +376,7 @@
                 $arr_record_update['remarks'] 	= $_POST['remarks_1'];
                 $arr_record_update['ordernum'] 	= $_POST['ordernum_1'];
                 $arr_record_update['po_qr_id'] 	= $_POST['purchase_order_qr_id_1'];
+                $arr_record_update['usercode'] 	= $current_usercode;
                 PDO_UpdateRecord($link,"purchasesorderfile1",$arr_record_update,"recid = ?",array($recid),false);
 
                 // Log activity: edit header

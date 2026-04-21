@@ -155,8 +155,11 @@ if(isset($_POST['expense_header_log_action']) && $_POST['expense_header_log_acti
 
 require "includes/main_header.php";
 
+$header_usercode = '';
+$is_edit_mode = false;
 
 if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
+    $is_edit_mode = true;
     $expense_log_initial_exists = true;
     $expense_log_initial_docnum = '';
     $expense_log_initial_trndte = '';
@@ -188,6 +191,7 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
         $remarks  = $rs_docnum1['remarks'];
         $vattype  = $rs_docnum1['vat_cde'];
         $expensetype  = $rs_docnum1['expense_cde'];
+        $header_usercode = isset($rs_docnum1['usercode']) ? trim((string)$rs_docnum1['usercode']) : '';
 
         $expense_log_initial_docnum = $rs_docnum1['docnum'];
         $expense_log_initial_trndte = !empty($rs_docnum1['trndte']) ? date("Y-m-d", strtotime($rs_docnum1['trndte'])) : '';
@@ -223,6 +227,25 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
     $vattype  = '';
     $expensetype  = '';
 
+}
+
+$session_usercode = '';
+if(isset($_SESSION['usercode']) && trim((string)$_SESSION['usercode']) !== ''){
+    $session_usercode = trim((string)$_SESSION['usercode']);
+}else if(isset($_POST["usercode_hidden"]) && trim((string)$_POST["usercode_hidden"]) !== ''){
+    $session_usercode = trim((string)$_POST["usercode_hidden"]);
+}
+
+$display_usercode = $is_edit_mode ? $header_usercode : $session_usercode;
+$display_userdesc = '';
+if($display_usercode !== ''){
+    $select_user = "SELECT userdesc FROM users WHERE usercode = ? LIMIT 1";
+    $stmt_user = $link->prepare($select_user);
+    $stmt_user->execute(array($display_usercode));
+    $rs_user = $stmt_user->fetch();
+    if(!empty($rs_user) && isset($rs_user['userdesc'])){
+        $display_userdesc = $rs_user['userdesc'];
+    }
 }
 
 ?>
@@ -422,6 +445,18 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                                                 <textarea name="remarks_1" id="remarks_1" rows="3" class="form-control"><?php echo $remarks; ?></textarea>
                                             </div>
                                         </td>                                  
+                                    </tr>
+
+                                    <tr class="m-1 edit_row salesfile1" style="border-bottom:3px solid #cccccc ">
+                                        <td colspan="3">
+                                            <div class="m-3" style="max-width:33.333333%;min-width:260px;">
+                                                <div>
+                                                    <label for="userdesc_display" style="font-weight:bold">User:</label>
+                                                    <input type="text" class="form-control" name="userdesc_display" id="userdesc_display" value="<?php echo htmlspecialchars($display_userdesc, ENT_QUOTES); ?>" readonly>
+                                                    <input type="hidden" name="usercode_1" id="usercode_1" value="<?php echo htmlspecialchars($display_usercode, ENT_QUOTES); ?>">
+                                                </div>
+                                            </div>
+                                        </td>
                                     </tr>
 
                                     <!-- <tr class="m-1 salesfile1" id="tr_access_data">

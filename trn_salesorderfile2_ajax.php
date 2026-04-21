@@ -66,6 +66,13 @@
     $xret["error2"] = 0;
     $xret["error3"] = 0;
 
+    $current_usercode = '';
+    if(isset($_POST['usercode_1']) && trim((string)$_POST['usercode_1']) !== ''){
+        $current_usercode = trim((string)$_POST['usercode_1']);
+    }else if(isset($_SESSION['usercode']) && trim((string)$_SESSION['usercode']) !== ''){
+        $current_usercode = trim((string)$_SESSION['usercode']);
+    }
+
     function salesorder_get_item_conversion($link, $itmcde, $unmcde){
         $itmcde = trim((string)$itmcde);
         $unmcde = trim((string)$unmcde);
@@ -236,6 +243,7 @@
                 $arr_record['trncde'] 	= $trncde;
                 $arr_record['order_status'] 	= $_POST['order_status1'];
                 $arr_record['file_created_date'] = $date_time_today;
+                $arr_record['usercode'] = $current_usercode;
                 PDO_InsertRecord($link,'salesorderfile1',$arr_record, false);
 
                 // Log activity: add header
@@ -277,6 +285,7 @@
                 // $arr_record_update['paydetails'] 	= $_POST['payment_details_1'];
                 $arr_record_update['remarks'] 	= $_POST['remarks_1'];
                 $arr_record_update['order_status'] 	= $_POST['order_status1'];
+                $arr_record_update['usercode'] = $current_usercode;
                 PDO_UpdateRecord($link,"salesorderfile1",$arr_record_update,"recid = ?",array($recid),false);
 
                 // Log activity: edit header
