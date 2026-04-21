@@ -285,7 +285,6 @@
                 // $arr_record_update['paydetails'] 	= $_POST['payment_details_1'];
                 $arr_record_update['remarks'] 	= $_POST['remarks_1'];
                 $arr_record_update['order_status'] 	= $_POST['order_status1'];
-                $arr_record_update['usercode'] = $current_usercode;
                 PDO_UpdateRecord($link,"salesorderfile1",$arr_record_update,"recid = ?",array($recid),false);
 
                 // Log activity: edit header

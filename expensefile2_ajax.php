@@ -154,7 +154,6 @@
                 $arr_record_update['vat_cde'] 	= $_POST['vat_type1'];
 	                $arr_record_update['expense_cde'] 	= $_POST['expense_type1'];
 	                $arr_record_update['remarks'] 	= $_POST['remarks_1'];
-                    $arr_record_update['usercode'] = $current_usercode;
 
 	                $log_changes = array();
 	                $old_expense_desc = expense_lookup_description($link, 'expensetypefile', 'expense_cde', 'expense_dsc', $rs_docnum['expense_cde']);
