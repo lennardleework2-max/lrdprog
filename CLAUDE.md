@@ -73,15 +73,29 @@ Two hidden fields store matched PO information:
 2. User can modify PO selection via checkbox
 3. PHP compares original vs new selection to add/remove matches
 
-### Backend Matching Logic
+### Backend Matching Logic (trn_purchasefile2_ajax.php)
+
+**CRITICAL**: The `lastInsertId()` must be called immediately after the tranfile2 INSERT,
+before any other INSERT operations (like activity logging). Otherwise, `lastInsertId()`
+returns the wrong ID.
+
 ```php
-// Get PO recids (with fallback for ADD mode)
+// 1. Insert tranfile2
+PDO_InsertRecord($link, 'tranfile2', $arr_record, false);
+
+// 2. Get the new recid IMMEDIATELY (before activity log or any other INSERT)
+$recid_latest_match = $link->lastInsertId();
+
+// 3. Activity logging (does its own INSERT - would corrupt lastInsertId if called before)
+PDO_UserActivityLog(...);
+
+// 4. Get PO recids from POST (with fallback)
 $multi_itm_select_value = $_POST['multi_itm_select'] ?: $_POST['po_add_hidden'];
 
-// Update purchasesorderfile2 to link PO lines to purchase line
+// 5. Link selected PO lines to the new tranfile2 record
 foreach (explode(',', $multi_itm_select_value) as $po2_recid) {
     $arr['tranfile2_recid'] = $recid_latest_match;
-    PDO_UpdateRecord($link, 'purchasesorderfile2', $arr, "recid = ?", [$po2_recid]);
+    PDO_UpdateRecord($link, 'purchasesorderfile2', $arr, "recid = ?", [trim($po2_recid)]);
 }
 ```
 

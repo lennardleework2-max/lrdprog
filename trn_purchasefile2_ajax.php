@@ -654,13 +654,14 @@
             $arr_record['purnum_recid']     = $_POST['xrecid_po_hidden'];
             PDO_InsertRecord($link,'tranfile2',$arr_record, false);
 
+            // Get tranfile2 recid immediately after insert (before any other inserts)
+            $recid_latest_match = $link->lastInsertId();
+
             // Log activity: add line item
             $log_itmdsc_add = purchase_get_item_desc($link, $_POST['itmcde_add_hidden']);
             $log_uomdsc_add = purchase_get_uom_desc($link, $_POST['unmcde_add']);
             $log_remarks = $log_username . " added item '" . $log_itmdsc_add . "' qty='" . $_POST['itmqty_add'] . "' uom='" . $log_uomdsc_add . "' price='" . $_POST['price_add'] . "' in docnum='" . $_POST['docnum'] . "'";
             PDO_UserActivityLog($link, $log_username, '', $log_trndte, $log_module, 'add', $log_fullname, $log_remarks, 0, '', 'PUR', '', '', $log_username, $_POST['docnum'], '');
-
-            $recid_latest_match = $link->lastInsertId();
 
             // Get multi_itm_select, fallback to po_add_hidden if empty
             $multi_itm_select_value = '';
