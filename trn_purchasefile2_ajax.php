@@ -662,19 +662,27 @@
 
             $recid_latest_match = $link->lastInsertId();
 
+            // Get multi_itm_select, fallback to po_add_hidden if empty
+            $multi_itm_select_value = '';
             if(isset($_POST['multi_itm_select']) && !empty($_POST['multi_itm_select'])){
-        
-                $multi_select_array = explode(',', $_POST['multi_itm_select']);
-    
+                $multi_itm_select_value = $_POST['multi_itm_select'];
+            }elseif(isset($_POST['po_add_hidden']) && !empty($_POST['po_add_hidden'])){
+                $multi_itm_select_value = $_POST['po_add_hidden'];
+            }
+
+            if(!empty($multi_itm_select_value)){
+
+                $multi_select_array = explode(',', $multi_itm_select_value);
+
                 foreach ($multi_select_array as $po2_recid) {
                     // Trim to remove extra spaces, just in case
                     $po2_recid = trim($po2_recid);
-    
+
                     $arr_record_upd_match = array();
                     $arr_record_upd_match['tranfile2_recid'] 	= $recid_latest_match;
-                    PDO_UpdateRecord($link,'purchasesorderfile2',$arr_record_upd_match,"recid = ?",array($po2_recid),false);  
+                    PDO_UpdateRecord($link,'purchasesorderfile2',$arr_record_upd_match,"recid = ?",array($po2_recid),false);
                 }
-                
+
             }
 
         }
