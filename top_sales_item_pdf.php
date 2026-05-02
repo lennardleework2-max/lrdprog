@@ -128,6 +128,15 @@ ini_set('memory_limit',-1);
         $latest_sales_date = date("Y-m-d");
     }
     $head_latest_sales_date = date("m-d-Y", strtotime($latest_sales_date));
+    $latest_cost_date_to = !empty($date_to_sql) ? $date_to_sql : $latest_sales_date;
+
+    $pcs_unmcde = '';
+    $stmt_pcs = $link->prepare("SELECT unmcde FROM itemunitmeasurefile WHERE LOWER(unmdsc) = 'pcs' LIMIT 1");
+    $stmt_pcs->execute();
+    $rs_pcs = $stmt_pcs->fetch();
+    if($rs_pcs && !empty($rs_pcs['unmcde'])){
+        $pcs_unmcde = $rs_pcs['unmcde'];
+    }
     $past_30_start = date("Y-m-d", strtotime($latest_sales_date." -29 days"));
     $past_60_start = date("Y-m-d", strtotime($latest_sales_date." -59 days"));
     $past_90_start = date("Y-m-d", strtotime($latest_sales_date." -89 days"));
@@ -221,6 +230,8 @@ $select_db_base="SELECT itemfile.itmdsc as itmdsc,
         FROM tranfile2 pur_tranfile2
         LEFT JOIN tranfile1 pur_tranfile1 ON pur_tranfile2.docnum=pur_tranfile1.docnum
         WHERE pur_tranfile2.itmcde=main_tranfile2.itmcde
+          AND pur_tranfile1.trndte<='".$latest_cost_date_to."'" . ($pcs_unmcde !== '' ? "
+          AND pur_tranfile2.unmcde='".$pcs_unmcde."'" : "") . "
           AND pur_tranfile1.trncde='PUR'
         ORDER BY pur_tranfile1.trndte DESC, pur_tranfile2.recid DESC
         LIMIT 1
