@@ -116,7 +116,8 @@
         $pdf->ezPlaceData($xleft+=80,$xtop-9,"<b>Tran. Num.</b>",9 ,'left');
         $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>Shop Name:</b>",9 ,'left');
         $pdf->ezPlaceData($xleft+=135,$xtop-9,"<b>Quantity</b>",9 ,'right');
-        $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Unit Price</b>",9 ,'right');
+        $pdf->ezPlaceData($xleft+=10,$xtop-9,"<b>UOM</b>",9 ,'left');
+        $pdf->ezPlaceData($xleft+=75,$xtop-9,"<b>Unit Price</b>",9 ,'right');
 
         $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>Extended Price</b>",9 ,'right');
         $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>Cost</b>",9 ,'right');
@@ -125,10 +126,11 @@
         $xtop-=23;
 
         // Optimized: Join tranfile2 with tranfile1 and customerfile in one query (no nested queries)
-        $select_db2 = "SELECT tranfile2.*, tranfile1.trndte, tranfile1.ordernum, customerfile.cusdsc
+        $select_db2 = "SELECT tranfile2.*, tranfile1.trndte, tranfile1.ordernum, customerfile.cusdsc, itemunitmeasurefile.unmdsc as unmdsc
             FROM tranfile2
             LEFT JOIN tranfile1 ON tranfile2.docnum = tranfile1.docnum
             LEFT JOIN customerfile ON tranfile1.cuscde = customerfile.cuscde
+            LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
             WHERE tranfile2.itmcde=? ".$xfilter2." AND tranfile1.trncde=?
             ORDER BY tranfile1.trndte ASC";
         $stmt_main2	= $link->prepare($select_db2);
@@ -151,7 +153,8 @@
             $pdf->ezPlaceData($xleft+=80,$xtop, $rs_main2['docnum'],9,"left");
             $pdf->ezPlaceData($xleft+=95,$xtop,$rs_main2["cusdsc"],9,"left");
             $pdf->ezPlaceData($xleft+=135,$xtop,number_format($rs_main2["itmqty"]),9,"right");
-            $pdf->ezPlaceData($xleft+=85,$xtop,number_format($rs_main2["untprc"],2),9,"right");
+            $pdf->ezPlaceData($xleft+=10,$xtop,isset($rs_main2["unmdsc"]) ? $rs_main2["unmdsc"] : '',9,"left");
+            $pdf->ezPlaceData($xleft+=75,$xtop,number_format($rs_main2["untprc"],2),9,"right");
 
             $pdf->ezPlaceData($xleft+=95,$xtop,number_format($rs_main2["extprc"],2),9,"right");
             $trndte  = (empty($rs_main2['trndte'])) ? NULL :  date("Y-m-d", strtotime($rs_main2['trndte']));
@@ -192,7 +195,8 @@
                 $pdf->ezPlaceData($xleft+=80,$xtop-9,"<b>Tran. Num.</b>",9 ,'left');
                 $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>Shop Name</b>",9 ,'left');
                 $pdf->ezPlaceData($xleft+=135,$xtop-9,"<b>Quantity</b>",9 ,'right');
-                $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Unit Price</b>",9 ,'right');
+                $pdf->ezPlaceData($xleft+=10,$xtop-9,"<b>UOM</b>",9 ,'left');
+                $pdf->ezPlaceData($xleft+=75,$xtop-9,"<b>Unit Price</b>",9 ,'right');
 
                 $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>Extended Price</b>",9 ,'right');
                 $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>Cost</b>",9 ,'right');
