@@ -417,10 +417,10 @@
         $shop_name = trim((string)$header["cusdsc"]);
 
         if ($_POST['txt_output_type']=='tab') {
-            $display_docnum = $header["docnum"];
-            $buyer_lines = array($buyer_name);
-            $display_cusdsc = $shop_name;
-            $display_ordernum = $header["ordernum"];
+            $display_docnum = sanitize_tab_text($header["docnum"]);
+            $buyer_lines = array(sanitize_tab_text($buyer_name));
+            $display_cusdsc = sanitize_tab_text($shop_name);
+            $display_ordernum = sanitize_tab_text($header["ordernum"]);
         } else {
             $display_docnum = $header["docnum"];
             $buyer_lines = wrap_text_limited($buyer_name, $col_customer - 5, 9, 3);
@@ -475,7 +475,11 @@
 
             // Wrap long item names
             $itm_max_width = $col_shop_item - $shop_item_text_padding;
-            $itm_lines = wrap_text($item["itmdsc"], $itm_max_width, 9);
+            if ($_POST['txt_output_type']=='tab') {
+                $itm_lines = array(sanitize_tab_text($item["itmdsc"]));
+            } else {
+                $itm_lines = wrap_text($item["itmdsc"], $itm_max_width, 9);
+            }
             $itm_line_count = count($itm_lines);
 
             // For first line, output item name in column order
@@ -486,16 +490,22 @@
             $pdf->ezPlaceData($xleft+=$col_cost,$xtop,number_format($profit,"2"),9,"right");  // Profit
 
             // For additional wrapped lines (PDF only), place them below
-            for($idx = 1; $idx < $itm_line_count; $idx++) {
-                $xtop -= 10;
-                $pdf->ezPlaceData($shop_col_x, $xtop, $itm_lines[$idx], 9, "left");
+            if ($_POST['txt_output_type']!='tab') {
+                for($idx = 1; $idx < $itm_line_count; $idx++) {
+                    $xtop -= 10;
+                    $pdf->ezPlaceData($shop_col_x, $xtop, $itm_lines[$idx], 9, "left");
+                }
             }
 
             $price_tot += $item["extprc"];
             $cost_tot += $cost;
             $profit_tot += $profit;
 
-            $xtop -= max(15, $itm_line_count * 10 + 5);
+            if ($_POST['txt_output_type']=='tab') {
+                $xtop -= 15;
+            } else {
+                $xtop -= max(15, $itm_line_count * 10 + 5);
+            }
 
             if($xtop <= 60){
                 $pdf->ezNewPage();
@@ -599,6 +609,14 @@
 
 
 
+    }
+
+    function sanitize_tab_text($string) {
+        $string = (string)$string;
+        $string = str_replace(array("\r\n", "\r", "\n", "\t"), ' ', $string);
+        $string = preg_replace('/[ ]{2,}/', ' ', $string);
+
+        return trim($string);
     }
 
     // Wrap text to multiple lines based on max width
