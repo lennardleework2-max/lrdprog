@@ -56,12 +56,12 @@
 
         $xfields_heaeder_counter = 0;
         // Keep total column width within printable area (x=25 to x=770).
-        $col_docnum = 58;
-        $col_ordernum = 90;
+        $col_docnum = 72;
+        $col_ordernum = 96;
         $col_trndte = 58;
         $col_paydate = 58;
-        $col_customer = 80;
-        $col_shop_item = 136;
+        $col_customer = 76;
+        $col_shop_item = 120;
         $col_qty = 45;
         $col_price = 73;
         $col_cost = 73;
@@ -268,6 +268,7 @@
         customerfile.cusdsc as cus_cusdsc,
         tranfile2.recid as t2_recid,
         tranfile2.itmcde as t2_itmcde,
+        tranfile2.unmcde as t2_unmcde,
         tranfile2.itmqty as t2_itmqty,
         tranfile2.extprc as t2_extprc,
         itemfile.itmdsc as itm_itmdsc
@@ -299,7 +300,7 @@
         $placeholders = implode(',', array_fill(0, count($item_list), '?'));
 
         // Get the latest cost for each item (by recid DESC)
-        $cost_query = "SELECT t2.itmcde, t2.untprc, t2.recid, t1.trndte
+        $cost_query = "SELECT t2.itmcde, t2.unmcde, t2.untprc, t2.recid, t1.trndte
             FROM tranfile2 t2
             INNER JOIN tranfile1 t1 ON t1.docnum = t2.docnum
             WHERE t2.itmcde IN ($placeholders)
@@ -310,23 +311,28 @@
         $stmt_cost = $link->prepare($cost_query);
         $stmt_cost->execute($item_list);
 
-        // Store ALL cost records grouped by item code (for date-based lookup)
+        // Store ALL cost records grouped by item code + unit code (for date-based lookup)
         while($cost_row = $stmt_cost->fetch(PDO::FETCH_ASSOC)) {
-            $itmcde = $cost_row['itmcde'];
-            if(!isset($cost_cache[$itmcde])) {
-                $cost_cache[$itmcde] = array();
+            $cost_key = sales_cost_cache_key($cost_row['itmcde'], $cost_row['unmcde']);
+            if(!isset($cost_cache[$cost_key])) {
+                $cost_cache[$cost_key] = array();
             }
-            $cost_cache[$itmcde][] = $cost_row;
+            $cost_cache[$cost_key][] = $cost_row;
         }
     }
 
+    function sales_cost_cache_key($itmcde, $unmcde) {
+        return (string)$itmcde . '|' . ($unmcde === NULL ? '__NULL__' : (string)$unmcde);
+    }
+
     // Function to get unit cost from cache (no database query)
-    function get_cached_unitcost($itmcde, $trndte, $sal_recid, &$cost_cache) {
-        if(!isset($cost_cache[$itmcde]) || empty($cost_cache[$itmcde])) {
+    function get_cached_unitcost($itmcde, $unmcde, $trndte, $sal_recid, &$cost_cache) {
+        $cost_key = sales_cost_cache_key($itmcde, $unmcde);
+        if(!isset($cost_cache[$cost_key]) || empty($cost_cache[$cost_key])) {
             return 0;
         }
 
-        $costs = $cost_cache[$itmcde];
+        $costs = $cost_cache[$cost_key];
 
         // If we have a date, find cost where trndte <= sale date
         if(!empty($trndte)) {
@@ -375,6 +381,7 @@
             $grouped_data[$docnum]['items'][] = array(
                 'recid' => $row['t2_recid'],
                 'itmcde' => $row['t2_itmcde'],
+                'unmcde' => $row['t2_unmcde'],
                 'itmqty' => $row['t2_itmqty'],
                 'extprc' => $row['t2_extprc'],
                 'itmdsc' => $row['itm_itmdsc']
@@ -410,16 +417,18 @@
         $shop_name = trim((string)$header["cusdsc"]);
 
         if ($_POST['txt_output_type']=='tab') {
+            $display_docnum = $header["docnum"];
             $display_buyer_name = $buyer_name;
             $display_cusdsc = $shop_name;
             $display_ordernum = $header["ordernum"];
         } else {
+            $display_docnum = trim_str($header["docnum"], $col_docnum - 5, 9);
             $display_buyer_name = trim_str($buyer_name, $col_customer - 5, 9);
             $display_cusdsc = trim_str($shop_name, $col_shop_item - $shop_item_text_padding, 9);
             $display_ordernum = trim_str($header["ordernum"], $col_ordernum - 5, 9);
         }
 
-        $pdf->ezPlaceData($xleft,$xtop,$header["docnum"],9,"left");
+        $pdf->ezPlaceData($xleft,$xtop,$display_docnum,9,"left");
         $pdf->ezPlaceData($xleft+=$col_docnum,$xtop,$display_ordernum,9,"left");
         $pdf->ezPlaceData($xleft+=$col_ordernum,$xtop,$display_trndte,9,"left");
         $pdf->ezPlaceData($xleft+=$col_trndte,$xtop,$display_paydate,9,"left");
@@ -440,7 +449,7 @@
         foreach($doc['items'] as $item) {
             // Get unit cost from cache (NO database query)
             $trndte = (empty($original_trndte)) ? NULL : date("Y-m-d", strtotime($original_trndte));
-            $unit_cost = get_cached_unitcost($item['itmcde'], $trndte, $item['recid'], $cost_cache);
+            $unit_cost = get_cached_unitcost($item['itmcde'], $item['unmcde'], $trndte, $item['recid'], $cost_cache);
             $cost = $unit_cost * $item["itmqty"];
             $profit = $item["extprc"] - $cost;
 
