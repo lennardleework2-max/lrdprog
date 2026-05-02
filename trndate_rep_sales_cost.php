@@ -55,8 +55,8 @@
 
 
         $xfields_heaeder_counter = 0;
-        // Keep total column width within printable area (x=25 to x=770).
-        $col_docnum = 72;
+        // Keep total column width within printable area (x=25 to x=790).
+        $col_docnum = 92;
         $col_ordernum = 96;
         $col_trndte = 58;
         $col_paydate = 58;
@@ -72,8 +72,8 @@
 
         $header_row1_y = $xtop;
         $header_row2_y = $xtop - 10;
-		$pdf->line($xleft, $header_row1_y+10, 770, $header_row1_y+10);
-        $pdf->line($xleft, $header_row2_y-4, 770, $header_row2_y-4);
+		$pdf->line($xleft, $header_row1_y+10, 790, $header_row1_y+10);
+        $pdf->line($xleft, $header_row2_y-4, 790, $header_row2_y-4);
 
         $xcol = $xleft;
         $pdf->ezPlaceData($xcol,$header_row1_y,"<b>Doc.</b>",10,'left');
@@ -422,7 +422,7 @@
             $display_cusdsc = $shop_name;
             $display_ordernum = $header["ordernum"];
         } else {
-            $display_docnum = trim_str($header["docnum"], $col_docnum - 5, 9);
+            $display_docnum = $header["docnum"];
             $display_buyer_name = trim_str($buyer_name, $col_customer - 5, 9);
             $display_cusdsc = trim_str($shop_name, $col_shop_item - $shop_item_text_padding, 9);
             $display_ordernum = trim_str($header["ordernum"], $col_ordernum - 5, 9);
