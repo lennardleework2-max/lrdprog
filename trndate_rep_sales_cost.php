@@ -60,8 +60,8 @@
         $col_ordernum = 96;
         $col_trndte = 58;
         $col_paydate = 58;
-        $col_customer = 76;
-        $col_shop_item = 120;
+        $col_customer = 92;
+        $col_shop_item = 104;
         $col_qty = 45;
         $col_price = 73;
         $col_cost = 73;
@@ -418,32 +418,42 @@
 
         if ($_POST['txt_output_type']=='tab') {
             $display_docnum = $header["docnum"];
-            $display_buyer_name = $buyer_name;
+            $buyer_lines = array($buyer_name);
             $display_cusdsc = $shop_name;
             $display_ordernum = $header["ordernum"];
         } else {
             $display_docnum = $header["docnum"];
-            $display_buyer_name = trim_str($buyer_name, $col_customer - 5, 9);
+            $buyer_lines = wrap_text_limited($buyer_name, $col_customer - 5, 9, 3);
             $display_cusdsc = trim_str($shop_name, $col_shop_item - $shop_item_text_padding, 9);
             $display_ordernum = trim_str($header["ordernum"], $col_ordernum - 5, 9);
+        }
+
+        $buyer_line_count = count($buyer_lines);
+        $header_row_height = max(12, (($buyer_line_count - 1) * 10) + 12);
+
+        if(($xtop - (($buyer_line_count - 1) * 10)) <= 60){
+            $pdf->ezNewPage();
+            $xtop = 505;
         }
 
         $pdf->ezPlaceData($xleft,$xtop,$display_docnum,9,"left");
         $pdf->ezPlaceData($xleft+=$col_docnum,$xtop,$display_ordernum,9,"left");
         $pdf->ezPlaceData($xleft+=$col_ordernum,$xtop,$display_trndte,9,"left");
         $pdf->ezPlaceData($xleft+=$col_trndte,$xtop,$display_paydate,9,"left");
-        $pdf->ezPlaceData($xleft+=$col_paydate,$xtop,$display_buyer_name,9,"left");
+        $customer_col_x = $xleft + $col_paydate;
+        $pdf->ezPlaceData($customer_col_x,$xtop,$buyer_lines[0],9,"left");
         $pdf->ezPlaceData($xleft+=$col_customer,$xtop,$display_cusdsc,9,"left");
 
-        if($xtop <= 60){
-            $pdf->ezNewPage();
-            $xtop = 505;
+        if ($_POST['txt_output_type']!='tab') {
+            for($buyer_line_idx = 1; $buyer_line_idx < $buyer_line_count; $buyer_line_idx++) {
+                $pdf->ezPlaceData($customer_col_x, $xtop - ($buyer_line_idx * 10), $buyer_lines[$buyer_line_idx], 9, "left");
+            }
         }
 
         $price_tot = 0;
         $cost_tot = 0;
         $profit_tot = 0;
-        $xtop -= 12;
+        $xtop -= $header_row_height;
 
         // Process items for this document
         foreach($doc['items'] as $item) {
@@ -491,7 +501,7 @@
             }
         }
 
-        $pdf->line(25, $xtop, 770, $xtop);
+        $pdf->line(25, $xtop, 790, $xtop);
         $xtop -= 15;
         // TOTAL row - output in column order
         $xleft = 25;
@@ -505,7 +515,7 @@
         $pdf->ezPlaceData($xleft+=$col_qty,$xtop+5,number_format($price_tot,2),9,"right");
         $pdf->ezPlaceData($xleft+=$col_price,$xtop+5,number_format($cost_tot,2),9,"right");
         $pdf->ezPlaceData($xleft+=$col_cost,$xtop+5,number_format($profit_tot,2),9,"right");
-        $pdf->line(25, $xtop-=5, 770, $xtop);
+        $pdf->line(25, $xtop-=5, 790, $xtop);
         $xtop -= 15;
 
         if($xtop <= 60){
@@ -518,7 +528,7 @@
         $profit_gtot += $profit_tot;
     }
 
-    $pdf->line(25, $xtop, 770, $xtop);
+    $pdf->line(25, $xtop, 790, $xtop);
     $xtop -= 15;
     // GRAND TOTAL row - output in column order
     $xleft = 25;
@@ -532,7 +542,7 @@
     $pdf->ezPlaceData($xleft+=$col_qty,$xtop+5,number_format($price_gtot,2),9,"right");
     $pdf->ezPlaceData($xleft+=$col_price,$xtop+5,number_format($cost_gtot,2),9,"right");
     $pdf->ezPlaceData($xleft+=$col_cost,$xtop+5,number_format($profit_gtot,2),9,"right");
-    $pdf->line(25, $xtop-=5, 770, $xtop);
+    $pdf->line(25, $xtop-=5, 790, $xtop);
 
 
 	$pdf->addText(30,15,8,"Date Printed : ".date("F j, Y, g:i A"),$angle=0,$wordspaceadjust=1);
@@ -629,6 +639,52 @@
         }
 
         return $lines;
+    }
+
+    function wrap_text_limited($string, $max_wid, $fsize, $max_lines = 3) {
+        global $pdf;
+
+        if(empty($string)) {
+            return array('');
+        }
+
+        $wrapped_lines = array();
+        $base_lines = wrap_text($string, $max_wid, $fsize);
+
+        foreach($base_lines as $base_line) {
+            if($pdf->getTextWidth($fsize, $base_line) <= $max_wid) {
+                $wrapped_lines[] = $base_line;
+                continue;
+            }
+
+            $remaining = $base_line;
+            while($remaining !== '') {
+                $chunk = '';
+                $chars = str_split($remaining);
+
+                foreach($chars as $char) {
+                    if($chunk !== '' && $pdf->getTextWidth($fsize, $chunk . $char) > $max_wid) {
+                        break;
+                    }
+                    $chunk .= $char;
+                }
+
+                if($chunk === '') {
+                    $chunk = substr($remaining, 0, 1);
+                }
+
+                $wrapped_lines[] = rtrim($chunk);
+                $remaining = ltrim(substr($remaining, strlen($chunk)));
+            }
+        }
+
+        if(count($wrapped_lines) > $max_lines) {
+            $overflow_text = implode(' ', array_slice($wrapped_lines, $max_lines - 1));
+            $wrapped_lines = array_slice($wrapped_lines, 0, $max_lines - 1);
+            $wrapped_lines[] = trim_str($overflow_text, $max_wid, $fsize);
+        }
+
+        return empty($wrapped_lines) ? array('') : $wrapped_lines;
     }
 
 
