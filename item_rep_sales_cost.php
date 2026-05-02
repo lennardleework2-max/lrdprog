@@ -91,10 +91,42 @@
     $select_db = "SELECT * FROM itemfile WHERE true ".$xfilter;
     $stmt_main	= $link->prepare($select_db);
     $stmt_main->execute(array($_POST['item']));
+    $item_rows = $stmt_main->fetchAll(PDO::FETCH_ASSOC);
+
+    $cost_cache = array();
+    $unique_items = array();
+    foreach($item_rows as $item_row){
+        if(!empty($item_row['itmcde'])){
+            $unique_items[$item_row['itmcde']] = true;
+        }
+    }
+
+    if(!empty($unique_items)){
+        $item_list = array_keys($unique_items);
+        $placeholders = implode(',', array_fill(0, count($item_list), '?'));
+        $cost_query = "SELECT t2.itmcde, t2.unmcde, t2.untprc, t2.recid, t1.trndte
+            FROM tranfile2 t2
+            INNER JOIN tranfile1 t1 ON t1.docnum = t2.docnum
+            WHERE t2.itmcde IN ($placeholders)
+            AND (t1.trncde='ADJ' OR t1.trncde='PUR')
+            AND t2.stkqty > 0
+            ORDER BY t2.itmcde, t2.recid DESC";
+        $stmt_cost = $link->prepare($cost_query);
+        $stmt_cost->execute($item_list);
+
+        while($cost_row = $stmt_cost->fetch(PDO::FETCH_ASSOC)){
+            $cost_key = item_sales_cost_cache_key($cost_row['itmcde'], $cost_row['unmcde']);
+            if(!isset($cost_cache[$cost_key])){
+                $cost_cache[$cost_key] = array();
+            }
+            $cost_cache[$cost_key][] = $cost_row;
+        }
+    }
+
     $grand_total_extprc = 0;
     $grand_total_profit = 0;
     $grand_total_cost = 0;
-    while($rs_main = $stmt_main->fetch()){
+    foreach($item_rows as $rs_main){
 
         $pdf->ezPlaceData(25,$xtop-9,"<b>Item:</b>",10 ,'left');
 
@@ -158,7 +190,7 @@
 
             $pdf->ezPlaceData($xleft+=95,$xtop,number_format($rs_main2["extprc"],2),9,"right");
             $trndte  = (empty($rs_main2['trndte'])) ? NULL :  date("Y-m-d", strtotime($rs_main2['trndte']));
-            $unit_cost = get_unitcost($rs_main['itmcde'],$trndte,$rs_main2['recid']);
+            $unit_cost = item_sales_cost_get_cached_unitcost($rs_main['itmcde'], isset($rs_main2['unmcde']) ? $rs_main2['unmcde'] : NULL, $trndte, $rs_main2['recid'], $cost_cache);
             $cost = $unit_cost * $rs_main2["itmqty"];
 
             $pdf->ezPlaceData($xleft+=95,$xtop,number_format($cost,2),9,"right");
@@ -271,6 +303,39 @@
             $xxstr = $xxstr.'...';
         }
         return $xxstr;
+    }
+
+    function item_sales_cost_cache_key($itmcde, $unmcde)
+    {
+        return (string)$itmcde . '|' . ($unmcde === NULL ? '__NULL__' : (string)$unmcde);
+    }
+
+    function item_sales_cost_get_cached_unitcost($itmcde, $unmcde, $trndte, $sal_recid, $cost_cache)
+    {
+        $cost_key = item_sales_cost_cache_key($itmcde, $unmcde);
+        if(!isset($cost_cache[$cost_key]) || empty($cost_cache[$cost_key])){
+            return 0;
+        }
+
+        $costs = $cost_cache[$cost_key];
+
+        if(!empty($trndte)){
+            foreach($costs as $cost_row){
+                if(!empty($cost_row['trndte']) && $cost_row['trndte'] <= $trndte){
+                    return $cost_row['untprc'];
+                }
+            }
+        }
+
+        if(!empty($sal_recid)){
+            foreach($costs as $cost_row){
+                if($cost_row['recid'] < $sal_recid){
+                    return $cost_row['untprc'];
+                }
+            }
+        }
+
+        return $costs[0]['untprc'];
     }
 
     //returns dynamic width
