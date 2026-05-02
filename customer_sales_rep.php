@@ -93,6 +93,15 @@ $head_window_start = format_report_date($window_start_sql);
 $head_date_to = format_report_date($date_to_sql);
 $report_user = $username_session !== '' ? $username_session : 'System';
 
+// Get the unmcde for 'pcs' unit measure to filter latest cost lookup
+$pcs_unmcde = '';
+$stmt_pcs = $link->prepare("SELECT unmcde FROM itemunitmeasurefile WHERE LOWER(unmdsc) = 'pcs' LIMIT 1");
+$stmt_pcs->execute();
+$rs_pcs = $stmt_pcs->fetch();
+if ($rs_pcs && !empty($rs_pcs['unmcde'])) {
+    $pcs_unmcde = $rs_pcs['unmcde'];
+}
+
 $xtop = 570;
 $xleft = 25;
 $line_right = 760;
@@ -189,7 +198,8 @@ $select_db_base = "SELECT
         INNER JOIN tranfile1 pur_tranfile1 ON pur_tranfile2.docnum = pur_tranfile1.docnum
         WHERE pur_tranfile2.itmcde = itemfile.itmcde
           AND pur_tranfile1.trncde = 'PUR'
-          AND pur_tranfile1.trndte <= '" . $date_to_sql . "'
+          AND pur_tranfile1.trndte <= '" . $date_to_sql . "'" . ($pcs_unmcde !== '' ? "
+          AND pur_tranfile2.unmcde = '" . $pcs_unmcde . "'" : "") . "
         ORDER BY pur_tranfile1.trndte DESC, pur_tranfile2.recid DESC
         LIMIT 1
     ), 0) AS latest_cost
