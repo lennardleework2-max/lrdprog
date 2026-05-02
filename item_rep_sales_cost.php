@@ -41,12 +41,12 @@
 
 		$xheader = $pdf->openObject();
         $pdf->saveState();
-        $pdf->ezPlaceData($xleft, $xtop,"<b>Sales Costing (Item)</b>", 15, 'left' );
+        $pdf->ezPlaceData($xleft, $xtop,xls_safe_text("<b>Sales Costing (Item)</b>"), 15, 'left' );
         $xtop   -= 15;
-        $pdf->ezPlaceData($xleft, $xtop,"<b>Pdf Report by: ".$_SESSION['userdesc']." (Summarized)</b>", 9, 'left' );
+        $pdf->ezPlaceData($xleft, $xtop,xls_safe_text("<b>Pdf Report by: ".$_SESSION['userdesc']." (Summarized)</b>"), 9, 'left' );
         $xtop   -= 15;
 
-        $pdf->ezPlaceData($xleft, $xtop, 'Date Printed : '.$date_printed, 10, 'left' );
+        $pdf->ezPlaceData($xleft, $xtop, xls_safe_text('Date Printed : '.$date_printed), 10, 'left' );
         $xtop   -= 15;
 
 		$pdf->setLineStyle(.5);
@@ -128,14 +128,14 @@
     $grand_total_cost = 0;
     foreach($item_rows as $rs_main){
 
-        $pdf->ezPlaceData(25,$xtop-9,"<b>Item:</b>",10 ,'left');
+        $pdf->ezPlaceData(25,$xtop-9,xls_safe_text("<b>Item:</b>"),10 ,'left');
 
         // Wrap long item names to multiple lines (max width 700 pixels for header)
         $itm_header_max_width = 700;
         $itm_header_lines = wrap_text($rs_main['itmdsc'], $itm_header_max_width, 10);
         $itm_header_line_count = count($itm_header_lines);
         foreach($itm_header_lines as $idx => $line) {
-            $pdf->ezPlaceData(55, $xtop - 9 - ($idx * 12), $line, 10, 'left');
+            $pdf->ezPlaceData(55, $xtop - 9 - ($idx * 12), xls_safe_text($line), 10, 'left');
         }
 
         $header_offset = max(12, $itm_header_line_count * 12);
@@ -144,16 +144,16 @@
         $xtop -= $header_offset;
         $xleft = 25;
 
-        $pdf->ezPlaceData($xleft,$xtop-9,"<b>Tran. Date</b>",9 ,'left');
-        $pdf->ezPlaceData($xleft+=80,$xtop-9,"<b>Tran. Num.</b>",9 ,'left');
-        $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>Shop Name:</b>",9 ,'left');
-        $pdf->ezPlaceData($xleft+=135,$xtop-9,"<b>Quantity</b>",9 ,'right');
-        $pdf->ezPlaceData($xleft+=10,$xtop-9,"<b>UOM</b>",9 ,'left');
-        $pdf->ezPlaceData($xleft+=75,$xtop-9,"<b>Unit Price</b>",9 ,'right');
+        $pdf->ezPlaceData($xleft,$xtop-9,xls_safe_text("<b>Tran. Date</b>"),9 ,'left');
+        $pdf->ezPlaceData($xleft+=80,$xtop-9,xls_safe_text("<b>Tran. Num.</b>"),9 ,'left');
+        $pdf->ezPlaceData($xleft+=95,$xtop-9,xls_safe_text("<b>Shop Name:</b>"),9 ,'left');
+        $pdf->ezPlaceData($xleft+=135,$xtop-9,xls_safe_text("<b>Quantity</b>"),9 ,'right');
+        $pdf->ezPlaceData($xleft+=10,$xtop-9,xls_safe_text("<b>UOM</b>"),9 ,'left');
+        $pdf->ezPlaceData($xleft+=75,$xtop-9,xls_safe_text("<b>Unit Price</b>"),9 ,'right');
 
-        $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>Extended Price</b>",9 ,'right');
-        $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>Cost</b>",9 ,'right');
-        $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>Profit</b>",9 ,'right');
+        $pdf->ezPlaceData($xleft+=95,$xtop-9,xls_safe_text("<b>Extended Price</b>"),9 ,'right');
+        $pdf->ezPlaceData($xleft+=95,$xtop-9,xls_safe_text("<b>Cost</b>"),9 ,'right');
+        $pdf->ezPlaceData($xleft+=95,$xtop-9,xls_safe_text("<b>Profit</b>"),9 ,'right');
         $pdf->line(25, $xtop-12, 770, $xtop-12);
         $xtop-=23;
 
@@ -182,10 +182,10 @@
             }
 
             $pdf->ezPlaceData($xleft,$xtop, $display_trndte,9,"left");
-            $pdf->ezPlaceData($xleft+=80,$xtop, $rs_main2['docnum'],9,"left");
-            $pdf->ezPlaceData($xleft+=95,$xtop,$rs_main2["cusdsc"],9,"left");
+            $pdf->ezPlaceData($xleft+=80,$xtop, xls_safe_text($rs_main2['docnum']),9,"left");
+            $pdf->ezPlaceData($xleft+=95,$xtop,xls_safe_text($rs_main2["cusdsc"]),9,"left");
             $pdf->ezPlaceData($xleft+=135,$xtop,number_format($rs_main2["itmqty"]),9,"right");
-            $pdf->ezPlaceData($xleft+=10,$xtop,isset($rs_main2["unmdsc"]) ? $rs_main2["unmdsc"] : '',9,"left");
+            $pdf->ezPlaceData($xleft+=10,$xtop,xls_safe_text(isset($rs_main2["unmdsc"]) ? $rs_main2["unmdsc"] : ''),9,"left");
             $pdf->ezPlaceData($xleft+=75,$xtop,number_format($rs_main2["untprc"],2),9,"right");
 
             $pdf->ezPlaceData($xleft+=95,$xtop,number_format($rs_main2["extprc"],2),9,"right");
@@ -208,13 +208,13 @@
                 $xheader = $pdf->openObject();
                 $pdf->saveState();
 
-                $pdf->ezPlaceData(25,$xtop-9,"<b>Item:</b>",10 ,'left');
+                $pdf->ezPlaceData(25,$xtop-9,xls_safe_text("<b>Item:</b>"),10 ,'left');
 
                 // Wrap long item names to multiple lines on new page header
                 $itm_newpage_lines = wrap_text($rs_main['itmdsc'], 700, 10);
                 $itm_newpage_line_count = count($itm_newpage_lines);
                 foreach($itm_newpage_lines as $idx => $line) {
-                    $pdf->ezPlaceData(55, $xtop - 9 - ($idx * 12), $line, 10, 'left');
+                    $pdf->ezPlaceData(55, $xtop - 9 - ($idx * 12), xls_safe_text($line), 10, 'left');
                 }
 
                 $newpage_header_offset = max(12, $itm_newpage_line_count * 12);
@@ -223,16 +223,16 @@
                 $xtop -= $newpage_header_offset;
                 $xleft = 25;
 
-                $pdf->ezPlaceData($xleft,$xtop-9,"<b>Tran. Date</b>",9 ,'left');
-                $pdf->ezPlaceData($xleft+=80,$xtop-9,"<b>Tran. Num.</b>",9 ,'left');
-                $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>Shop Name</b>",9 ,'left');
-                $pdf->ezPlaceData($xleft+=135,$xtop-9,"<b>Quantity</b>",9 ,'right');
-                $pdf->ezPlaceData($xleft+=10,$xtop-9,"<b>UOM</b>",9 ,'left');
-                $pdf->ezPlaceData($xleft+=75,$xtop-9,"<b>Unit Price</b>",9 ,'right');
+                $pdf->ezPlaceData($xleft,$xtop-9,xls_safe_text("<b>Tran. Date</b>"),9 ,'left');
+                $pdf->ezPlaceData($xleft+=80,$xtop-9,xls_safe_text("<b>Tran. Num.</b>"),9 ,'left');
+                $pdf->ezPlaceData($xleft+=95,$xtop-9,xls_safe_text("<b>Shop Name</b>"),9 ,'left');
+                $pdf->ezPlaceData($xleft+=135,$xtop-9,xls_safe_text("<b>Quantity</b>"),9 ,'right');
+                $pdf->ezPlaceData($xleft+=10,$xtop-9,xls_safe_text("<b>UOM</b>"),9 ,'left');
+                $pdf->ezPlaceData($xleft+=75,$xtop-9,xls_safe_text("<b>Unit Price</b>"),9 ,'right');
 
-                $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>Extended Price</b>",9 ,'right');
-                $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>Cost</b>",9 ,'right');
-                $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>Profit</b>",9 ,'right');
+                $pdf->ezPlaceData($xleft+=95,$xtop-9,xls_safe_text("<b>Extended Price</b>"),9 ,'right');
+                $pdf->ezPlaceData($xleft+=95,$xtop-9,xls_safe_text("<b>Cost</b>"),9 ,'right');
+                $pdf->ezPlaceData($xleft+=95,$xtop-9,xls_safe_text("<b>Profit</b>"),9 ,'right');
                 $pdf->line(25, $xtop-12, 770, $xtop-12);
                 $xtop-=23;
 
@@ -245,7 +245,7 @@
 
         $pdf->line(25, $xtop, 770, $xtop);
         $xleft=25;
-        $pdf->ezPlaceData($xleft+=390,$xtop-9,"<b>Subtotal:</b>",9 ,'left');
+        $pdf->ezPlaceData($xleft+=390,$xtop-9,xls_safe_text("<b>Subtotal:</b>"),9 ,'left');
         $pdf->ezPlaceData($xleft+=100,$xtop-9,"<b>".number_format($subtotal_extprc,2)."</b>",9 ,'right');
         $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>".number_format($subtotal_cost,2)."</b>",9 ,'right');
         $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>".number_format($subtotal_profit,2)."</b>",9 ,'right');
@@ -268,7 +268,7 @@
 
     $pdf->line(25, $xtop-10, 770, $xtop-10);
     $xleft=25;
-    $pdf->ezPlaceData($xleft+=384,$xtop-18,"<b>Grand total:</b>",8 ,'left');
+    $pdf->ezPlaceData($xleft+=384,$xtop-18,xls_safe_text("<b>Grand total:</b>"),8 ,'left');
     $pdf->ezPlaceData($xleft+=107,$xtop-18,"<b>".number_format($grand_total_extprc,2)."</b>",9 ,'right');
     $pdf->ezPlaceData($xleft+=95,$xtop-18,"<b>".number_format($grand_total_cost,2)."</b>",9 ,'right');
     $pdf->ezPlaceData($xleft+=95,$xtop-18,"<b>".number_format($grand_total_profit,2)."</b>",9 ,'right');
@@ -303,6 +303,31 @@
             $xxstr = $xxstr.'...';
         }
         return $xxstr;
+    }
+
+    function xls_safe_text($string)
+    {
+        global $pdf;
+
+        $string = (string)$string;
+        if(get_class($pdf) != 'tab_ezpdf'){
+            return $string;
+        }
+
+        if(function_exists('mb_check_encoding') && !mb_check_encoding($string, 'UTF-8')){
+            $string = mb_convert_encoding($string, 'UTF-8', 'UTF-8, Windows-1252, ISO-8859-1');
+        }else if(function_exists('iconv')){
+            $converted = @iconv('UTF-8', 'UTF-8//IGNORE', $string);
+            if($converted !== false){
+                $string = $converted;
+            }
+        }
+
+        $string = str_replace(array("\t", "\r", "\n", "\0"), ' ', $string);
+        $string = preg_replace('/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/', ' ', $string);
+        $string = preg_replace('/\s{2,}/', ' ', $string);
+
+        return trim($string);
     }
 
     function item_sales_cost_cache_key($itmcde, $unmcde)
@@ -363,8 +388,14 @@
     function wrap_text($string, $max_wid, $fsize) {
         global $pdf;
 
+        $string = xls_safe_text($string);
+
         if(empty($string)) {
             return array('');
+        }
+
+        if(get_class($pdf) == 'tab_ezpdf'){
+            return array($string);
         }
 
         // Check if text fits in one line
