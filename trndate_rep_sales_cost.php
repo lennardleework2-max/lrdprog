@@ -440,9 +440,11 @@
         $pdf->ezPlaceData($xleft+=$col_docnum,$xtop,$display_ordernum,9,"left");
         $pdf->ezPlaceData($xleft+=$col_ordernum,$xtop,$display_trndte,9,"left");
         $pdf->ezPlaceData($xleft+=$col_trndte,$xtop,$display_paydate,9,"left");
-        $customer_col_x = $xleft + $col_paydate;
+        $xleft += $col_paydate;
+        $customer_col_x = $xleft;
+        $shop_item_col_x = $customer_col_x + $col_customer;
         $pdf->ezPlaceData($customer_col_x,$xtop,$buyer_lines[0],9,"left");
-        $pdf->ezPlaceData($xleft+=$col_customer,$xtop,$display_cusdsc,9,"left");
+        $pdf->ezPlaceData($shop_item_col_x,$xtop,$display_cusdsc,9,"left");
 
         if ($_POST['txt_output_type']!='tab') {
             for($buyer_line_idx = 1; $buyer_line_idx < $buyer_line_count; $buyer_line_idx++) {
