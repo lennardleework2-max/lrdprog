@@ -197,10 +197,10 @@ FROM itemfile
 LEFT JOIN (
     SELECT
         sale_tranfile2.itmcde,
-        SUM(CASE WHEN UPPER(customerfile.cusdsc) = 'TIKTOK' THEN sale_tranfile2.itmqty ELSE 0 END) AS tiktok_qty,
-        SUM(CASE WHEN UPPER(customerfile.cusdsc) = 'LAZADA' THEN sale_tranfile2.itmqty ELSE 0 END) AS lazada_qty,
-        SUM(CASE WHEN UPPER(customerfile.cusdsc) = 'SHOPEE' THEN sale_tranfile2.itmqty ELSE 0 END) AS shopee_qty,
-        SUM(CASE WHEN UPPER(customerfile.cusdsc) = 'RYU' THEN sale_tranfile2.itmqty ELSE 0 END) AS ryu_qty
+        SUM(CASE WHEN UPPER(customerfile.cusdsc) = 'TIKTOK' THEN sale_tranfile2.stkqty * -1 ELSE 0 END) AS tiktok_qty,
+        SUM(CASE WHEN UPPER(customerfile.cusdsc) = 'LAZADA' THEN sale_tranfile2.stkqty * -1 ELSE 0 END) AS lazada_qty,
+        SUM(CASE WHEN UPPER(customerfile.cusdsc) = 'SHOPEE' THEN sale_tranfile2.stkqty * -1 ELSE 0 END) AS shopee_qty,
+        SUM(CASE WHEN UPPER(customerfile.cusdsc) = 'RYU' THEN sale_tranfile2.stkqty * -1 ELSE 0 END) AS ryu_qty
     FROM tranfile1 sale_tranfile1
     INNER JOIN tranfile2 sale_tranfile2 ON sale_tranfile1.docnum = sale_tranfile2.docnum
     INNER JOIN customerfile ON sale_tranfile1.cuscde = customerfile.cuscde
@@ -213,7 +213,7 @@ LEFT JOIN (
 LEFT JOIN (
     SELECT
         ratio_tranfile2.itmcde,
-        SUM(ratio_tranfile2.itmqty) AS sold_qty_30
+        SUM(ratio_tranfile2.stkqty * -1) AS sold_qty_30
     FROM tranfile1 ratio_tranfile1
     INNER JOIN tranfile2 ratio_tranfile2 ON ratio_tranfile1.docnum = ratio_tranfile2.docnum
     WHERE ratio_tranfile1.trncde = 'SAL'
