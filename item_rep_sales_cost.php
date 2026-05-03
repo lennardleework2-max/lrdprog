@@ -245,10 +245,23 @@
 
         $pdf->line(25, $xtop, 770, $xtop);
         $xleft=25;
-        $pdf->ezPlaceData($xleft+=390,$xtop-9,xls_safe_text("<b>Subtotal:</b>"),9 ,'left');
-        $pdf->ezPlaceData($xleft+=100,$xtop-9,"<b>".number_format($subtotal_extprc,2)."</b>",9 ,'right');
-        $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>".number_format($subtotal_cost,2)."</b>",9 ,'right');
-        $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>".number_format($subtotal_profit,2)."</b>",9 ,'right');
+        // For XLS: output empty cells at earlier column positions to maintain alignment
+        if(get_class($pdf) == 'tab_ezpdf'){
+            $pdf->ezPlaceData($xleft,$xtop-9,'',9 ,'left');           // Tran. Date
+            $pdf->ezPlaceData($xleft+=80,$xtop-9,'',9 ,'left');       // Tran. Num.
+            $pdf->ezPlaceData($xleft+=95,$xtop-9,'',9 ,'left');       // Shop Name
+            $pdf->ezPlaceData($xleft+=135,$xtop-9,'',9 ,'right');     // Quantity
+            $pdf->ezPlaceData($xleft+=10,$xtop-9,'',9 ,'left');       // UOM
+            $pdf->ezPlaceData($xleft+=75,$xtop-9,xls_safe_text("<b>Subtotal:</b>"),9 ,'right'); // Unit Price col
+            $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>".number_format($subtotal_extprc,2)."</b>",9 ,'right');
+            $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>".number_format($subtotal_cost,2)."</b>",9 ,'right');
+            $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>".number_format($subtotal_profit,2)."</b>",9 ,'right');
+        } else {
+            $pdf->ezPlaceData($xleft+=390,$xtop-9,xls_safe_text("<b>Subtotal:</b>"),9 ,'left');
+            $pdf->ezPlaceData($xleft+=100,$xtop-9,"<b>".number_format($subtotal_extprc,2)."</b>",9 ,'right');
+            $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>".number_format($subtotal_cost,2)."</b>",9 ,'right');
+            $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>".number_format($subtotal_profit,2)."</b>",9 ,'right');
+        }
 
         $xtop-=20;
 
@@ -268,10 +281,23 @@
 
     $pdf->line(25, $xtop-10, 770, $xtop-10);
     $xleft=25;
-    $pdf->ezPlaceData($xleft+=384,$xtop-18,xls_safe_text("<b>Grand total:</b>"),8 ,'left');
-    $pdf->ezPlaceData($xleft+=107,$xtop-18,"<b>".number_format($grand_total_extprc,2)."</b>",9 ,'right');
-    $pdf->ezPlaceData($xleft+=95,$xtop-18,"<b>".number_format($grand_total_cost,2)."</b>",9 ,'right');
-    $pdf->ezPlaceData($xleft+=95,$xtop-18,"<b>".number_format($grand_total_profit,2)."</b>",9 ,'right');
+    // For XLS: output empty cells at earlier column positions to maintain alignment
+    if(get_class($pdf) == 'tab_ezpdf'){
+        $pdf->ezPlaceData($xleft,$xtop-18,'',9 ,'left');           // Tran. Date
+        $pdf->ezPlaceData($xleft+=80,$xtop-18,'',9 ,'left');       // Tran. Num.
+        $pdf->ezPlaceData($xleft+=95,$xtop-18,'',9 ,'left');       // Shop Name
+        $pdf->ezPlaceData($xleft+=135,$xtop-18,'',9 ,'right');     // Quantity
+        $pdf->ezPlaceData($xleft+=10,$xtop-18,'',9 ,'left');       // UOM
+        $pdf->ezPlaceData($xleft+=75,$xtop-18,xls_safe_text("<b>Grand total:</b>"),9 ,'right'); // Unit Price col
+        $pdf->ezPlaceData($xleft+=95,$xtop-18,"<b>".number_format($grand_total_extprc,2)."</b>",9 ,'right');
+        $pdf->ezPlaceData($xleft+=95,$xtop-18,"<b>".number_format($grand_total_cost,2)."</b>",9 ,'right');
+        $pdf->ezPlaceData($xleft+=95,$xtop-18,"<b>".number_format($grand_total_profit,2)."</b>",9 ,'right');
+    } else {
+        $pdf->ezPlaceData($xleft+=384,$xtop-18,xls_safe_text("<b>Grand total:</b>"),8 ,'left');
+        $pdf->ezPlaceData($xleft+=107,$xtop-18,"<b>".number_format($grand_total_extprc,2)."</b>",9 ,'right');
+        $pdf->ezPlaceData($xleft+=95,$xtop-18,"<b>".number_format($grand_total_cost,2)."</b>",9 ,'right');
+        $pdf->ezPlaceData($xleft+=95,$xtop-18,"<b>".number_format($grand_total_profit,2)."</b>",9 ,'right');
+    }
 
     $pdf->line(25, $xtop-10, 770, $xtop-10);
 	$pdf->addText(30,15,8,"Date Printed : ".date("F j, Y, g:i A"),$angle=0,$wordspaceadjust=1);
