@@ -179,11 +179,11 @@
             $pdf->ezPlaceData($xleft,$xtop, $detail_row['ordered_date'],9,"left");
             $pdf->ezPlaceData($xleft+=80,$xtop, $detail_row['trndte'],9,"left");
             $pdf->ezPlaceData($xleft+=115,$xtop,trim_str($detail_row["cusdsc"],65,9),9,"left");
-            $pdf->ezPlaceData($xleft+=85,$xtop,trim_str($detail_row["orderby"],130,9),9,"left");
-            $pdf->ezPlaceData($xleft+=172,$xtop,number_format($detail_row["untprc"],2),9,"right");
-            $pdf->ezPlaceData($xleft+=78,$xtop,number_format($detail_row["itmqty"]),9,"right");
+            $pdf->ezPlaceData($xleft+=85,$xtop,trim_str($detail_row["orderby"],120,9),9,"left");
+            $pdf->ezPlaceData($xleft+=215,$xtop,number_format($detail_row["untprc"],2),9,"right");
+            $pdf->ezPlaceData($xleft+=50,$xtop,number_format($detail_row["itmqty"]),9,"right");
             $pdf->ezPlaceData($xleft+=5,$xtop,trim_str($detail_row["unmdsc"],45,9),9,"left");
-            $pdf->ezPlaceData($xleft+=95,$xtop,number_format($detail_row["extprc"],2),9,"right");
+            $pdf->ezPlaceData($xleft+=170,$xtop,number_format($detail_row["extprc"],2),9,"right");
             $xtop -= 15;
                 
             if($xtop <= 60)
@@ -233,9 +233,9 @@
 
         $pdf->line(25, $xtop, 770, $xtop);
         $pdf->ezPlaceData(270,$xtop-9,"<b>Weighted Average/Subtotal:</b>",9 ,'left');
-        $pdf->ezPlaceData(475,$xtop-9,number_format($subtotal_weighted,2),9 ,'right');
-        $pdf->ezPlaceData(555,$xtop-9,$subtotal_itmqty,9 ,'right');
-        $pdf->ezPlaceData(740,$xtop-9,"<b>".number_format($subtotal,2)."</b>",9 ,'right');
+        $pdf->ezPlaceData(520,$xtop-9,number_format($subtotal_weighted,2),9 ,'right');
+        $pdf->ezPlaceData(570,$xtop-9,$subtotal_itmqty,9 ,'right');
+        $pdf->ezPlaceData(745,$xtop-9,"<b>".number_format($subtotal,2)."</b>",9 ,'right');
 
         $xtop-=20;
 
@@ -248,8 +248,8 @@
     }
        
     $pdf->line(25, $xtop-10, 770, $xtop-10);
-    $pdf->ezPlaceData(620,$xtop-18,"<b>Grand total:</b>",9 ,'left');
-    $pdf->ezPlaceData(740,$xtop-18,"<b>".number_format($grand_total,2)."</b>",9 ,'right');
+    $pdf->ezPlaceData(650,$xtop-18,"<b>Grand total:</b>",9 ,'left');
+    $pdf->ezPlaceData(745,$xtop-18,"<b>".number_format($grand_total,2)."</b>",9 ,'right');
     $pdf->line(25, $xtop-10, 770, $xtop-10); 
 	$pdf->addText(30,15,8,"Date Printed : ".date("F j, Y, g:i A"),$angle=0,$wordspaceadjust=1);
 	$pdf->ezStream();
