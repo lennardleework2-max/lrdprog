@@ -180,8 +180,8 @@
             $pdf->ezPlaceData($xleft+=80,$xtop, $detail_row['trndte'],9,"left");
             $pdf->ezPlaceData($xleft+=115,$xtop,trim_str($detail_row["cusdsc"],65,9),9,"left");
             $pdf->ezPlaceData($xleft+=85,$xtop,trim_str($detail_row["orderby"],120,9),9,"left");
-            $pdf->ezPlaceData($xleft+=215,$xtop,number_format($detail_row["untprc"],2),9,"right");
-            $pdf->ezPlaceData($xleft+=50,$xtop,number_format($detail_row["itmqty"]),9,"right");
+            $pdf->ezPlaceData($xleft+=210,$xtop,number_format($detail_row["untprc"],2),9,"right");
+            $pdf->ezPlaceData($xleft+=55,$xtop,number_format($detail_row["itmqty"]),9,"right");
             $pdf->ezPlaceData($xleft+=5,$xtop,trim_str($detail_row["unmdsc"],45,9),9,"left");
             $pdf->ezPlaceData($xleft+=170,$xtop,number_format($detail_row["extprc"],2),9,"right");
             $xtop -= 15;
@@ -233,7 +233,7 @@
 
         $pdf->line(25, $xtop, 770, $xtop);
         $pdf->ezPlaceData(270,$xtop-9,"<b>Weighted Average/Subtotal:</b>",9 ,'left');
-        $pdf->ezPlaceData(520,$xtop-9,number_format($subtotal_weighted,2),9 ,'right');
+        $pdf->ezPlaceData(515,$xtop-9,number_format($subtotal_weighted,2),9 ,'right');
         $pdf->ezPlaceData(570,$xtop-9,$subtotal_itmqty,9 ,'right');
         $pdf->ezPlaceData(745,$xtop-9,"<b>".number_format($subtotal,2)."</b>",9 ,'right');
 
