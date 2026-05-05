@@ -66,6 +66,7 @@ $DEBUG_ROLLING_SALES = false;
     $head_date_to=date('m-d-Y');
     $xfilter = '';
     $xfilter_current_stock = '';
+    $xfilter_amount = '';
     $date_from_sql = '';
     $date_to_sql = '';
     $current_stock_qty_sort = 'asc';
@@ -100,6 +101,7 @@ $DEBUG_ROLLING_SALES = false;
 
         $xfilter .= " AND main_tranfile1.trndte>='".$date_from_sql."'";
         $xfilter_current_stock .= " AND stock_tranfile1.trndte>='".$date_from_sql."'";
+        $xfilter_amount .= " AND amount_tranfile1.trndte>='".$date_from_sql."'";
     }
 
     if(isset($_POST['date_to']) && !empty($_POST['date_to'])){
@@ -109,6 +111,7 @@ $DEBUG_ROLLING_SALES = false;
 
         $xfilter .= " AND main_tranfile1.trndte<='".$date_to_sql."'";
         $xfilter_current_stock .= " AND stock_tranfile1.trndte<='".$date_to_sql."'";
+        $xfilter_amount .= " AND amount_tranfile1.trndte<='".$date_to_sql."'";
     }
 
     // Rolling 30/60/90-day columns ALWAYS use today's date as the reference (current system date).
@@ -225,7 +228,13 @@ if (!$is_tab_export) {
 // Pattern: SELECT SUM(tranfile2.stkqty) * -1 FROM tranfile1 LEFT JOIN tranfile2 WHERE itmcde=X AND trndte>=start AND trndte<=today
 $select_db_base="SELECT itemfile.itmdsc as itmdsc,
     main_tranfile2.itmcde as itmcde,
-    SUM(main_tranfile2.extprc) as tot_extprc,
+    COALESCE((
+        SELECT SUM(amount_tranfile2.extprc)
+        FROM tranfile2 amount_tranfile2
+        LEFT JOIN tranfile1 amount_tranfile1 ON amount_tranfile2.docnum = amount_tranfile1.docnum
+        WHERE amount_tranfile2.itmcde = main_tranfile2.itmcde
+          AND amount_tranfile1.trncde = 'SAL'".$xfilter_amount."
+    ), 0) AS tot_extprc,
     SUM(main_tranfile2.stkqty * -1) as tot_itmqty,
     COALESCE((
         SELECT SUM(t2.stkqty) * -1
