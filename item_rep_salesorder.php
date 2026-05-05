@@ -371,7 +371,7 @@
     // $pdf->line(25, $xtop-10, 770, $xtop-10); 
 
     if($_POST['txt_output_type'] == 'tab'){
-        $tab_output =  "\t\t\t\t\tGrand Total\t".$grand_total."\n";
+        $tab_output =  "\t\t\t\t\t\tGrand Total\t".$grand_total."\n";
         echo $tab_output;
     }else{
         $pdf->line(25, $xtop-10, 770, $xtop-10); 
