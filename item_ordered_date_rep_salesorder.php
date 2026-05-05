@@ -163,8 +163,9 @@
         $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Ordered By</b>",9 ,'left');
         $pdf->ezPlaceData($xleft+=130,$xtop-9,"<b>Unit Price</b>",9 ,'left');
         $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Quantity</b>",9 ,'left');
-        $pdf->ezPlaceData($xleft+=60,$xtop-9,"<b>Extended Price</b>",9 ,'left');
-        $pdf->line(25, $xtop-12, 770, $xtop-12); 
+        $pdf->ezPlaceData($xleft+=55,$xtop-9,"<b>UOM</b>",9 ,'left');
+        $pdf->ezPlaceData($xleft+=50,$xtop-9,"<b>Extended Price</b>",9 ,'left');
+        $pdf->line(25, $xtop-12, 770, $xtop-12);
         $xtop-=23;
 
         $subtotal = (float)$group['subtotal'];
@@ -178,10 +179,11 @@
             $pdf->ezPlaceData($xleft,$xtop, $detail_row['ordered_date'],9,"left");
             $pdf->ezPlaceData($xleft+=80,$xtop, $detail_row['trndte'],9,"left");
             $pdf->ezPlaceData($xleft+=115,$xtop,trim_str($detail_row["cusdsc"],65,9),9,"left");
-            $pdf->ezPlaceData($xleft+=85,$xtop,trim_str($detail_row["orderby"],140,9),9,"left");
+            $pdf->ezPlaceData($xleft+=85,$xtop,trim_str($detail_row["orderby"],130,9),9,"left");
             $pdf->ezPlaceData($xleft+=172,$xtop,number_format($detail_row["untprc"],2),9,"right");
             $pdf->ezPlaceData($xleft+=78,$xtop,number_format($detail_row["itmqty"]),9,"right");
-            $pdf->ezPlaceData($xleft+=90,$xtop,number_format($detail_row["extprc"],2),9,"right");
+            $pdf->ezPlaceData($xleft+=5,$xtop,trim_str($detail_row["unmdsc"],45,9),9,"left");
+            $pdf->ezPlaceData($xleft+=95,$xtop,number_format($detail_row["extprc"],2),9,"right");
             $xtop -= 15;
                 
             if($xtop <= 60)
@@ -210,7 +212,8 @@
                 $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Ordered By</b>",9 ,'left');
                 $pdf->ezPlaceData($xleft+=130,$xtop-9,"<b>Unit Price</b>",9 ,'left');
                 $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Quantity</b>",9 ,'left');
-                $pdf->ezPlaceData($xleft+=60,$xtop-9,"<b>Extended Price</b>",9 ,'left');
+                $pdf->ezPlaceData($xleft+=55,$xtop-9,"<b>UOM</b>",9 ,'left');
+                $pdf->ezPlaceData($xleft+=50,$xtop-9,"<b>Extended Price</b>",9 ,'left');
                                
                 
                 $pdf->line(25, $xtop-12, 770, $xtop-12); 
@@ -228,11 +231,11 @@
 
         }
 
-        $pdf->line(25, $xtop, 770, $xtop); 
+        $pdf->line(25, $xtop, 770, $xtop);
         $pdf->ezPlaceData(270,$xtop-9,"<b>Weighted Average/Subtotal:</b>",9 ,'left');
         $pdf->ezPlaceData(475,$xtop-9,number_format($subtotal_weighted,2),9 ,'right');
         $pdf->ezPlaceData(555,$xtop-9,$subtotal_itmqty,9 ,'right');
-        $pdf->ezPlaceData(645,$xtop-9,"<b>".number_format($subtotal,2)."</b>",9 ,'right');
+        $pdf->ezPlaceData(740,$xtop-9,"<b>".number_format($subtotal,2)."</b>",9 ,'right');
 
         $xtop-=20;
 
@@ -244,9 +247,9 @@
    
     }
        
-    $pdf->line(25, $xtop-10, 770, $xtop-10); 
-    $pdf->ezPlaceData(530,$xtop-18,"<b>Grand total:</b>",9 ,'left');
-    $pdf->ezPlaceData(645,$xtop-18,"<b>".number_format($grand_total,2)."</b>",9 ,'right');
+    $pdf->line(25, $xtop-10, 770, $xtop-10);
+    $pdf->ezPlaceData(620,$xtop-18,"<b>Grand total:</b>",9 ,'left');
+    $pdf->ezPlaceData(740,$xtop-18,"<b>".number_format($grand_total,2)."</b>",9 ,'right');
     $pdf->line(25, $xtop-10, 770, $xtop-10); 
 	$pdf->addText(30,15,8,"Date Printed : ".date("F j, Y, g:i A"),$angle=0,$wordspaceadjust=1);
 	$pdf->ezStream();
@@ -345,6 +348,43 @@
         return trim($string);
     }
 
+    // XLS-safe text encoding: sanitizes text for XLS output
+    // Handles mojibake, special chars, and non-ASCII that can break Excel layout
+    function xls_safe_text($string)
+    {
+        $string = (string)$string;
+
+        if(empty($string)){
+            return '';
+        }
+
+        // Try to fix encoding issues first
+        if(function_exists('mb_check_encoding') && !mb_check_encoding($string, 'UTF-8')){
+            $string = mb_convert_encoding($string, 'UTF-8', 'UTF-8, Windows-1252, ISO-8859-1');
+        }
+
+        // Transliterate to ASCII to prevent layout-breaking chars in XLS
+        if(function_exists('iconv')){
+            $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $string);
+            if($converted !== false && $converted !== ''){
+                $string = $converted;
+            } else {
+                // Fallback: strip all non-printable-ASCII
+                $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+            }
+        } else {
+            // No iconv available: strip all non-printable-ASCII
+            $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+        }
+
+        // Remove tabs, line breaks, and control chars that break format
+        $string = str_replace(array("\t", "\r", "\n", "\0"), ' ', $string);
+        $string = preg_replace('/[\x00-\x1F\x7F]/', ' ', $string);
+        $string = preg_replace('/\s{2,}/', ' ', $string);
+
+        return trim($string);
+    }
+
     function fetch_salesorder_item_ordered_date_rows($link, $itmcde, $xfilter2)
     {
         $detail_rows = array();
@@ -353,13 +393,16 @@
                               salesorderfile2.untprc,
                               salesorderfile2.extprc,
                               salesorderfile2.docnum,
+                              salesorderfile2.unmcde,
                               salesorderfile1.file_created_date as ordered_date_raw,
                               salesorderfile1.trndte as upload_date_raw,
                               salesorderfile1.orderby,
-                              customerfile.cusdsc
+                              customerfile.cusdsc,
+                              itemunitmeasurefile.unmdsc
                        FROM salesorderfile2
                        LEFT JOIN salesorderfile1 ON salesorderfile2.docnum = salesorderfile1.docnum
                        LEFT JOIN customerfile ON salesorderfile1.cuscde = customerfile.cuscde
+                       LEFT JOIN itemunitmeasurefile ON salesorderfile2.unmcde = itemunitmeasurefile.unmcde
                        WHERE salesorderfile2.itmcde='".$itmcde."' ".$xfilter2."
                        ORDER BY salesorderfile1.trndte ASC, salesorderfile2.recid ASC";
         $stmt_main2 = $link->prepare($select_db2);
@@ -386,7 +429,8 @@
                 'orderby' => normalize_report_text(isset($rs_main2['orderby']) ? $rs_main2['orderby'] : ''),
                 'untprc' => (float)$rs_main2['untprc'],
                 'itmqty' => (float)$rs_main2['itmqty'],
-                'extprc' => (float)$rs_main2['extprc']
+                'extprc' => (float)$rs_main2['extprc'],
+                'unmdsc' => normalize_report_text(isset($rs_main2['unmdsc']) ? $rs_main2['unmdsc'] : '')
             );
         }
 
@@ -432,22 +476,22 @@
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Sales Order Item');
 
-        $sheet->mergeCells('A1:G1');
+        $sheet->mergeCells('A1:H1');
         $sheet->setCellValue('A1', 'Sales Order by Item (Ordered Date)');
-        $sheet->mergeCells('A2:G2');
-        $sheet->setCellValue('A2', 'Pdf Report by: ' . normalize_report_text($report_user));
-        $sheet->mergeCells('A3:G3');
-        $sheet->setCellValue('A3', 'Date Printed : ' . normalize_report_text($date_printed));
+        $sheet->mergeCells('A2:H2');
+        $sheet->setCellValue('A2', 'Pdf Report by: ' . xls_safe_text($report_user));
+        $sheet->mergeCells('A3:H3');
+        $sheet->setCellValue('A3', 'Date Printed : ' . xls_safe_text($date_printed));
 
-        $sheet->mergeCells('A5:G5');
+        $sheet->mergeCells('A5:H5');
         $sheet->setCellValue('A5', 'FILTER:');
         $sheet->mergeCells('A6:B6');
-        $sheet->setCellValue('A6', 'Date From: ' . normalize_report_text($date_from_display));
+        $sheet->setCellValue('A6', 'Date From: ' . xls_safe_text($date_from_display));
         $sheet->mergeCells('C6:D6');
-        $sheet->setCellValue('C6', 'Date To: ' . normalize_report_text($date_to_display));
+        $sheet->setCellValue('C6', 'Date To: ' . xls_safe_text($date_to_display));
         $sheet->setCellValue('E6', 'Item:');
-        $sheet->mergeCells('F6:G6');
-        $sheet->setCellValue('F6', normalize_report_text($item_filter_desc));
+        $sheet->mergeCells('F6:H6');
+        $sheet->setCellValue('F6', xls_safe_text($item_filter_desc));
 
         $header_labels = array(
             'Ordered Date',
@@ -456,6 +500,7 @@
             'Ordered By',
             'Unit Price',
             'Quantity',
+            'UOM',
             'Extended Price'
         );
 
@@ -464,48 +509,50 @@
 
         foreach($groups as $group){
             $sheet->setCellValue('A' . $row_num, 'Item:');
-            $sheet->mergeCells('B' . $row_num . ':G' . $row_num);
-            $sheet->setCellValue('B' . $row_num, $group['item_desc']);
-            $sheet->getStyle('A' . $row_num . ':G' . $row_num)->getFont()->setBold(true);
-            $sheet->getStyle('A' . $row_num . ':G' . $row_num)->getAlignment()->setWrapText(true);
+            $sheet->mergeCells('B' . $row_num . ':H' . $row_num);
+            $sheet->setCellValue('B' . $row_num, xls_safe_text($group['item_desc']));
+            $sheet->getStyle('A' . $row_num . ':H' . $row_num)->getFont()->setBold(true);
+            $sheet->getStyle('A' . $row_num . ':H' . $row_num)->getAlignment()->setWrapText(true);
             $row_num++;
 
             $sheet->fromArray($header_labels, null, 'A' . $row_num);
-            $sheet->getStyle('A' . $row_num . ':G' . $row_num)->getFont()->setBold(true);
-            $sheet->getStyle('A' . $row_num . ':G' . $row_num)->getAlignment()->setWrapText(true);
+            $sheet->getStyle('A' . $row_num . ':H' . $row_num)->getFont()->setBold(true);
+            $sheet->getStyle('A' . $row_num . ':H' . $row_num)->getAlignment()->setWrapText(true);
             $row_num++;
 
             foreach($group['rows'] as $detail_row){
-                $sheet->setCellValue('A' . $row_num, normalize_report_text($detail_row['ordered_date']));
-                $sheet->setCellValue('B' . $row_num, normalize_report_text($detail_row['trndte']));
-                $sheet->setCellValue('C' . $row_num, normalize_report_text($detail_row['cusdsc']));
-                $sheet->setCellValue('D' . $row_num, normalize_report_text($detail_row['orderby']));
+                $sheet->setCellValue('A' . $row_num, xls_safe_text($detail_row['ordered_date']));
+                $sheet->setCellValue('B' . $row_num, xls_safe_text($detail_row['trndte']));
+                $sheet->setCellValue('C' . $row_num, xls_safe_text($detail_row['cusdsc']));
+                $sheet->setCellValue('D' . $row_num, xls_safe_text($detail_row['orderby']));
                 $sheet->setCellValue('E' . $row_num, (float)$detail_row['untprc']);
                 $sheet->setCellValue('F' . $row_num, (float)$detail_row['itmqty']);
-                $sheet->setCellValue('G' . $row_num, (float)$detail_row['extprc']);
+                $sheet->setCellValue('G' . $row_num, xls_safe_text($detail_row['unmdsc']));
+                $sheet->setCellValue('H' . $row_num, (float)$detail_row['extprc']);
                 $row_num++;
             }
 
-            $sheet->setCellValue('D' . $row_num, 'Weighted Average/Subtotal');
-            $sheet->setCellValue('E' . $row_num, (float)$group['subtotal_weighted']);
-            $sheet->setCellValue('F' . $row_num, (float)$group['subtotal_itmqty']);
-            $sheet->setCellValue('G' . $row_num, (float)$group['subtotal']);
-            $sheet->getStyle('D' . $row_num . ':G' . $row_num)->getFont()->setBold(true);
+            $sheet->setCellValue('E' . $row_num, 'Weighted Average/Subtotal');
+            $sheet->setCellValue('F' . $row_num, (float)$group['subtotal_weighted']);
+            $sheet->setCellValue('G' . $row_num, (float)$group['subtotal_itmqty']);
+            $sheet->setCellValue('H' . $row_num, (float)$group['subtotal']);
+            $sheet->getStyle('E' . $row_num . ':H' . $row_num)->getFont()->setBold(true);
             $grand_total += (float)$group['subtotal'];
             $row_num += 2;
         }
 
-        $sheet->setCellValue('F' . $row_num, 'Grand Total');
-        $sheet->setCellValue('G' . $row_num, $grand_total);
-        $sheet->getStyle('F' . $row_num . ':G' . $row_num)->getFont()->setBold(true);
+        $sheet->setCellValue('G' . $row_num, 'Grand Total');
+        $sheet->setCellValue('H' . $row_num, $grand_total);
+        $sheet->getStyle('G' . $row_num . ':H' . $row_num)->getFont()->setBold(true);
 
-        $sheet->getStyle('A1:G6')->getFont()->setBold(true);
-        $sheet->getStyle('A1:G' . $row_num)->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
+        $sheet->getStyle('A1:H6')->getFont()->setBold(true);
+        $sheet->getStyle('A1:H' . $row_num)->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
         $sheet->getStyle('A8:D' . $row_num)->getAlignment()->setWrapText(true);
-        $sheet->getStyle('E8:G' . $row_num)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle('E8:F' . $row_num)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle('H8:H' . $row_num)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
         $sheet->getStyle('E8:E' . $row_num)->getNumberFormat()->setFormatCode('#,##0.00');
         $sheet->getStyle('F8:F' . $row_num)->getNumberFormat()->setFormatCode('#,##0.####');
-        $sheet->getStyle('G8:G' . $row_num)->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle('H8:H' . $row_num)->getNumberFormat()->setFormatCode('#,##0.00');
 
         $sheet->getColumnDimension('A')->setWidth(14);
         $sheet->getColumnDimension('B')->setWidth(14);
@@ -513,7 +560,8 @@
         $sheet->getColumnDimension('D')->setWidth(24);
         $sheet->getColumnDimension('E')->setWidth(14);
         $sheet->getColumnDimension('F')->setWidth(12);
-        $sheet->getColumnDimension('G')->setWidth(16);
+        $sheet->getColumnDimension('G')->setWidth(10);
+        $sheet->getColumnDimension('H')->setWidth(16);
 
         while (ob_get_level() > 0) {
             ob_end_clean();
