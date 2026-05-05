@@ -7,12 +7,18 @@
 	require_once("resources/lx2.pdodb.php");
 	require_once('ezpdfclass/class/class.ezpdf.php');
     require_once('resources/func_pdf2tab.php');
+    require_once('vendor/autoload.php');
+
+    use PhpOffice\PhpSpreadsheet\Spreadsheet;
+    use PhpOffice\PhpSpreadsheet\Style\Alignment;
+    use PhpOffice\PhpSpreadsheet\Writer\Xls;
 
     ob_start();
 
     $xreport_title = "List of items";
-		
-    if ($_POST['txt_output_type']=='tab')
+    $is_tab_export = (isset($_POST['txt_output_type']) && $_POST['txt_output_type'] == 'tab');
+
+    if ($is_tab_export)
 	{
 		$pdf = new tab_ezpdf('Letter','landscape');
 
@@ -40,7 +46,7 @@
         $xheader = $pdf->openObject();
         $pdf->saveState();
 
-        if($_POST['txt_output_type'] == 'tab'){
+        if($is_tab_export){
             $pdf->ezPlaceData($xleft, $xtop, '', 10, 'left' );
         }else{
             $pdf->ezPlaceData($xleft, $xtop,"<b>Sales Order by Item (Ordered Date)</b>", 15, 'left' );
@@ -88,71 +94,51 @@
 		$pdf->setLineStyle(.5);
         $xleft = 25;
 
-
-        $xheader_first_page = $pdf->openObject();
-        $pdf->saveState();
-
         $xdate_from_display = $xdate_from_filter;
         $xdate_from_display = new DateTime($xdate_from_display);
         $xdate_from_display = $xdate_from_display->format('m/d/Y');
 
         $xdate_to_display = $xdate_to_filter;
         $xdate_to_display = new DateTime($xdate_to_display);
-        $xdate_to_display = $xdate_to_display->format('m/d/Y');        
+        $xdate_to_display = $xdate_to_display->format('m/d/Y');
 
-        if($_POST['txt_output_type'] != 'tab'){
-            // if((isset($_POST['date_from']) && !empty($_POST['date_from'])) || 
-            //    (isset($_POST['date_to']) && !empty($_POST['date_to'])) || 
-            //    (isset($_POST['item'])) && !empty($_POST['item'])){
+        $item_filter_desc = '';
+        if(isset($_POST['item']) && !empty($_POST['item'])){
+            $select_db_filter = "SELECT * FROM itemfile WHERE itmcde='".$_POST['item']."' ";
+            $stmt_main_filter	= $link->prepare($select_db_filter);
+            $stmt_main_filter->execute();
+            $rs_main_filter = $stmt_main_filter->fetch();
+            $item_filter_desc = normalize_report_text(isset($rs_main_filter['itmdsc']) ? $rs_main_filter['itmdsc'] : '');
+        }
 
-                $select_db_filter = "SELECT * FROM itemfile WHERE itmcde='".$_POST['item']."' ";
-                $stmt_main_filter	= $link->prepare($select_db_filter);
-                $stmt_main_filter->execute();
-                $rs_main_filter = $stmt_main_filter->fetch();
+        $report_groups = build_salesorder_item_ordered_date_report_groups($link, $xfilter, $xfilter2);
 
-                $pdf->ezPlaceData($xleft,$xtop,"<b>FILTER:</b>",10,'left');
-                $xtop-=15; 
-                  
-                $pdf->ezPlaceData($xleft,$xtop,"<b>Date From:</b>",10,'left');
-                $pdf->ezPlaceData($xleft+=60,$xtop,$xdate_from_display,10,'left');
-                $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Date To:</b>",10,'left');
-                $pdf->ezPlaceData($xleft+=50,$xtop,$xdate_to_display,10,'left');
-                $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Item:</b>",10,'left');
-                $pdf->ezPlaceData($xleft+=45,$xtop,$rs_main_filter['itmdsc'],10,'left');
+        if($is_tab_export){
+            export_salesorder_item_ordered_date_xls(
+                $report_groups,
+                $_SESSION['userdesc'],
+                $date_printed,
+                $xdate_from_display,
+                $xdate_to_display,
+                $item_filter_desc
+            );
+            exit;
+        }
 
-                $xtop-=15;
+        $xheader_first_page = $pdf->openObject();
+        $pdf->saveState();
 
-            // }   
-        }else{
+        $pdf->ezPlaceData($xleft,$xtop,"<b>FILTER:</b>",10,'left');
+        $xtop-=15; 
+          
+        $pdf->ezPlaceData($xleft,$xtop,"<b>Date From:</b>",10,'left');
+        $pdf->ezPlaceData($xleft+=60,$xtop,$xdate_from_display,10,'left');
+        $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Date To:</b>",10,'left');
+        $pdf->ezPlaceData($xleft+=50,$xtop,$xdate_to_display,10,'left');
+        $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Item:</b>",10,'left');
+        $pdf->ezPlaceData($xleft+=45,$xtop,$item_filter_desc,10,'left');
 
-            echo "<html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" /></head><body>";
-            echo "<table border=\"1\">";
-            echo "<tr><td colspan=\"7\">" . xls_html_text("Sales Order by Item (Ordered Date)") . "</td></tr>";
-            echo "<tr><td colspan=\"7\">" . xls_html_text("Pdf Report by: " . $_SESSION['userdesc']) . "</td></tr>";
-            echo "<tr><td colspan=\"7\">" . xls_html_text("Date Printed : " . $date_printed) . "</td></tr>";
-            echo "<tr><td colspan=\"7\">&nbsp;</td></tr>";
-
-            // if((isset($_POST['date_from']) && !empty($_POST['date_from'])) || 
-            //    (isset($_POST['date_to']) && !empty($_POST['date_to'])) || 
-            //    (isset($_POST['item'])) && !empty($_POST['item'])){
-
-                $select_db_filter = "SELECT * FROM itemfile WHERE itmcde='".$_POST['item']."' ";
-                $stmt_main_filter	= $link->prepare($select_db_filter);
-                $stmt_main_filter->execute();
-                $rs_main_filter = $stmt_main_filter->fetch();
-
-                echo "<tr><td colspan=\"7\">" . xls_html_text("FILTER:") . "</td></tr>";
-                echo "<tr>";
-                echo "<td colspan=\"2\">" . xls_html_text("Date From: ".$xdate_from_display) . "</td>";
-                echo "<td colspan=\"2\">" . xls_html_text("Date To: ".$xdate_to_display) . "</td>";
-                echo "<td colspan=\"3\">" . xls_html_text("Item: ".(isset($rs_main_filter['itmdsc']) ? $rs_main_filter['itmdsc'] : '')) . "</td>";
-                echo "</tr>";
-                echo "<tr><td colspan=\"7\">&nbsp;</td></tr>";
-            // }           
-                
-            // $tab_headers = "Doc. Num.\tOrder Num.\tTran. Date\tSupplier\tShip To\tPaydate\tPayment Details\tTotal";
-            // echo $tab_headers;
-        }              
+        $xtop-=15;
 
 		$pdf->restoreState();
 		$pdf->closeObject();
@@ -160,158 +146,93 @@
 
 	/***header**/
 
-    #region DO YOU LOOP HERE
-    $select_db = "SELECT * FROM itemfile WHERE true ".$xfilter;
-    $stmt_main	= $link->prepare($select_db);
-    $stmt_main->execute(array($_POST['item']));
     $grand_total = 0;
-    while($rs_main = $stmt_main->fetch()){    
-        $detail_rows = fetch_salesorder_item_ordered_date_rows($link, $rs_main['itmcde'], $xfilter2);
-        if(empty($detail_rows)){
-            continue;
-        }
-        
-        if($_POST['txt_output_type'] == 'tab'){
-            echo "<tr>";
-            echo "<td>" . xls_html_text("Item:") . "</td>";
-            echo "<td colspan=\"6\">" . xls_html_text($rs_main['itmdsc']) . "</td>";
-            echo "</tr>";
-        }else{
-            $pdf->ezPlaceData(25,$xtop-9,"<b>Item:</b>",10 ,'left');
-            $pdf->ezPlaceData(55,$xtop-9,$rs_main['itmdsc'],10 ,'left');
-        }
+    foreach($report_groups as $group){
+        $detail_rows = $group['rows'];
+
+        $pdf->ezPlaceData(25,$xtop-9,"<b>Item:</b>",10 ,'left');
+        $pdf->ezPlaceData(55,$xtop-9,$group['item_desc'],10 ,'left');
         $pdf->line(25, $xtop-12, 770, $xtop-12); 
 
         $xtop-=12;
         $xleft = 25;
 
-        if($_POST['txt_output_type'] == 'tab'){
-            echo "<tr>";
-            echo "<th>" . xls_html_text("Ordered Date") . "</th>";
-            echo "<th>" . xls_html_text("Upload Date") . "</th>";
-            echo "<th>" . xls_html_text("Platform") . "</th>";
-            echo "<th>" . xls_html_text("Ordered By") . "</th>";
-            echo "<th>" . xls_html_text("Unit Price") . "</th>";
-            echo "<th>" . xls_html_text("Quantity") . "</th>";
-            echo "<th>" . xls_html_text("Extended Price") . "</th>";
-            echo "</tr>";
-        }else{
-            $pdf->ezPlaceData($xleft,$xtop-9,"<b>Ordered Date</b>",9 ,'left');
-            $pdf->ezPlaceData($xleft+=80,$xtop-9,"<b>Upload Date</b>",9 ,'left');
-            $pdf->ezPlaceData($xleft+=115,$xtop-9,"<b>Platform</b>",9 ,'left');
-            $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Ordered By</b>",9 ,'left');
-            $pdf->ezPlaceData($xleft+=130,$xtop-9,"<b>Unit Price</b>",9 ,'left');
-            $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Quantity</b>",9 ,'left');
-            $pdf->ezPlaceData($xleft+=60,$xtop-9,"<b>Extended Price</b>",9 ,'left');
-        }     
+        $pdf->ezPlaceData($xleft,$xtop-9,"<b>Ordered Date</b>",9 ,'left');
+        $pdf->ezPlaceData($xleft+=80,$xtop-9,"<b>Upload Date</b>",9 ,'left');
+        $pdf->ezPlaceData($xleft+=115,$xtop-9,"<b>Platform</b>",9 ,'left');
+        $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Ordered By</b>",9 ,'left');
+        $pdf->ezPlaceData($xleft+=130,$xtop-9,"<b>Unit Price</b>",9 ,'left');
+        $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Quantity</b>",9 ,'left');
+        $pdf->ezPlaceData($xleft+=60,$xtop-9,"<b>Extended Price</b>",9 ,'left');
         $pdf->line(25, $xtop-12, 770, $xtop-12); 
         $xtop-=23;
 
-        $subtotal = 0;
-        $subtotal_itmqty = 0;
-        $subtotal_weighted = 0;
+        $subtotal = (float)$group['subtotal'];
+        $subtotal_itmqty = (float)$group['subtotal_itmqty'];
+        $subtotal_weighted = (float)$group['subtotal_weighted'];
         foreach($detail_rows as $detail_row){   
 
             $xleft = 25;
-            $subtotal += $detail_row["extprc"];
-            $grand_total += $detail_row["extprc"];
-            $subtotal_itmqty += $detail_row["itmqty"];
+            $grand_total += (float)$detail_row["extprc"];
 
-            if($_POST['txt_output_type'] == 'tab'){
-                echo "<tr>";
-                echo "<td>" . xls_html_text($detail_row['ordered_date']) . "</td>";
-                echo "<td>" . xls_html_text($detail_row['trndte']) . "</td>";
-                echo "<td>" . xls_html_text($detail_row["cusdsc"]) . "</td>";
-                echo "<td>" . xls_html_text($detail_row["orderby"]) . "</td>";
-                echo "<td>" . xls_number_text($detail_row["untprc"]) . "</td>";
-                echo "<td>" . xls_number_text($detail_row["itmqty"]) . "</td>";
-                echo "<td>" . xls_number_text($detail_row["extprc"]) . "</td>";
-                echo "</tr>";
-            }else{
-                $pdf->ezPlaceData($xleft,$xtop, $detail_row['ordered_date'],9,"left");
-                $pdf->ezPlaceData($xleft+=80,$xtop, $detail_row['trndte'],9,"left");
-                $pdf->ezPlaceData($xleft+=115,$xtop,trim_str($detail_row["cusdsc"],65,9),9,"left");
-                $pdf->ezPlaceData($xleft+=85,$xtop,trim_str($detail_row["orderby"],140,9),9,"left");
-                $pdf->ezPlaceData($xleft+=172,$xtop,number_format($detail_row["untprc"],2),9,"right");
-                $pdf->ezPlaceData($xleft+=78,$xtop,number_format($detail_row["itmqty"]),9,"right");
-                $pdf->ezPlaceData($xleft+=90,$xtop,number_format($detail_row["extprc"],2),9,"right");
-            }   
+            $pdf->ezPlaceData($xleft,$xtop, $detail_row['ordered_date'],9,"left");
+            $pdf->ezPlaceData($xleft+=80,$xtop, $detail_row['trndte'],9,"left");
+            $pdf->ezPlaceData($xleft+=115,$xtop,trim_str($detail_row["cusdsc"],65,9),9,"left");
+            $pdf->ezPlaceData($xleft+=85,$xtop,trim_str($detail_row["orderby"],140,9),9,"left");
+            $pdf->ezPlaceData($xleft+=172,$xtop,number_format($detail_row["untprc"],2),9,"right");
+            $pdf->ezPlaceData($xleft+=78,$xtop,number_format($detail_row["itmqty"]),9,"right");
+            $pdf->ezPlaceData($xleft+=90,$xtop,number_format($detail_row["extprc"],2),9,"right");
             $xtop -= 15;
                 
             if($xtop <= 60)
             {
-                if($_POST['txt_output_type'] == 'tab'){
-                    $xtop = 530;
-                    continue;
-                }
-
                 $pdf->ezNewPage();
                 $xtop = 530;
 
-                if($_POST['txt_output_type'] !='tab'){
-    
-                    $xheader = $pdf->openObject();
-                    $pdf->saveState();
+                $xheader = $pdf->openObject();
+                $pdf->saveState();
 
-                    $pdf->ezPlaceData(25,$xtop-9,"<b>Item:</b>",10 ,'left');
-                    $pdf->ezPlaceData(55,$xtop-9,$rs_main['itmdsc'],10 ,'left');
-              
-            
-                    $pdf->line(25, $xtop-12, 770, $xtop-12); 
+                $pdf->ezPlaceData(25,$xtop-9,"<b>Item:</b>",10 ,'left');
+                $pdf->ezPlaceData(55,$xtop-9,$group['item_desc'],10 ,'left');
+          
+        
+                $pdf->line(25, $xtop-12, 770, $xtop-12); 
 
-                    $pdf->setLineStyle(.5);
-                    $pdf->line(25, $xtop-12, 770, $xtop-12);    
-                    $xtop-=12;                 
-                    $xleft =25;
+                $pdf->setLineStyle(.5);
+                $pdf->line(25, $xtop-12, 770, $xtop-12);    
+                $xtop-=12;                 
+                $xleft =25;
 
 
-                    $pdf->ezPlaceData($xleft,$xtop-9,"<b>Ordered Date</b>",9 ,'left');
-                    $pdf->ezPlaceData($xleft+=80,$xtop-9,"<b>Upload Date</b>",9 ,'left');
-                    $pdf->ezPlaceData($xleft+=115,$xtop-9,"<b>Platform</b>",9 ,'left');
-                    $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Ordered By</b>",9 ,'left');
-                    $pdf->ezPlaceData($xleft+=130,$xtop-9,"<b>Unit Price</b>",9 ,'left');
-                    $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Quantity</b>",9 ,'left');
-                    $pdf->ezPlaceData($xleft+=60,$xtop-9,"<b>Extended Price</b>",9 ,'left');
-                                   
-                    
-                    $pdf->line(25, $xtop-12, 770, $xtop-12); 
-                    $xtop-=12;                    
-    
-                    $xleft = 25;
-    
-                    $pdf->restoreState();
-                    $pdf->closeObject();
+                $pdf->ezPlaceData($xleft,$xtop-9,"<b>Ordered Date</b>",9 ,'left');
+                $pdf->ezPlaceData($xleft+=80,$xtop-9,"<b>Upload Date</b>",9 ,'left');
+                $pdf->ezPlaceData($xleft+=115,$xtop-9,"<b>Platform</b>",9 ,'left');
+                $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Ordered By</b>",9 ,'left');
+                $pdf->ezPlaceData($xleft+=130,$xtop-9,"<b>Unit Price</b>",9 ,'left');
+                $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Quantity</b>",9 ,'left');
+                $pdf->ezPlaceData($xleft+=60,$xtop-9,"<b>Extended Price</b>",9 ,'left');
+                               
+                
+                $pdf->line(25, $xtop-12, 770, $xtop-12); 
+                $xtop-=12;                    
 
-                    $pdf->addObject($xheader,'add'); 
-                }else{
-                    $xtop-=23;
-                }
+                $xleft = 25;
+
+                $pdf->restoreState();
+                $pdf->closeObject();
+
+                $pdf->addObject($xheader,'add'); 
 
                 $xtop -= 12;    
             }
 
         }
 
-        if($subtotal_itmqty != 0){
-            $subtotal_weighted = $subtotal/$subtotal_itmqty;
-        }
-
-        if($_POST['txt_output_type'] == 'tab'){
-            echo "<tr>";
-            echo "<td></td><td></td><td></td>";
-            echo "<td>" . xls_html_text("Weighted Average/Subtotal") . "</td>";
-            echo "<td>" . xls_number_text($subtotal_weighted) . "</td>";
-            echo "<td>" . xls_number_text($subtotal_itmqty) . "</td>";
-            echo "<td>" . xls_number_text($subtotal) . "</td>";
-            echo "</tr>";
-            echo "<tr><td colspan=\"7\">&nbsp;</td></tr>";
-        }else{
-            $pdf->line(25, $xtop, 770, $xtop); 
-            $pdf->ezPlaceData(270,$xtop-9,"<b>Weighted Average/Subtotal:</b>",9 ,'left');
-            $pdf->ezPlaceData(475,$xtop-9,number_format($subtotal_weighted,2),9 ,'right');
-            $pdf->ezPlaceData(555,$xtop-9,$subtotal_itmqty,9 ,'right');
-            $pdf->ezPlaceData(645,$xtop-9,"<b>".number_format($subtotal,2)."</b>",9 ,'right');
-        }
+        $pdf->line(25, $xtop, 770, $xtop); 
+        $pdf->ezPlaceData(270,$xtop-9,"<b>Weighted Average/Subtotal:</b>",9 ,'left');
+        $pdf->ezPlaceData(475,$xtop-9,number_format($subtotal_weighted,2),9 ,'right');
+        $pdf->ezPlaceData(555,$xtop-9,$subtotal_itmqty,9 ,'right');
+        $pdf->ezPlaceData(645,$xtop-9,"<b>".number_format($subtotal,2)."</b>",9 ,'right');
 
         $xtop-=20;
 
@@ -323,25 +244,13 @@
    
     }
        
-    if($_POST['txt_output_type'] == 'tab'){
-        echo "<tr>";
-        echo "<td></td><td></td><td></td><td></td><td></td>";
-        echo "<td>" . xls_html_text("Grand Total") . "</td>";
-        echo "<td>" . xls_number_text($grand_total) . "</td>";
-        echo "</tr>";
-        echo "</table></body></html>";
-        $tab_content = ob_get_clean();
-        stream_xls_html($tab_content, 'item_ordered_date_rep_salesorder');
-        exit;
-    }else{
-        $pdf->line(25, $xtop-10, 770, $xtop-10); 
-        $pdf->ezPlaceData(530,$xtop-18,"<b>Grand total:</b>",9 ,'left');
-        $pdf->ezPlaceData(645,$xtop-18,"<b>".number_format($grand_total,2)."</b>",9 ,'right');
-        $pdf->line(25, $xtop-10, 770, $xtop-10); 
-	    $pdf->addText(30,15,8,"Date Printed : ".date("F j, Y, g:i A"),$angle=0,$wordspaceadjust=1);
-	    $pdf->ezStream();
-        ob_end_flush();
-    }  
+    $pdf->line(25, $xtop-10, 770, $xtop-10); 
+    $pdf->ezPlaceData(530,$xtop-18,"<b>Grand total:</b>",9 ,'left');
+    $pdf->ezPlaceData(645,$xtop-18,"<b>".number_format($grand_total,2)."</b>",9 ,'right');
+    $pdf->line(25, $xtop-10, 770, $xtop-10); 
+	$pdf->addText(30,15,8,"Date Printed : ".date("F j, Y, g:i A"),$angle=0,$wordspaceadjust=1);
+	$pdf->ezStream();
+    ob_end_flush();
 
     function trim_str($string,$max_wid,$fsize)
     {   
@@ -393,12 +302,7 @@
 
     }
 
-    function xls_safe_text($string)
-    {
-        return normalize_xls_text($string);
-    }
-
-    function normalize_xls_text($string)
+    function normalize_report_text($string)
     {
         if($string === null){
             return '';
@@ -431,39 +335,14 @@
             }
         }
 
+        $search = array('ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“', 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â', 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¹Ã…â€œ', 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢', 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ', 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â', 'ÃƒÆ’Ã¢â‚¬Å¡', 'ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ', 'ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â', 'ÃƒÂ¢Ã¢â€šÂ¬Ã‹Å“', 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢', 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“', 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â');
+        $replace = array('"', '"', "'", "'", '-', '-', '', '"', '"', "'", "'", '-', '-');
+        $string = str_replace($search, $replace, $string);
         $string = str_replace(array("\t", "\r", "\n", "\0"), ' ', $string);
         $string = preg_replace('/[\x00-\x1F\x7F]/u', ' ', $string);
         $string = preg_replace('/\s{2,}/u', ' ', $string);
 
         return trim($string);
-    }
-
-    function xls_html_text($string)
-    {
-        return htmlspecialchars(normalize_xls_text($string), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-    }
-
-    function xls_number_text($value)
-    {
-        if($value === null || $value === ''){
-            return '';
-        }
-
-        return normalize_xls_text((string)$value);
-    }
-
-    function stream_xls_html($content, $filename)
-    {
-        $content = (string)$content;
-
-        header("Cache-control: private");
-        header("Content-Disposition: attachment; filename=".$filename.".xls");
-        header("Content-Type: application/vnd.ms-excel; charset=UTF-8");
-        header("Content-Transfer-encoding: binary");
-        header("Pragma:no-cache");
-        header("Expires:0");
-
-        echo $content;
     }
 
     function fetch_salesorder_item_ordered_date_rows($link, $itmcde, $xfilter2)
@@ -500,11 +379,11 @@
             }
 
             $detail_rows[] = array(
-                'ordered_date' => $ordered_date,
+                'ordered_date' => normalize_report_text($ordered_date),
                 'trndte' => $upload_date,
                 'docnum' => isset($rs_main2['docnum']) ? $rs_main2['docnum'] : '',
-                'cusdsc' => isset($rs_main2['cusdsc']) ? $rs_main2['cusdsc'] : '',
-                'orderby' => isset($rs_main2['orderby']) ? $rs_main2['orderby'] : '',
+                'cusdsc' => normalize_report_text(isset($rs_main2['cusdsc']) ? $rs_main2['cusdsc'] : ''),
+                'orderby' => normalize_report_text(isset($rs_main2['orderby']) ? $rs_main2['orderby'] : ''),
                 'untprc' => (float)$rs_main2['untprc'],
                 'itmqty' => (float)$rs_main2['itmqty'],
                 'extprc' => (float)$rs_main2['extprc']
@@ -512,6 +391,145 @@
         }
 
         return $detail_rows;
+    }
+
+    function build_salesorder_item_ordered_date_report_groups($link, $xfilter, $xfilter2)
+    {
+        $groups = array();
+
+        $select_db = "SELECT * FROM itemfile WHERE true ".$xfilter." ORDER BY itmdsc ASC";
+        $stmt_main = $link->prepare($select_db);
+        $stmt_main->execute();
+
+        while($rs_main = $stmt_main->fetch()){
+            $detail_rows = fetch_salesorder_item_ordered_date_rows($link, $rs_main['itmcde'], $xfilter2);
+            if(empty($detail_rows)){
+                continue;
+            }
+
+            $subtotal = 0;
+            $subtotal_itmqty = 0;
+            foreach($detail_rows as $detail_row){
+                $subtotal += (float)$detail_row['extprc'];
+                $subtotal_itmqty += (float)$detail_row['itmqty'];
+            }
+
+            $groups[] = array(
+                'item_desc' => normalize_report_text(isset($rs_main['itmdsc']) ? $rs_main['itmdsc'] : ''),
+                'rows' => $detail_rows,
+                'subtotal' => $subtotal,
+                'subtotal_itmqty' => $subtotal_itmqty,
+                'subtotal_weighted' => ($subtotal_itmqty != 0) ? ($subtotal / $subtotal_itmqty) : 0
+            );
+        }
+
+        return $groups;
+    }
+
+    function export_salesorder_item_ordered_date_xls($groups, $report_user, $date_printed, $date_from_display, $date_to_display, $item_filter_desc)
+    {
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Sales Order Item');
+
+        $sheet->mergeCells('A1:G1');
+        $sheet->setCellValue('A1', 'Sales Order by Item (Ordered Date)');
+        $sheet->mergeCells('A2:G2');
+        $sheet->setCellValue('A2', 'Pdf Report by: ' . normalize_report_text($report_user));
+        $sheet->mergeCells('A3:G3');
+        $sheet->setCellValue('A3', 'Date Printed : ' . normalize_report_text($date_printed));
+
+        $sheet->mergeCells('A5:G5');
+        $sheet->setCellValue('A5', 'FILTER:');
+        $sheet->mergeCells('A6:B6');
+        $sheet->setCellValue('A6', 'Date From: ' . normalize_report_text($date_from_display));
+        $sheet->mergeCells('C6:D6');
+        $sheet->setCellValue('C6', 'Date To: ' . normalize_report_text($date_to_display));
+        $sheet->setCellValue('E6', 'Item:');
+        $sheet->mergeCells('F6:G6');
+        $sheet->setCellValue('F6', normalize_report_text($item_filter_desc));
+
+        $header_labels = array(
+            'Ordered Date',
+            'Upload Date',
+            'Platform',
+            'Ordered By',
+            'Unit Price',
+            'Quantity',
+            'Extended Price'
+        );
+
+        $row_num = 8;
+        $grand_total = 0;
+
+        foreach($groups as $group){
+            $sheet->setCellValue('A' . $row_num, 'Item:');
+            $sheet->mergeCells('B' . $row_num . ':G' . $row_num);
+            $sheet->setCellValue('B' . $row_num, $group['item_desc']);
+            $sheet->getStyle('A' . $row_num . ':G' . $row_num)->getFont()->setBold(true);
+            $sheet->getStyle('A' . $row_num . ':G' . $row_num)->getAlignment()->setWrapText(true);
+            $row_num++;
+
+            $sheet->fromArray($header_labels, null, 'A' . $row_num);
+            $sheet->getStyle('A' . $row_num . ':G' . $row_num)->getFont()->setBold(true);
+            $sheet->getStyle('A' . $row_num . ':G' . $row_num)->getAlignment()->setWrapText(true);
+            $row_num++;
+
+            foreach($group['rows'] as $detail_row){
+                $sheet->setCellValue('A' . $row_num, normalize_report_text($detail_row['ordered_date']));
+                $sheet->setCellValue('B' . $row_num, normalize_report_text($detail_row['trndte']));
+                $sheet->setCellValue('C' . $row_num, normalize_report_text($detail_row['cusdsc']));
+                $sheet->setCellValue('D' . $row_num, normalize_report_text($detail_row['orderby']));
+                $sheet->setCellValue('E' . $row_num, (float)$detail_row['untprc']);
+                $sheet->setCellValue('F' . $row_num, (float)$detail_row['itmqty']);
+                $sheet->setCellValue('G' . $row_num, (float)$detail_row['extprc']);
+                $row_num++;
+            }
+
+            $sheet->setCellValue('D' . $row_num, 'Weighted Average/Subtotal');
+            $sheet->setCellValue('E' . $row_num, (float)$group['subtotal_weighted']);
+            $sheet->setCellValue('F' . $row_num, (float)$group['subtotal_itmqty']);
+            $sheet->setCellValue('G' . $row_num, (float)$group['subtotal']);
+            $sheet->getStyle('D' . $row_num . ':G' . $row_num)->getFont()->setBold(true);
+            $grand_total += (float)$group['subtotal'];
+            $row_num += 2;
+        }
+
+        $sheet->setCellValue('F' . $row_num, 'Grand Total');
+        $sheet->setCellValue('G' . $row_num, $grand_total);
+        $sheet->getStyle('F' . $row_num . ':G' . $row_num)->getFont()->setBold(true);
+
+        $sheet->getStyle('A1:G6')->getFont()->setBold(true);
+        $sheet->getStyle('A1:G' . $row_num)->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
+        $sheet->getStyle('A8:D' . $row_num)->getAlignment()->setWrapText(true);
+        $sheet->getStyle('E8:G' . $row_num)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle('E8:E' . $row_num)->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle('F8:F' . $row_num)->getNumberFormat()->setFormatCode('#,##0.####');
+        $sheet->getStyle('G8:G' . $row_num)->getNumberFormat()->setFormatCode('#,##0.00');
+
+        $sheet->getColumnDimension('A')->setWidth(14);
+        $sheet->getColumnDimension('B')->setWidth(14);
+        $sheet->getColumnDimension('C')->setWidth(24);
+        $sheet->getColumnDimension('D')->setWidth(24);
+        $sheet->getColumnDimension('E')->setWidth(14);
+        $sheet->getColumnDimension('F')->setWidth(12);
+        $sheet->getColumnDimension('G')->setWidth(16);
+
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment; filename="item_ordered_date_rep_salesorder.xls"');
+        header('Cache-Control: max-age=0');
+        header('Cache-Control: max-age=1');
+        header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
+        header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+        header('Cache-Control: cache, must-revalidate');
+        header('Pragma: public');
+
+        $writer = new Xls($spreadsheet);
+        $writer->save('php://output');
     }
 
 
