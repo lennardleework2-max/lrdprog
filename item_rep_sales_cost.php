@@ -128,6 +128,21 @@
     $grand_total_cost = 0;
     foreach($item_rows as $rs_main){
 
+        // Skip items with no matching detail rows so empty item sections are not rendered.
+        $select_db2 = "SELECT tranfile2.*, tranfile1.trndte, tranfile1.ordernum, customerfile.cusdsc, itemunitmeasurefile.unmdsc as unmdsc
+            FROM tranfile2
+            LEFT JOIN tranfile1 ON tranfile2.docnum = tranfile1.docnum
+            LEFT JOIN customerfile ON tranfile1.cuscde = customerfile.cuscde
+            LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
+            WHERE tranfile2.itmcde=? ".$xfilter2." AND tranfile1.trncde=?
+            ORDER BY tranfile1.trndte ASC";
+        $stmt_main2	= $link->prepare($select_db2);
+        $stmt_main2->execute(array($rs_main['itmcde'], $_POST['trncde_hidden']));
+        $detail_rows = $stmt_main2->fetchAll(PDO::FETCH_ASSOC);
+        if(empty($detail_rows)){
+            continue;
+        }
+
         $pdf->ezPlaceData(25,$xtop-9,xls_safe_text("<b>Item:</b>"),10 ,'left');
 
         // Wrap long item names to multiple lines (max width 700 pixels for header)
@@ -157,21 +172,11 @@
         $pdf->line(25, $xtop-12, 770, $xtop-12);
         $xtop-=23;
 
-        // Optimized: Join tranfile2 with tranfile1 and customerfile in one query (no nested queries)
-        $select_db2 = "SELECT tranfile2.*, tranfile1.trndte, tranfile1.ordernum, customerfile.cusdsc, itemunitmeasurefile.unmdsc as unmdsc
-            FROM tranfile2
-            LEFT JOIN tranfile1 ON tranfile2.docnum = tranfile1.docnum
-            LEFT JOIN customerfile ON tranfile1.cuscde = customerfile.cuscde
-            LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
-            WHERE tranfile2.itmcde=? ".$xfilter2." AND tranfile1.trncde=?
-            ORDER BY tranfile1.trndte ASC";
-        $stmt_main2	= $link->prepare($select_db2);
-        $stmt_main2->execute(array($rs_main['itmcde'], $_POST['trncde_hidden']));
         $subtotal_extprc = 0;
         $subtotal_cost = 0;
         $subtotal_profit = 0;
 
-        while($rs_main2 = $stmt_main2->fetch()){
+        foreach($detail_rows as $rs_main2){
 
             $xleft = 25;
             $subtotal_extprc+=$rs_main2["extprc"];
