@@ -161,6 +161,10 @@
     $stmt_main->execute(array($_POST['item']));
     $grand_total = 0;
     while($rs_main = $stmt_main->fetch()){    
+        $detail_rows = fetch_salesorder_item_ordered_date_rows($link, $rs_main['itmcde'], $xfilter2);
+        if(empty($detail_rows)){
+            continue;
+        }
         
         if($_POST['txt_output_type'] == 'tab'){
             $tab_output =  "Item:\t".$rs_main['itmdsc']. "\n";
@@ -189,59 +193,33 @@
         $pdf->line(25, $xtop-12, 770, $xtop-12); 
         $xtop-=23;
 
-        $select_db2 = "SELECT * FROM salesorderfile2 LEFT JOIN salesorderfile1 ON salesorderfile2.docnum= salesorderfile1.docnum WHERE itmcde='".$rs_main['itmcde']."' ".$xfilter2." ORDER BY salesorderfile1.trndte ASC, salesorderfile2.recid ASC";
-        $stmt_main2	= $link->prepare($select_db2);
-        $stmt_main2->execute();
         $subtotal = 0;
         $subtotal_itmqty = 0;
         $subtotal_weighted = 0;
-        while($rs_main2 = $stmt_main2->fetch()){   
-
-            $select_db3 = "SELECT *, salesorderfile1.file_created_date as 'ordered_date' FROM salesorderfile1 LEFT JOIN customerfile ON salesorderfile1.cuscde = customerfile.cuscde WHERE salesorderfile1.docnum='".$rs_main2['docnum']."'";
-            $stmt_main3	= $link->prepare($select_db3);
-            $stmt_main3->execute();
-            $rs_main3 = $stmt_main3->fetch();
-
-            if(!empty($rs_main3['ordered_date'])){
-                $file_created_date = $rs_main3['ordered_date'];
-                $date_file_created = new DateTime($file_created_date);
-                $file_created_date = $date_file_created->format('m/d/Y');
-            }else{
-                $file_created_date = null;
-            } 
-
-            // $pdf->ezPlaceData(625,$xtop,$select_db3,9,"right");
+        foreach($detail_rows as $detail_row){   
 
             $xleft = 25;
-            $subtotal+=$rs_main2["extprc"];
-            $grand_total+=$rs_main2["extprc"];
-            $subtotal_itmqty+=$rs_main2["itmqty"];
-
-            // $grand_total += $rs_main2["salesorderfile1_trntot"];
-
-            if(isset($rs_main3["trndte"]) && !empty($rs_main3["trndte"])){
-                $rs_main3["trndte"] = date("m-d-Y",strtotime($rs_main3["trndte"]));
-                $rs_main3["trndte"] = str_replace('-','/',$rs_main3["trndte"]);
-            }
+            $subtotal += $detail_row["extprc"];
+            $grand_total += $detail_row["extprc"];
+            $subtotal_itmqty += $detail_row["itmqty"];
 
             if($_POST['txt_output_type'] == 'tab'){
-                $tab_output = $file_created_date . "\t" .
-                $rs_main3['trndte'] . "\t" .
-                $rs_main3["cusdsc"] . "\t" .
-                $rs_main3["orderby"] . "\t".
-                $rs_main2["untprc"]. "\t" .
-                $rs_main2["itmqty"]. "\t" .
-                $rs_main2["extprc"] . "\n";
+                $tab_output = $detail_row['ordered_date'] . "\t" .
+                $detail_row['trndte'] . "\t" .
+                $detail_row["cusdsc"] . "\t" .
+                $detail_row["orderby"] . "\t".
+                $detail_row["untprc"]. "\t" .
+                $detail_row["itmqty"]. "\t" .
+                $detail_row["extprc"] . "\n";
                 echo $tab_output;
             }else{
-                $pdf->ezPlaceData($xleft,$xtop, $file_created_date,9,"left");
-                $pdf->ezPlaceData($xleft+=80,$xtop, $rs_main3['trndte'],9,"left");
-                $pdf->ezPlaceData($xleft+=115,$xtop,trim_str($rs_main3["cusdsc"],65,9),9,"left");
-                $pdf->ezPlaceData($xleft+=85,$xtop,trim_str($rs_main3["orderby"],140,9),9,"left");
-                //$pdf->ezPlaceData($xleft+=90,$xtop,$rs_main2["salesorderfile1_trndte"],9,"left");
-                $pdf->ezPlaceData($xleft+=172,$xtop,number_format($rs_main2["untprc"],2),9,"right");
-                $pdf->ezPlaceData($xleft+=78,$xtop,number_format($rs_main2["itmqty"]),9,"right");
-                $pdf->ezPlaceData($xleft+=90,$xtop,number_format($rs_main2["extprc"],2),9,"right");
+                $pdf->ezPlaceData($xleft,$xtop, $detail_row['ordered_date'],9,"left");
+                $pdf->ezPlaceData($xleft+=80,$xtop, $detail_row['trndte'],9,"left");
+                $pdf->ezPlaceData($xleft+=115,$xtop,trim_str($detail_row["cusdsc"],65,9),9,"left");
+                $pdf->ezPlaceData($xleft+=85,$xtop,trim_str($detail_row["orderby"],140,9),9,"left");
+                $pdf->ezPlaceData($xleft+=172,$xtop,number_format($detail_row["untprc"],2),9,"right");
+                $pdf->ezPlaceData($xleft+=78,$xtop,number_format($detail_row["itmqty"]),9,"right");
+                $pdf->ezPlaceData($xleft+=90,$xtop,number_format($detail_row["extprc"],2),9,"right");
             }   
             $xtop -= 15;
                 
@@ -252,13 +230,13 @@
                 $xtop = 530;
 
                 if($_POST['txt_output_type'] == 'tab'){
-                    $tab_output = $rs_main3['trndte'] . "\t" .
-                    $rs_main3['ordernum'] . "\t" .
-                    $rs_main3["suppdsc"] . "\t" .
-                    $rs_main3["orderby"] . "\t".
-                    $rs_main2["untprc"]. "\t" .
-                    $rs_main2["itmqty"]. "\t" .
-                    $rs_main2["extprc"] . "\n";
+                    $tab_output = $detail_row['trndte'] . "\t" .
+                    $detail_row['docnum'] . "\t" .
+                    $detail_row["cusdsc"] . "\t" .
+                    $detail_row["orderby"] . "\t".
+                    $detail_row["untprc"]. "\t" .
+                    $detail_row["itmqty"]. "\t" .
+                    $detail_row["extprc"] . "\n";
                     echo $tab_output;
                 }else if($_POST['txt_output_type'] !='tab'){
     
@@ -391,6 +369,54 @@
         
 
 
+    }
+
+    function fetch_salesorder_item_ordered_date_rows($link, $itmcde, $xfilter2)
+    {
+        $detail_rows = array();
+
+        $select_db2 = "SELECT salesorderfile2.itmqty,
+                              salesorderfile2.untprc,
+                              salesorderfile2.extprc,
+                              salesorderfile2.docnum,
+                              salesorderfile1.file_created_date as ordered_date_raw,
+                              salesorderfile1.trndte as upload_date_raw,
+                              salesorderfile1.orderby,
+                              customerfile.cusdsc
+                       FROM salesorderfile2
+                       LEFT JOIN salesorderfile1 ON salesorderfile2.docnum = salesorderfile1.docnum
+                       LEFT JOIN customerfile ON salesorderfile1.cuscde = customerfile.cuscde
+                       WHERE salesorderfile2.itmcde='".$itmcde."' ".$xfilter2."
+                       ORDER BY salesorderfile1.trndte ASC, salesorderfile2.recid ASC";
+        $stmt_main2 = $link->prepare($select_db2);
+        $stmt_main2->execute();
+
+        while($rs_main2 = $stmt_main2->fetch()){
+            $ordered_date = null;
+            if(!empty($rs_main2['ordered_date_raw'])){
+                $date_file_created = new DateTime($rs_main2['ordered_date_raw']);
+                $ordered_date = $date_file_created->format('m/d/Y');
+            }
+
+            $upload_date = '';
+            if(isset($rs_main2["upload_date_raw"]) && !empty($rs_main2["upload_date_raw"])){
+                $upload_date = date("m-d-Y",strtotime($rs_main2["upload_date_raw"]));
+                $upload_date = str_replace('-','/',$upload_date);
+            }
+
+            $detail_rows[] = array(
+                'ordered_date' => $ordered_date,
+                'trndte' => $upload_date,
+                'docnum' => isset($rs_main2['docnum']) ? $rs_main2['docnum'] : '',
+                'cusdsc' => isset($rs_main2['cusdsc']) ? $rs_main2['cusdsc'] : '',
+                'orderby' => isset($rs_main2['orderby']) ? $rs_main2['orderby'] : '',
+                'untprc' => (float)$rs_main2['untprc'],
+                'itmqty' => (float)$rs_main2['itmqty'],
+                'extprc' => (float)$rs_main2['extprc']
+            );
+        }
+
+        return $detail_rows;
     }
 
 
