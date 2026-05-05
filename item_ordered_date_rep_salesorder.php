@@ -125,9 +125,9 @@
             // }   
         }else{
 
-            echo "Sales Order by Item (Ordered Date)\t\n"; // Use \t for column separation and \n for new rows
-            echo "Pdf Report by: " . $_SESSION['userdesc'] . "\t\n";
-            echo "Date Printed : " . $date_printed . "\t\n";
+            echo xls_safe_text("Sales Order by Item (Ordered Date)") . "\t\n"; // Use \t for column separation and \n for new rows
+            echo xls_safe_text("Pdf Report by: " . $_SESSION['userdesc']) . "\t\n";
+            echo xls_safe_text("Date Printed : " . $date_printed) . "\t\n";
             echo "\n"; // Blank line for spacing
 
             // if((isset($_POST['date_from']) && !empty($_POST['date_from'])) || 
@@ -140,9 +140,9 @@
                 $rs_main_filter = $stmt_main_filter->fetch();
 
                 echo "FILTER:\n"; // Use \t for column separation and \n for new rows
-                echo "Date From: ".$xdate_from_display."\t";
-                echo "Date To: ".$xdate_to_display."\t";
-                echo "Item: ".$rs_main_filter['itmdsc']."\t\n";
+                echo xls_safe_text("Date From: ".$xdate_from_display)."\t";
+                echo xls_safe_text("Date To: ".$xdate_to_display)."\t";
+                echo xls_safe_text("Item: ".(isset($rs_main_filter['itmdsc']) ? $rs_main_filter['itmdsc'] : ''))."\t\n";
             // }           
                 
             // $tab_headers = "Doc. Num.\tOrder Num.\tTran. Date\tSupplier\tShip To\tPaydate\tPayment Details\tTotal";
@@ -167,7 +167,7 @@
         }
         
         if($_POST['txt_output_type'] == 'tab'){
-            $tab_output =  "Item:\t".$rs_main['itmdsc']. "\n";
+            $tab_output =  "Item:\t".xls_safe_text($rs_main['itmdsc']). "\n";
             echo $tab_output;
         }else{
             $pdf->ezPlaceData(25,$xtop-9,"<b>Item:</b>",10 ,'left');
@@ -204,10 +204,10 @@
             $subtotal_itmqty += $detail_row["itmqty"];
 
             if($_POST['txt_output_type'] == 'tab'){
-                $tab_output = $detail_row['ordered_date'] . "\t" .
-                $detail_row['trndte'] . "\t" .
-                $detail_row["cusdsc"] . "\t" .
-                $detail_row["orderby"] . "\t".
+                $tab_output = xls_safe_text($detail_row['ordered_date']) . "\t" .
+                xls_safe_text($detail_row['trndte']) . "\t" .
+                xls_safe_text($detail_row["cusdsc"]) . "\t" .
+                xls_safe_text($detail_row["orderby"]) . "\t".
                 $detail_row["untprc"]. "\t" .
                 $detail_row["itmqty"]. "\t" .
                 $detail_row["extprc"] . "\n";
@@ -225,20 +225,15 @@
                 
             if($xtop <= 60)
             {
+                if($_POST['txt_output_type'] == 'tab'){
+                    $xtop = 530;
+                    continue;
+                }
 
                 $pdf->ezNewPage();
                 $xtop = 530;
 
-                if($_POST['txt_output_type'] == 'tab'){
-                    $tab_output = $detail_row['trndte'] . "\t" .
-                    $detail_row['docnum'] . "\t" .
-                    $detail_row["cusdsc"] . "\t" .
-                    $detail_row["orderby"] . "\t".
-                    $detail_row["untprc"]. "\t" .
-                    $detail_row["itmqty"]. "\t" .
-                    $detail_row["extprc"] . "\n";
-                    echo $tab_output;
-                }else if($_POST['txt_output_type'] !='tab'){
+                if($_POST['txt_output_type'] !='tab'){
     
                     $xheader = $pdf->openObject();
                     $pdf->saveState();
@@ -310,16 +305,18 @@
     if($_POST['txt_output_type'] == 'tab'){
         $tab_output =  "\t\t\t\t\tGrand Total\t".$grand_total."\n";
         echo $tab_output;
+        $tab_content = ob_get_clean();
+        stream_xls_tsv($tab_content, 'item_ordered_date_rep_salesorder');
+        exit;
     }else{
         $pdf->line(25, $xtop-10, 770, $xtop-10); 
         $pdf->ezPlaceData(530,$xtop-18,"<b>Grand total:</b>",9 ,'left');
         $pdf->ezPlaceData(645,$xtop-18,"<b>".number_format($grand_total,2)."</b>",9 ,'right');
+        $pdf->line(25, $xtop-10, 770, $xtop-10); 
+	    $pdf->addText(30,15,8,"Date Printed : ".date("F j, Y, g:i A"),$angle=0,$wordspaceadjust=1);
+	    $pdf->ezStream();
+        ob_end_flush();
     }  
-
-    $pdf->line(25, $xtop-10, 770, $xtop-10); 
-	$pdf->addText(30,15,8,"Date Printed : ".date("F j, Y, g:i A"),$angle=0,$wordspaceadjust=1);
-	$pdf->ezStream();
-    ob_end_flush();
 
     function trim_str($string,$max_wid,$fsize)
     {   
@@ -369,6 +366,54 @@
         
 
 
+    }
+
+    function xls_safe_text($string)
+    {
+        $string = (string)$string;
+
+        if($string === ''){
+            return '';
+        }
+
+        if(function_exists('mb_check_encoding') && !mb_check_encoding($string, 'UTF-8')){
+            $string = mb_convert_encoding($string, 'UTF-8', 'UTF-8, Windows-1252, ISO-8859-1');
+        }
+
+        if(function_exists('iconv')){
+            $normalized = @iconv('UTF-8', 'UTF-8//IGNORE', $string);
+            if($normalized !== false){
+                $string = $normalized;
+            }
+        }
+
+        $string = str_replace(array("\t", "\r", "\n", "\0"), ' ', $string);
+        $string = preg_replace('/[\x00-\x1F\x7F]/u', ' ', $string);
+        $string = preg_replace('/\s{2,}/u', ' ', $string);
+
+        return trim($string);
+    }
+
+    function stream_xls_tsv($content, $filename)
+    {
+        $content = (string)$content;
+        $content = str_replace(array("\r\n", "\r"), "\n", $content);
+        $content = str_replace("\n", "\r\n", $content);
+
+        if(function_exists('mb_convert_encoding')){
+            $content = mb_convert_encoding($content, 'UTF-16LE', 'UTF-8');
+        }else if(function_exists('iconv')){
+            $content = iconv('UTF-8', 'UTF-16LE//IGNORE', $content);
+        }
+
+        header("Cache-control: private");
+        header("Content-Disposition: attachment; filename=".$filename.".xls");
+        header("Content-Type: application/vnd.ms-excel; charset=UTF-16LE");
+        header("Content-Transfer-encoding: binary");
+        header("Pragma:no-cache");
+        header("Expires:0");
+
+        echo chr(0xFF).chr(0xFE).$content;
     }
 
     function fetch_salesorder_item_ordered_date_rows($link, $itmcde, $xfilter2)
