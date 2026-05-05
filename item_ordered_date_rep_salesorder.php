@@ -36,6 +36,16 @@
 	
 	$xtop = 580;
     $xleft = 25;
+    $line_left = 25;
+    $line_right = 755;
+    $col_ordered_date = 25;
+    $col_upload_date = 105;
+    $col_platform = 185;
+    $col_ordered_by = 290;
+    $col_unit_price = 560;
+    $col_qty = 620;
+    $col_uom = 632;
+    $col_ext_price = 748;
 
     /**header**/
     
@@ -149,93 +159,101 @@
     $grand_total = 0;
     foreach($report_groups as $group){
         $detail_rows = $group['rows'];
-
-        $pdf->ezPlaceData(25,$xtop-9,"<b>Item:</b>",10 ,'left');
-        $pdf->ezPlaceData(55,$xtop-9,$group['item_desc'],10 ,'left');
-        $pdf->line(25, $xtop-12, 770, $xtop-12); 
-
-        $xtop-=12;
-        $xleft = 25;
-
-        $pdf->ezPlaceData($xleft,$xtop-9,"<b>Ordered Date</b>",9 ,'left');
-        $pdf->ezPlaceData($xleft+=80,$xtop-9,"<b>Upload Date</b>",9 ,'left');
-        $pdf->ezPlaceData($xleft+=115,$xtop-9,"<b>Platform</b>",9 ,'left');
-        $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Ordered By</b>",9 ,'left');
-        $pdf->ezPlaceData($xleft+=130,$xtop-9,"<b>Unit Price</b>",9 ,'left');
-        $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Quantity</b>",9 ,'left');
-        $pdf->ezPlaceData($xleft+=55,$xtop-9,"<b>UOM</b>",9 ,'left');
-        $pdf->ezPlaceData($xleft+=50,$xtop-9,"<b>Extended Price</b>",9 ,'left');
-        $pdf->line(25, $xtop-12, 770, $xtop-12);
-        $xtop-=23;
+        $xtop = draw_salesorder_item_group_header(
+            $group['item_desc'],
+            $xtop,
+            10,
+            $col_ordered_date,
+            $col_upload_date,
+            $col_platform,
+            $col_ordered_by,
+            $col_unit_price,
+            $col_qty,
+            $col_uom,
+            $col_ext_price,
+            $line_left,
+            $line_right
+        );
 
         $subtotal = (float)$group['subtotal'];
         $subtotal_itmqty = (float)$group['subtotal_itmqty'];
         $subtotal_weighted = (float)$group['subtotal_weighted'];
         foreach($detail_rows as $detail_row){   
+            $platform_lines = wrap_report_text_lines($detail_row["cusdsc"], 100, 9, 22);
+            $ordered_by_lines = wrap_report_text_lines($detail_row["orderby"], 230, 9, 36);
+            $uom_lines = wrap_report_text_lines($detail_row["unmdsc"], 110, 9, 18);
+            $row_line_count = max(count($platform_lines), count($ordered_by_lines), count($uom_lines));
+            $row_height = 15 + ((max(1, $row_line_count) - 1) * 10);
 
-            $xleft = 25;
-            $grand_total += (float)$detail_row["extprc"];
-
-            $pdf->ezPlaceData($xleft,$xtop, $detail_row['ordered_date'],9,"left");
-            $pdf->ezPlaceData($xleft+=80,$xtop, $detail_row['trndte'],9,"left");
-            $pdf->ezPlaceData($xleft+=115,$xtop,trim_str($detail_row["cusdsc"],65,9),9,"left");
-            $pdf->ezPlaceData($xleft+=85,$xtop,trim_str($detail_row["orderby"],120,9),9,"left");
-            $pdf->ezPlaceData($xleft+=210,$xtop,number_format($detail_row["untprc"],2),9,"right");
-            $pdf->ezPlaceData($xleft+=55,$xtop,number_format($detail_row["itmqty"]),9,"right");
-            $pdf->ezPlaceData($xleft+=5,$xtop,trim_str($detail_row["unmdsc"],45,9),9,"left");
-            $pdf->ezPlaceData($xleft+=170,$xtop,number_format($detail_row["extprc"],2),9,"right");
-            $xtop -= 15;
-                
-            if($xtop <= 60)
+            if(($xtop - $row_height) <= 60)
             {
                 $pdf->ezNewPage();
                 $xtop = 530;
-
-                $xheader = $pdf->openObject();
-                $pdf->saveState();
-
-                $pdf->ezPlaceData(25,$xtop-9,"<b>Item:</b>",10 ,'left');
-                $pdf->ezPlaceData(55,$xtop-9,$group['item_desc'],10 ,'left');
-          
-        
-                $pdf->line(25, $xtop-12, 770, $xtop-12); 
-
-                $pdf->setLineStyle(.5);
-                $pdf->line(25, $xtop-12, 770, $xtop-12);    
-                $xtop-=12;                 
-                $xleft =25;
-
-
-                $pdf->ezPlaceData($xleft,$xtop-9,"<b>Ordered Date</b>",9 ,'left');
-                $pdf->ezPlaceData($xleft+=80,$xtop-9,"<b>Upload Date</b>",9 ,'left');
-                $pdf->ezPlaceData($xleft+=115,$xtop-9,"<b>Platform</b>",9 ,'left');
-                $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Ordered By</b>",9 ,'left');
-                $pdf->ezPlaceData($xleft+=130,$xtop-9,"<b>Unit Price</b>",9 ,'left');
-                $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Quantity</b>",9 ,'left');
-                $pdf->ezPlaceData($xleft+=55,$xtop-9,"<b>UOM</b>",9 ,'left');
-                $pdf->ezPlaceData($xleft+=50,$xtop-9,"<b>Extended Price</b>",9 ,'left');
-                               
-                
-                $pdf->line(25, $xtop-12, 770, $xtop-12); 
-                $xtop-=12;                    
-
-                $xleft = 25;
-
-                $pdf->restoreState();
-                $pdf->closeObject();
-
-                $pdf->addObject($xheader,'add'); 
-
-                $xtop -= 12;    
+                $xtop = draw_salesorder_item_group_header(
+                    $group['item_desc'],
+                    $xtop,
+                    10,
+                    $col_ordered_date,
+                    $col_upload_date,
+                    $col_platform,
+                    $col_ordered_by,
+                    $col_unit_price,
+                    $col_qty,
+                    $col_uom,
+                    $col_ext_price,
+                    $line_left,
+                    $line_right
+                );
             }
+
+            $row_y = $xtop;
+            $grand_total += (float)$detail_row["extprc"];
+
+            $pdf->ezPlaceData($col_ordered_date,$row_y, $detail_row['ordered_date'],9,"left");
+            $pdf->ezPlaceData($col_upload_date,$row_y, $detail_row['trndte'],9,"left");
+            foreach($platform_lines as $line_index => $line_text){
+                $pdf->ezPlaceData($col_platform, $row_y - ($line_index * 10), $line_text, 9, "left");
+            }
+            foreach($ordered_by_lines as $line_index => $line_text){
+                $pdf->ezPlaceData($col_ordered_by, $row_y - ($line_index * 10), $line_text, 9, "left");
+            }
+            foreach($uom_lines as $line_index => $line_text){
+                $pdf->ezPlaceData($col_uom, $row_y - ($line_index * 10), $line_text, 9, "left");
+            }
+
+            $pdf->ezPlaceData($col_unit_price,$row_y,number_format((float)$detail_row["untprc"],2),9,"right");
+            $pdf->ezPlaceData($col_qty,$row_y,number_format((float)$detail_row["itmqty"],0),9,"right");
+            $pdf->ezPlaceData($col_ext_price,$row_y,number_format((float)$detail_row["extprc"],2),9,"right");
+            $xtop -= $row_height;
 
         }
 
-        $pdf->line(25, $xtop, 770, $xtop);
-        $pdf->ezPlaceData(270,$xtop-9,"<b>Weighted Average/Subtotal:</b>",9 ,'left');
-        $pdf->ezPlaceData(515,$xtop-9,number_format($subtotal_weighted,2),9 ,'right');
-        $pdf->ezPlaceData(570,$xtop-9,$subtotal_itmqty,9 ,'right');
-        $pdf->ezPlaceData(745,$xtop-9,"<b>".number_format($subtotal,2)."</b>",9 ,'right');
+        if(($xtop - 20) <= 60)
+        {
+            $pdf->ezNewPage();
+            $xtop = 530;
+            $xtop = draw_salesorder_item_group_header(
+                $group['item_desc'],
+                $xtop,
+                10,
+                $col_ordered_date,
+                $col_upload_date,
+                $col_platform,
+                $col_ordered_by,
+                $col_unit_price,
+                $col_qty,
+                $col_uom,
+                $col_ext_price,
+                $line_left,
+                $line_right
+            );
+        }
+
+        $pdf->line($line_left, $xtop, $line_right, $xtop);
+        $pdf->ezPlaceData($col_ordered_by,$xtop-9,"<b>Weighted Average/Subtotal:</b>",9 ,'left');
+        $pdf->ezPlaceData($col_unit_price,$xtop-9,"<b>".number_format($subtotal_weighted,2)."</b>",9 ,'right');
+        $pdf->ezPlaceData($col_qty,$xtop-9,"<b>".number_format($subtotal_itmqty,0)."</b>",9 ,'right');
+        $pdf->ezPlaceData($col_ext_price,$xtop-9,"<b>".number_format($subtotal,2)."</b>",9 ,'right');
 
         $xtop-=20;
 
@@ -247,13 +265,58 @@
    
     }
        
-    $pdf->line(25, $xtop-10, 770, $xtop-10);
-    $pdf->ezPlaceData(650,$xtop-18,"<b>Grand total:</b>",9 ,'left');
-    $pdf->ezPlaceData(745,$xtop-18,"<b>".number_format($grand_total,2)."</b>",9 ,'right');
-    $pdf->line(25, $xtop-10, 770, $xtop-10); 
+    $pdf->line($line_left, $xtop-10, $line_right, $xtop-10);
+    $pdf->ezPlaceData($col_ordered_by,$xtop-18,"<b>Grand total:</b>",9 ,'left');
+    $pdf->ezPlaceData($col_ext_price,$xtop-18,"<b>".number_format($grand_total,2)."</b>",9 ,'right');
+    $pdf->line($line_left, $xtop-10, $line_right, $xtop-10); 
 	$pdf->addText(30,15,8,"Date Printed : ".date("F j, Y, g:i A"),$angle=0,$wordspaceadjust=1);
 	$pdf->ezStream();
     ob_end_flush();
+
+    function draw_salesorder_item_group_header(
+        $item_desc,
+        $xtop,
+        $item_font_size,
+        $col_ordered_date,
+        $col_upload_date,
+        $col_platform,
+        $col_ordered_by,
+        $col_unit_price,
+        $col_qty,
+        $col_uom,
+        $col_ext_price,
+        $line_left,
+        $line_right
+    ){
+        global $pdf;
+
+        $item_lines = wrap_report_text_lines($item_desc, 680, $item_font_size, 72);
+        $item_line_count = count($item_lines);
+        $item_y = $xtop - 9;
+
+        $pdf->ezPlaceData(25, $item_y, "<b>Item:</b>", $item_font_size, 'left');
+        foreach($item_lines as $line_index => $line_text){
+            $pdf->ezPlaceData(55, $item_y - ($line_index * 10), $line_text, $item_font_size, 'left');
+        }
+
+        $line_y = $xtop - (12 + (($item_line_count - 1) * 10));
+        $pdf->line($line_left, $line_y, $line_right, $line_y);
+
+        $xtop -= 12 + (($item_line_count - 1) * 10);
+        $header_y = $xtop - 9;
+
+        $pdf->ezPlaceData($col_ordered_date,$header_y,"<b>Ordered Date</b>",9 ,'left');
+        $pdf->ezPlaceData($col_upload_date,$header_y,"<b>Upload Date</b>",9 ,'left');
+        $pdf->ezPlaceData($col_platform,$header_y,"<b>Platform</b>",9 ,'left');
+        $pdf->ezPlaceData($col_ordered_by,$header_y,"<b>Ordered By</b>",9 ,'left');
+        $pdf->ezPlaceData($col_unit_price,$header_y,"<b>Unit Price</b>",9 ,'right');
+        $pdf->ezPlaceData($col_qty,$header_y,"<b>Quantity</b>",9 ,'right');
+        $pdf->ezPlaceData($col_uom,$header_y,"<b>UOM</b>",9 ,'left');
+        $pdf->ezPlaceData($col_ext_price,$header_y,"<b>Extended Price</b>",9 ,'right');
+        $pdf->line($line_left, $xtop-12, $line_right, $xtop-12);
+
+        return $xtop - 23;
+    }
 
     function trim_str($string,$max_wid,$fsize)
     {   
@@ -262,24 +325,114 @@
         {
             return $string;
         }
-        $xarr_str = str_split($string);
+        return fit_text_to_width((string)$string, $max_wid - 5, $fsize, true);
+    }
+
+    function wrap_report_text_lines($string,$max_wid,$fsize,$tab_max_chars = 48)
+    {
+        global $pdf;
+
+        $string = normalize_report_text($string);
+        if($string === ''){
+            return array('');
+        }
+
+        if(get_class($pdf) === 'tab_ezpdf'){
+            return array(trim_text_by_chars($string, $tab_max_chars));
+        }
+
         $max_wid -= 5;
-        $xxstr = "";
+        if($pdf->getTextWidth($fsize, $string) <= $max_wid){
+            return array($string);
+        }
+
+        $wrapped_lines = array();
+        $remaining = $string;
+
+        while($remaining !== ''){
+            if($pdf->getTextWidth($fsize, $remaining) <= $max_wid){
+                $wrapped_lines[] = $remaining;
+                break;
+            }
+
+            $line = fit_text_to_width($remaining, $max_wid, $fsize, false);
+            if($line === ''){
+                $line = substr($remaining, 0, 1);
+            }
+
+            $last_space = strrpos($line, ' ');
+            if($last_space !== false && $last_space > 0){
+                $candidate_line = rtrim(substr($line, 0, $last_space));
+                if($candidate_line !== ''){
+                    $line = $candidate_line;
+                }
+            }
+
+            $wrapped_lines[] = rtrim($line);
+            $remaining = ltrim(substr($remaining, strlen($line)));
+        }
+
+        if(empty($wrapped_lines)){
+            $wrapped_lines[] = $string;
+        }
+
+        return $wrapped_lines;
+    }
+
+    function trim_text_by_chars($string, $max_chars = 48)
+    {
+        $string = trim((string)$string);
+        if($string === ''){
+            return '';
+        }
+
+        if(strlen($string) <= $max_chars){
+            return $string;
+        }
+
+        $cut = rtrim(substr($string, 0, $max_chars));
+        $last_space = strrpos($cut, ' ');
+        if($last_space !== false && $last_space > 0){
+            $cut = rtrim(substr($cut, 0, $last_space));
+        }
+
+        return $cut.'...';
+    }
+
+    function fit_text_to_width($string, $max_wid, $fsize, $add_ellipsis = false)
+    {
+        global $pdf;
+
+        $string = (string)$string;
+        if($string === ''){
+            return '';
+        }
+
+        $limit_wid = $max_wid;
+        if($add_ellipsis){
+            $limit_wid = $max_wid - $pdf->getTextWidth($fsize, '...');
+        }
+        if($limit_wid < 1){
+            $limit_wid = 1;
+        }
+
+        $xarr_str = str_split($string);
+        $xxstr = '';
         $xcut = false;
         foreach ($xarr_str as $value) {
-            $xstr_wid = $pdf->getTextWidth($fsize,$xxstr.$value);
-            if($xstr_wid > $max_wid)
-            {   
+            $xstr_wid = $pdf->getTextWidth($fsize, $xxstr.$value);
+            if($xstr_wid > $limit_wid)
+            {
                 $xcut = true;
                 break;
             }
             $xxstr = $xxstr.$value;
         }
-        if($xcut)
-        {   
-            $xxstr = $xxstr.'...';
+
+        if($add_ellipsis && $xcut){
+            $xxstr = rtrim($xxstr).'...';
         }
-        return $xxstr;
+        return rtrim($xxstr);
     }
 
     //returns dynamic width
