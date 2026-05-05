@@ -166,6 +166,14 @@
     $stmt_main	= $link->prepare($select_db);
     $stmt_main->execute(array($_POST['item']));
     $grand_total = 0;
+    $col_ordered_date = 25;
+    $col_upload_date = 105;
+    $col_platform = 220;
+    $col_ordered_by = 305;
+    $col_unit_price = 455;
+    $col_quantity = 530;
+    $col_uom = 585;
+    $col_extended_price = 680;
     while($rs_main = $stmt_main->fetch()){    
 
         $select_db2 = "SELECT salesorderfile2.*, salesorderfile1.*, itemunitmeasurefile.unmdsc as uom_description
@@ -201,14 +209,14 @@
             $tab_headers = "Ordered Date\tUpload Date\tPlatform\tOrdered By\tUnit Price\tQuantity\tUOM\tExtended Price\n";
             echo $tab_headers;
         }else{
-            $pdf->ezPlaceData($xleft,$xtop-9,"<b>Ordered Date</b>",9 ,'left');
-            $pdf->ezPlaceData($xleft+=80,$xtop-9,"<b>Upload Date</b>",9 ,'left');
-            $pdf->ezPlaceData($xleft+=115,$xtop-9,"<b>Platform</b>",9 ,'left');
-            $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Ordered By</b>",9 ,'left');
-            $pdf->ezPlaceData($xleft+=130,$xtop-9,"<b>Unit Price</b>",9 ,'left');
-            $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Quantity</b>",9 ,'left');
-            $pdf->ezPlaceData($xleft+=55,$xtop-9,"<b>UOM</b>",9 ,'left');
-            $pdf->ezPlaceData($xleft+=50,$xtop-9,"<b>Extended Price</b>",9 ,'left');
+            $pdf->ezPlaceData($col_ordered_date,$xtop-9,"<b>Ordered Date</b>",9 ,'left');
+            $pdf->ezPlaceData($col_upload_date,$xtop-9,"<b>Upload Date</b>",9 ,'left');
+            $pdf->ezPlaceData($col_platform,$xtop-9,"<b>Platform</b>",9 ,'left');
+            $pdf->ezPlaceData($col_ordered_by,$xtop-9,"<b>Ordered By</b>",9 ,'left');
+            $pdf->ezPlaceData($col_unit_price,$xtop-9,"<b>Unit Price</b>",9 ,'right');
+            $pdf->ezPlaceData($col_quantity,$xtop-9,"<b>Quantity</b>",9 ,'right');
+            $pdf->ezPlaceData($col_uom,$xtop-9,"<b>UOM</b>",9 ,'left');
+            $pdf->ezPlaceData($col_extended_price,$xtop-9,"<b>Extended Price</b>",9 ,'right');
         }        
 
         $pdf->line(25, $xtop-12, 770, $xtop-12); 
@@ -256,15 +264,14 @@
                 $rs_main2["extprc"] . "\n";
                 echo $tab_output;
             }else{
-                $pdf->ezPlaceData($xleft,$xtop, $file_created_date,9,"left");
-                $pdf->ezPlaceData($xleft+=80,$xtop, $rs_main3['trndte'],9,"left");
-                $pdf->ezPlaceData($xleft+=115,$xtop,trim_str($rs_main3["cusdsc"],65,9),9,"left");
-                $pdf->ezPlaceData($xleft+=85,$xtop,trim_str($rs_main3["orderby"],140,9),9,"left");
-                //$pdf->ezPlaceData($xleft+=90,$xtop,$rs_main2["salesorderfile1_trndte"],9,"left");
-                $pdf->ezPlaceData($xleft+=150,$xtop,number_format($rs_main2["untprc"],2),9,"right");
-                $pdf->ezPlaceData($xleft+=75,$xtop,number_format($rs_main2["itmqty"]),9,"right");
-                $pdf->ezPlaceData($xleft+=55,$xtop,trim_str(isset($rs_main2["uom_description"]) ? $rs_main2["uom_description"] : '',45,9),9,"left");
-                $pdf->ezPlaceData($xleft+=95,$xtop,number_format($rs_main2["extprc"],2),9,"right");
+                $pdf->ezPlaceData($col_ordered_date,$xtop, $file_created_date,9,"left");
+                $pdf->ezPlaceData($col_upload_date,$xtop, $rs_main3['trndte'],9,"left");
+                $pdf->ezPlaceData($col_platform,$xtop,trim_str($rs_main3["cusdsc"],65,9),9,"left");
+                $pdf->ezPlaceData($col_ordered_by,$xtop,trim_str($rs_main3["orderby"],140,9),9,"left");
+                $pdf->ezPlaceData($col_unit_price,$xtop,number_format($rs_main2["untprc"],2),9,"right");
+                $pdf->ezPlaceData($col_quantity,$xtop,number_format($rs_main2["itmqty"]),9,"right");
+                $pdf->ezPlaceData($col_uom,$xtop,trim_str(isset($rs_main2["uom_description"]) ? $rs_main2["uom_description"] : '',45,9),9,"left");
+                $pdf->ezPlaceData($col_extended_price,$xtop,number_format($rs_main2["extprc"],2),9,"right");
             }            
 
 
@@ -303,14 +310,14 @@
                     $xleft =25;
 
 
-                    $pdf->ezPlaceData($xleft,$xtop-9,"<b>Ordered Date</b>",9 ,'left');
-                    $pdf->ezPlaceData($xleft+=80,$xtop-9,"<b>Upload Date</b>",9 ,'left');
-                    $pdf->ezPlaceData($xleft+=115,$xtop-9,"<b>Platform</b>",9 ,'left');
-                    $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Ordered By</b>",9 ,'left');
-                    $pdf->ezPlaceData($xleft+=130,$xtop-9,"<b>Unit Price</b>",9 ,'left');
-                    $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Quantity</b>",9 ,'left');
-                    $pdf->ezPlaceData($xleft+=55,$xtop-9,"<b>UOM</b>",9 ,'left');
-                    $pdf->ezPlaceData($xleft+=50,$xtop-9,"<b>Extended Price</b>",9 ,'left');
+                    $pdf->ezPlaceData($col_ordered_date,$xtop-9,"<b>Ordered Date</b>",9 ,'left');
+                    $pdf->ezPlaceData($col_upload_date,$xtop-9,"<b>Upload Date</b>",9 ,'left');
+                    $pdf->ezPlaceData($col_platform,$xtop-9,"<b>Platform</b>",9 ,'left');
+                    $pdf->ezPlaceData($col_ordered_by,$xtop-9,"<b>Ordered By</b>",9 ,'left');
+                    $pdf->ezPlaceData($col_unit_price,$xtop-9,"<b>Unit Price</b>",9 ,'right');
+                    $pdf->ezPlaceData($col_quantity,$xtop-9,"<b>Quantity</b>",9 ,'right');
+                    $pdf->ezPlaceData($col_uom,$xtop-9,"<b>UOM</b>",9 ,'left');
+                    $pdf->ezPlaceData($col_extended_price,$xtop-9,"<b>Extended Price</b>",9 ,'right');
                                    
                     
                     $pdf->line(25, $xtop-12, 770, $xtop-12); 
@@ -346,9 +353,9 @@
         }else{
             $pdf->line(25, $xtop, 770, $xtop); 
             $pdf->ezPlaceData(270,$xtop-9,"<b>Weighted Average/Subtotal:</b>",9 ,'left');
-            $pdf->ezPlaceData(475,$xtop-9,number_format($subtotal_weighted,2),9 ,'right');
-            $pdf->ezPlaceData(555,$xtop-9,$subtotal_itmqty,9 ,'right');
-            $pdf->ezPlaceData(650,$xtop-9,"<b>".number_format($subtotal,2)."</b>",9 ,'right');
+            $pdf->ezPlaceData($col_unit_price,$xtop-9,number_format($subtotal_weighted,2),9 ,'right');
+            $pdf->ezPlaceData($col_quantity,$xtop-9,$subtotal_itmqty,9 ,'right');
+            $pdf->ezPlaceData($col_extended_price,$xtop-9,"<b>".number_format($subtotal,2)."</b>",9 ,'right');
         }
 
         $xtop-=20;
@@ -368,8 +375,8 @@
         echo $tab_output;
     }else{
         $pdf->line(25, $xtop-10, 770, $xtop-10); 
-        $pdf->ezPlaceData(500,$xtop-18,"<b>Grand total:</b>",9 ,'left');
-        $pdf->ezPlaceData(650,$xtop-18,"<b>".number_format($grand_total,2)."</b>",9 ,'right');
+        $pdf->ezPlaceData($col_uom,$xtop-18,"<b>Grand total:</b>",9 ,'left');
+        $pdf->ezPlaceData($col_extended_price,$xtop-18,"<b>".number_format($grand_total,2)."</b>",9 ,'right');
     }    
 
 
