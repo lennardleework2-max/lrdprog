@@ -152,11 +152,15 @@
         $xleft = 25;
         $pdf->setLineStyle(.5);
         $pdf->line($xleft, $xtop+10, 770, $xtop+10);
-        $pdf->line($xleft, $xtop-3, 770, $xtop-3);
+        $pdf->line($xleft, $xtop-13, 770, $xtop-13);
 
         if($_POST['txt_output_type'] !='tab'){
-            $pdf->ezPlaceData($xleft,$xtop,"<b>Purchase Num.</b>",10,'left');
-            $pdf->ezPlaceData($xleft+=75,$xtop,"<b>Tran. Date</b>",10,'left');
+            // Two-line headers for crowded columns
+            $pdf->addText($xleft, $xtop, 10, '<b>Purchase</b>');
+            $pdf->addText($xleft, $xtop-10, 10, '<b>Num.</b>');
+            $xleft += 75;
+            $pdf->addText($xleft, $xtop, 10, '<b>Tran.</b>');
+            $pdf->addText($xleft, $xtop-10, 10, '<b>Date</b>');
             $pdf->ezPlaceData($xleft+=55,$xtop,"<b>Supplier</b>",10,'left');
             $pdf->ezPlaceData($xleft+=70,$xtop,"<b>Item</b>",10,'left');
             $pdf->ezPlaceData($xleft+=115,$xtop,"<b>UOM</b>",10,'left');
@@ -166,7 +170,7 @@
             $pdf->ezPlaceData($xleft+=35,$xtop,"<b>Matched Purchase Order Num./s</b>",10,'left');
         }
 
-        $xtop -= 15;
+        $xtop -= 25;
 
         $pdf->restoreState();
         $pdf->closeObject();
@@ -410,10 +414,14 @@
                 $xleft =25;
                 $pdf->setLineStyle(.5);
                 $pdf->line($xleft, $xtop+10, 770, $xtop+10);
-                $pdf->line($xleft, $xtop-3, 770, $xtop-3);
-                
-                $pdf->ezPlaceData($xleft,$xtop,"<b>Purchase Num.</b>",10,'left');
-                $pdf->ezPlaceData($xleft+=75,$xtop,"<b>Tran. Date</b>",10,'left');
+                $pdf->line($xleft, $xtop-13, 770, $xtop-13);
+
+                // Two-line headers for crowded columns
+                $pdf->addText($xleft, $xtop, 10, '<b>Purchase</b>');
+                $pdf->addText($xleft, $xtop-10, 10, '<b>Num.</b>');
+                $xleft += 75;
+                $pdf->addText($xleft, $xtop, 10, '<b>Tran.</b>');
+                $pdf->addText($xleft, $xtop-10, 10, '<b>Date</b>');
                 $pdf->ezPlaceData($xleft+=55,$xtop,"<b>Supplier</b>",10,'left');
                 $pdf->ezPlaceData($xleft+=70,$xtop,"<b>Item</b>",10,'left');
                 $pdf->ezPlaceData($xleft+=115,$xtop,"<b>UOM</b>",10,'left');
@@ -426,12 +434,12 @@
 
                 $pdf->restoreState();
                 $pdf->closeObject();
-                $pdf->addObject($xheader,'all'); 
+                $pdf->addObject($xheader,'all');
 
                 $xheader_check = true;
             }
 
-            $xtop -= 15;  
+            $xtop -= 25;  
         }
 
         $xmain_count++;
