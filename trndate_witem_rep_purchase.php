@@ -51,36 +51,42 @@
         //     $progname_hidden = "Purchases";
         // }
 
+    // Column positions (defined before header object so they're available globally)
+    $col_docnum = 25;
+    $col_ordernum = 75;
+    $col_trndate = 145;
+    $col_suppitem = 200;
+    $col_warehouse = 300;
+    $col_qty = 410;
+    $col_uom = 460;
+    $col_unitprice = 555;
+    $col_total = 690;
+
 		$xheader = $pdf->openObject();
         $pdf->saveState();
         $pdf->ezPlaceData($xleft, $xtop,"<b>Purchases</b>", 15, 'left' );
         $xtop   -= 15;
         $pdf->ezPlaceData($xleft, $xtop,"<b>Pdf Report by: ".$_SESSION['userdesc']." (Summarized)</b>", 9, 'left' );
         $xtop   -= 15;
- 
-        // $pdf->ezPlaceData($xleft, $xtop,$_POST['search_hidden_dd'].":", 9, 'left' );
-        // $pdf->ezPlaceData(dynamic_width($_POST['search_hidden_dd'].":",$xleft,3,'cus_left'), $xtop,$_POST['search_hidden_value'], 9, 'left' );
-        // $xtop   -= 15;
 
-        
         $pdf->ezPlaceData($xleft, $xtop, 'Date Printed : '.$date_printed, 10, 'left' );
         $xtop   -= 20;
 
 		$pdf->setLineStyle(.5);
 		$pdf->line($xleft, $xtop+10, 770, $xtop+10);
         $pdf->line($xleft, $xtop-3, 770, $xtop-3);
-        
 
         $xfields_heaeder_counter = 0;
-        
-        $pdf->ezPlaceData($xleft,$xtop,"<b>Doc. Num.</b>",10,'left');
-        $pdf->ezPlaceData($xleft+=70,$xtop,"<b>Order Num.</b>",10,'left');
-        $pdf->ezPlaceData($xleft+=110,$xtop,"<b>Tran. Date</b>",10,'left');
-        $pdf->ezPlaceData($xleft+=70,$xtop,"<b>Supp./Item</b>",10,'left');
-        $pdf->ezPlaceData($xleft+=195,$xtop,"<b>Quantity</b>",10,'right');
-        $pdf->ezPlaceData($xleft+=110,$xtop,"<b>Unit Price</b>",10,'right');
-        $pdf->ezPlaceData($xleft+=110,$xtop,"<b>Total</b>",10,'right');
-        // $pdf->ezPlaceData($xleft+=110,$xtop,"<b>Profit</b>",10,'right');
+
+        $pdf->ezPlaceData($col_docnum,$xtop,"<b>Doc. Num.</b>",9,'left');
+        $pdf->ezPlaceData($col_ordernum,$xtop,"<b>Order Num.</b>",9,'left');
+        $pdf->ezPlaceData($col_trndate,$xtop,"<b>Tran. Date</b>",9,'left');
+        $pdf->ezPlaceData($col_suppitem,$xtop,"<b>Supp./Item</b>",9,'left');
+        $pdf->ezPlaceData($col_warehouse,$xtop,"<b>Warehouse</b>",9,'left');
+        $pdf->ezPlaceData($col_qty,$xtop,"<b>Qty</b>",9,'right');
+        $pdf->ezPlaceData($col_uom,$xtop,"<b>UOM</b>",9,'left');
+        $pdf->ezPlaceData($col_unitprice,$xtop,"<b>Unit Price</b>",9,'right');
+        $pdf->ezPlaceData($col_total,$xtop,"<b>Total</b>",9,'right');
 
         $xleft = 25;
 		$xtop -= 15;
@@ -178,20 +184,17 @@
             $rs_main["tranfile1_paydetails"] = $rs_main["tranfile1_paydetails"];
             $rs_main["tranfile1_ordernum"] = $rs_main["tranfile1_ordernum"];
 		}else{
-            $rs_main["supplierfile_suppdsc"] = trim_str($rs_main["supplierfile_suppdsc"],155,9);
-            $rs_main["tranfile1_shipto"] = trim_str($rs_main["tranfile1_shipto"],120,9);
-            $rs_main["tranfile1_paydetails"] = trim_str($rs_main["tranfile1_paydetails"],140,9);
-            $rs_main["tranfile1_ordernum"] = trim_str($rs_main["tranfile1_ordernum"],100,9);
+            // Adjust widths to fit new column layout
+            $rs_main["supplierfile_suppdsc"] = trim_str($rs_main["supplierfile_suppdsc"],95,9);
+            $rs_main["tranfile1_shipto"] = trim_str($rs_main["tranfile1_shipto"],95,9);
+            $rs_main["tranfile1_paydetails"] = trim_str($rs_main["tranfile1_paydetails"],95,9);
+            $rs_main["tranfile1_ordernum"] = trim_str($rs_main["tranfile1_ordernum"],65,9);
         }
 
-        $pdf->ezPlaceData($xleft,$xtop,$rs_main["tranfile1_docnum"],9,"left");
-        $pdf->ezPlaceData($xleft+=70,$xtop,$rs_main["tranfile1_ordernum"],9,"left");
-        $pdf->ezPlaceData($xleft+=110,$xtop,$rs_main["tranfile1_trndte"],9,"left");
-        $pdf->ezPlaceData($xleft+=70,$xtop,$rs_main["supplierfile_suppdsc"],9,"left");
-        // $pdf->ezPlaceData($xleft+=75,$xtop,$rs_main["tranfile1_shipto"],9,"left");
-        // $pdf->ezPlaceData($xleft+=135,$xtop,$rs_main["tranfile1_paydate"],9,"left");
-        // $pdf->ezPlaceData($xleft+=85,$xtop,$rs_main["tranfile1_paydetails"],9,"left");
-        // $pdf->ezPlaceData($xleft+215,$xtop,number_format($rs_main["tranfile1_trntot"],"2"),9,"right");
+        $pdf->ezPlaceData($col_docnum,$xtop,$rs_main["tranfile1_docnum"],9,"left");
+        $pdf->ezPlaceData($col_ordernum,$xtop,$rs_main["tranfile1_ordernum"],9,"left");
+        $pdf->ezPlaceData($col_trndate,$xtop,$rs_main["tranfile1_trndte"],9,"left");
+        $pdf->ezPlaceData($col_suppitem,$xtop,$rs_main["supplierfile_suppdsc"],9,"left");
 
         
 
@@ -206,7 +209,16 @@
 
 
 
-        $select_db2="SELECT * FROM tranfile2 LEFT JOIN itemfile ON tranfile2.itmcde = itemfile.itmcde WHERE tranfile2.docnum='".$rs_main['tranfile1_docnum']."'";
+        $select_db2="SELECT tranfile2.*, itemfile.itmdsc,
+            itemunitmeasurefile.unmdsc as uom_desc,
+            warehouse.warehouse_name,
+            warehouse_floor.floor_no
+            FROM tranfile2
+            LEFT JOIN itemfile ON tranfile2.itmcde = itemfile.itmcde
+            LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
+            LEFT JOIN warehouse ON tranfile2.warcde = warehouse.warcde
+            LEFT JOIN warehouse_floor ON tranfile2.warehouse_floor_id = warehouse_floor.warehouse_floor_id
+            WHERE tranfile2.docnum='".$rs_main['tranfile1_docnum']."'";
         $stmt_main2	= $link->prepare($select_db2);
         $stmt_main2->execute();
         // $pdf->ezPlaceData(15,$xtop-100,$select_db3,8,"left");
@@ -214,60 +226,115 @@
         $cost_tot = 0;
         $profit_tot = 0;
                     $xtop-=12;
-        while($rs_main2 = $stmt_main2->fetch()){   
+        while($rs_main2 = $stmt_main2->fetch()){
+
+            // Build warehouse display value: warehouse_name + floor_no + "floor"
+            $warehouse_display = '';
+            if (!empty($rs_main2["warehouse_name"])) {
+                $warehouse_display = $rs_main2["warehouse_name"];
+                if (!empty($rs_main2["floor_no"])) {
+                    $warehouse_display .= ' ' . $rs_main2["floor_no"] . ' floor';
+                }
+            } elseif (!empty($rs_main2["floor_no"])) {
+                $warehouse_display = $rs_main2["floor_no"] . ' floor';
+            }
+
+            // UOM display value
+            $uom_display = !empty($rs_main2["uom_desc"]) ? $rs_main2["uom_desc"] : '';
 
             if ($_POST['txt_output_type']=='tab')
             {
-                $rs_main2["itmdsc"] = $rs_main2["itmdsc"];
+                // For Excel, keep full values
+                $item_text = $rs_main2["itmdsc"];
+                $warehouse_text = $warehouse_display;
+                $uom_text = $uom_display;
             }else{
-                $rs_main2["itmdsc"] = trim_str($rs_main2["itmdsc"],155,9);
+                // For PDF, wrap text into lines
+                $item_text = $rs_main2["itmdsc"];
+                $warehouse_text = $warehouse_display;
+                $uom_text = $uom_display;
 
+                // Calculate wrapped lines for item (max width 95 pixels)
+                $item_lines = wrap_text_to_lines($item_text, 95, 9);
+                // Calculate wrapped lines for warehouse (max width 105 pixels)
+                $warehouse_lines = wrap_text_to_lines($warehouse_text, 105, 9);
+                // Calculate wrapped lines for UOM (max width 90 pixels)
+                $uom_lines = wrap_text_to_lines($uom_text, 90, 9);
+
+                // Determine maximum number of lines for this row
+                $max_lines = max(count($item_lines), count($warehouse_lines), count($uom_lines));
+                $row_height = max(1, $max_lines) * 12;
+
+                // Check if we need a new page before this row
+                if (($xtop - $row_height) <= 60) {
+                    $pdf->ezNewPage();
+                    $xtop = 515;
+                }
+
+                // Place each line of wrapped text
+                $row_y = $xtop;
+                for ($line_idx = 0; $line_idx < $max_lines; $line_idx++) {
+                    $line_y = $row_y - ($line_idx * 12);
+
+                    // Item column
+                    if (isset($item_lines[$line_idx])) {
+                        $pdf->ezPlaceData($col_suppitem, $line_y, $item_lines[$line_idx], 9, "left");
+                    }
+
+                    // Warehouse column
+                    if (isset($warehouse_lines[$line_idx])) {
+                        $pdf->ezPlaceData($col_warehouse, $line_y, $warehouse_lines[$line_idx], 9, "left");
+                    }
+
+                    // UOM column
+                    if (isset($uom_lines[$line_idx])) {
+                        $pdf->ezPlaceData($col_uom, $line_y, $uom_lines[$line_idx], 9, "left");
+                    }
+                }
+
+                // Qty, Unit Price, Total - placed on the first line only
+                $pdf->ezPlaceData($col_qty, $row_y, $rs_main2["itmqty"], 9, "right");
+                $pdf->ezPlaceData($col_unitprice, $row_y, number_format($rs_main2["untprc"], "2"), 9, "right");
+                $pdf->ezPlaceData($col_total, $row_y, number_format($rs_main2["extprc"], "2"), 9, "right");
+
+                $price_tot += $rs_main2["untprc"];
+                $cost_tot += $rs_main2["extprc"];
+
+                // Move xtop down by the row height
+                $xtop -= $row_height;
+
+                if ($xtop <= 60) {
+                    $pdf->ezNewPage();
+                    $xtop = 515;
+                }
+                continue;
             }
 
-            // get cost
+            // For tab/Excel output - simple placement
+            $pdf->ezPlaceData($col_suppitem, $xtop, $item_text, 9, "left");
+            $pdf->ezPlaceData($col_warehouse, $xtop, $warehouse_text, 9, "left");
+            $pdf->ezPlaceData($col_qty, $xtop, $rs_main2["itmqty"], 9, "right");
+            $pdf->ezPlaceData($col_uom, $xtop, $uom_text, 9, "left");
+            $pdf->ezPlaceData($col_unitprice, $xtop, number_format($rs_main2["untprc"], "2"), 9, "right");
+            $pdf->ezPlaceData($col_total, $xtop, number_format($rs_main2["extprc"], "2"), 9, "right");
 
-            // $select_db3="SELECT * FROM tranfile1 LEFT JOIN tranfile2 ON tranfile1.docnum = tranfile2.docnum WHERE tranfile1.trndte<='".$rs_main['tranfile1_trndte']."'
-            // AND (tranfile1.trncde='ADJ' OR tranfile1.trncde='PUR') AND tranfile2.itmcde='".$rs_main2['itmcde']."' AND tranfile2.itmqty > 0 ORDER BY tranfile1.trndte DESC, tranfile2.recid DESC LIMIT 1";
-            // $stmt_main3	= $link->prepare($select_db3);
-            // $stmt_main3->execute();
-            // $rs_main3 = $stmt_main3->fetch();
-
-            $xleft = 275;
-
-            // $pdf->ezPlaceData($xleft,$xtop,"ITEM:",9,"left");
-            $pdf->ezPlaceData($xleft+=192,$xtop,$rs_main2["itmqty"],9,"right");
-            $pdf->ezPlaceData(275,$xtop,$rs_main2["itmdsc"],9,"left");
-            $pdf->ezPlaceData($xleft+=112,$xtop,number_format($rs_main2["untprc"],"2"),9,"right");
-            // $trndte = (empty($rs_main['tranfile1_trndte'])) ? NULL :  date("Y-m-d", strtotime($rs_main['tranfile1_trndte']));
-            // $unit_cost = get_unitcost($rs_main2['itmcde'],$trndte);
-            // $cost = $unit_cost * $rs_main2["itmqty"];
-
-            $pdf->ezPlaceData($xleft+=110,$xtop,number_format($rs_main2["extprc"],"2"),9,"right");
-            $profit = $rs_main2["extprc"] - $cost;
-
-            $price_tot+=$rs_main2["untprc"];
-            $cost_tot+=$rs_main2["extprc"];
-            $profit_tot+=$profit;
+            $price_tot += $rs_main2["untprc"];
+            $cost_tot += $rs_main2["extprc"];
 
             $xtop -= 15;
 
-            if($xtop <= 60)
-            {
+            if ($xtop <= 60) {
                 $pdf->ezNewPage();
                 $xtop = 515;
             }
-
-            // $pdf->ezPlaceData(10,$xtop-200,$select_db3,5,"left");
         }
   
-        $pdf->line(25, $xtop, 770, $xtop); 
+        $pdf->line(25, $xtop, 770, $xtop);
         $xtop -= 15;
-        $xleft = 0;
-        $pdf->ezPlaceData($xleft+=470,$xtop+=5,"<b>TOTAL:</b>",9,"left");
-        $pdf->ezPlaceData($xleft+=110,$xtop,number_format($price_tot,2),9,"right");
-        $pdf->ezPlaceData($xleft+=110,$xtop,number_format($cost_tot,2),9,"right");
-        // $pdf->ezPlaceData($xleft+=110,$xtop,number_format($profit_tot,2),9,"right");
-        $pdf->line(25, $xtop-=5, 770, $xtop); 
+        $pdf->ezPlaceData($col_unitprice - 60, $xtop += 5, "<b>TOTAL:</b>", 9, "left");
+        $pdf->ezPlaceData($col_unitprice, $xtop, number_format($price_tot, 2), 9, "right");
+        $pdf->ezPlaceData($col_total, $xtop, number_format($cost_tot, 2), 9, "right");
+        $pdf->line(25, $xtop -= 5, 770, $xtop); 
         $xtop -= 15;
 
         
@@ -282,14 +349,12 @@
         $profit_gtot += $profit_tot;
     }
 
-    $pdf->line(25, $xtop, 770, $xtop); 
+    $pdf->line(25, $xtop, 770, $xtop);
     $xtop -= 15;
-    $xleft = 0;
-    $pdf->ezPlaceData($xleft+=443,$xtop+=5,"<b>GRAND TOTAL:</b>",8,"left");
-    $pdf->ezPlaceData($xleft+=137,$xtop,number_format($price_gtot,2),9,"right");
-    $pdf->ezPlaceData($xleft+=110,$xtop,number_format($cost_gtot,2),9,"right");
-    // $pdf->ezPlaceData($xleft+=110,$xtop,number_format($profit_gtot,2),9,"right");
-    $pdf->line(25, $xtop-=5, 770, $xtop); 
+    $pdf->ezPlaceData($col_unitprice - 80, $xtop += 5, "<b>GRAND TOTAL:</b>", 8, "left");
+    $pdf->ezPlaceData($col_unitprice, $xtop, number_format($price_gtot, 2), 9, "right");
+    $pdf->ezPlaceData($col_total, $xtop, number_format($cost_gtot, 2), 9, "right");
+    $pdf->line(25, $xtop -= 5, 770, $xtop); 
 
        
     // $pdf->line(25, $xtop-10, 770, $xtop-10); 
@@ -303,7 +368,7 @@
     ob_end_flush();
 
     function trim_str($string,$max_wid,$fsize)
-    {   
+    {
         global $pdf;
         if(  get_class($pdf) == 'tab_ezpdf')
         {
@@ -316,17 +381,112 @@
         foreach ($xarr_str as $value) {
             $xstr_wid = $pdf->getTextWidth($fsize,$xxstr.$value);
             if($xstr_wid > $max_wid)
-            {   
+            {
                 $xcut = true;
                 break;
             }
             $xxstr = $xxstr.$value;
         }
         if($xcut)
-        {   
+        {
             $xxstr = $xxstr.'...';
         }
         return $xxstr;
+    }
+
+    /**
+     * Wraps text into multiple lines based on max pixel width.
+     * Does NOT truncate with "..." - instead wraps to additional lines.
+     * Similar to wrap_str_two_lines() in top_sales_item_pdf.php
+     *
+     * @param string $string The text to wrap
+     * @param int $max_wid Maximum width in pixels
+     * @param int $fsize Font size
+     * @return array Array of wrapped lines
+     */
+    function wrap_text_to_lines($string, $max_wid, $fsize)
+    {
+        global $pdf;
+
+        $string = trim((string)$string);
+        if ($string === '') {
+            return array('');
+        }
+
+        // For tab export, return single line
+        if (get_class($pdf) == 'tab_ezpdf') {
+            return array($string);
+        }
+
+        $max_wid -= 5;
+        if ($pdf->getTextWidth($fsize, $string) <= $max_wid) {
+            return array($string);
+        }
+
+        $wrapped_lines = array();
+        $remaining = $string;
+
+        while ($remaining !== '') {
+            if ($pdf->getTextWidth($fsize, $remaining) <= $max_wid) {
+                $wrapped_lines[] = $remaining;
+                break;
+            }
+
+            // Fit as much text as possible within the width
+            $line = fit_text_width($remaining, $max_wid, $fsize);
+            if ($line === '') {
+                // At minimum, take one character to avoid infinite loop
+                $line = substr($remaining, 0, 1);
+            }
+
+            // Try to break at a word boundary (last space)
+            $last_space = strrpos($line, ' ');
+            if ($last_space !== false && $last_space > 0) {
+                $candidate_line = rtrim(substr($line, 0, $last_space));
+                if ($candidate_line !== '') {
+                    $line = $candidate_line;
+                }
+            }
+
+            $wrapped_lines[] = rtrim($line);
+            $remaining = ltrim(substr($remaining, strlen($line)));
+        }
+
+        if (empty($wrapped_lines)) {
+            $wrapped_lines[] = $string;
+        }
+
+        return $wrapped_lines;
+    }
+
+    /**
+     * Fits text to a maximum width without adding ellipsis.
+     * Returns the longest substring that fits within max_wid.
+     *
+     * @param string $string The text to fit
+     * @param int $max_wid Maximum width in pixels
+     * @param int $fsize Font size
+     * @return string The fitted text
+     */
+    function fit_text_width($string, $max_wid, $fsize)
+    {
+        global $pdf;
+
+        $string = (string)$string;
+        if ($string === '') {
+            return '';
+        }
+
+        $xarr_str = str_split($string);
+        $xxstr = '';
+        foreach ($xarr_str as $value) {
+            $xstr_wid = $pdf->getTextWidth($fsize, $xxstr . $value);
+            if ($xstr_wid > $max_wid) {
+                break;
+            }
+            $xxstr = $xxstr . $value;
+        }
+        return rtrim($xxstr);
     }
 
     //returns dynamic width
