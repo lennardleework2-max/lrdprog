@@ -12,7 +12,6 @@
     ob_start();
 
     $xreport_title = "List of items";
-		
 
     if ($_POST['txt_output_type']=='tab')
 	{
@@ -54,27 +53,27 @@
         //     $progname_hidden = "Purchases";
         // }
 
-    // Column order: Doc. Num., Order Num, Tran. Date, Supp./Item, Warehouse,
-    // Qty, UOM, Unit Price, Total.
+    // Column order: Doc. Num., Order Num, Tran. Date, Supp./Item,
+    // Qty, UOM, Warehouse, Unit Price, Total.
     $col_docnum = 25;
     $col_ordernum = 95;
     $col_trndate = 175;
     $col_suppitem = 245;
-    $col_warehouse = 390;
-    $col_qty = 595;
-    $col_uom = 610;
+    $col_qty = 445;
+    $col_uom = 455;
+    $col_warehouse = 505;
     $col_unitprice = 705;
     $col_total = 765;
-    $col_total_label = $col_uom;
+    $col_total_label = $col_warehouse;
 
 		$xheader = $pdf->openObject();
         $pdf->saveState();
-        $pdf->ezPlaceData($xleft, $xtop,"<b>Purchases</b>", 15, 'left' );
+        $pdf->ezPlaceData($xleft, $xtop,xls_safe_text("<b>Purchases</b>"), 15, 'left' );
         $xtop   -= 15;
-        $pdf->ezPlaceData($xleft, $xtop,"<b>Pdf Report by: ".$user_desc." (Summarized)</b>", 9, 'left' );
+        $pdf->ezPlaceData($xleft, $xtop,xls_safe_text("<b>Pdf Report by: ".$user_desc." (Summarized)</b>"), 9, 'left' );
         $xtop   -= 15;
 
-        $pdf->ezPlaceData($xleft, $xtop, 'Date Printed : '.$date_printed, 10, 'left' );
+        $pdf->ezPlaceData($xleft, $xtop, xls_safe_text('Date Printed : '.$date_printed), 10, 'left' );
         $xtop   -= 20;
 
 		$pdf->setLineStyle(.5);
@@ -88,10 +87,10 @@
             $pdf->ezPlaceData($col_docnum,$xtop,"<b>Doc. Num.</b>",9,'left');
             $pdf->ezPlaceData($col_ordernum,$xtop,"<b>Order Num.</b>",9,'left');
             $pdf->ezPlaceData($col_trndate,$xtop,"<b>Tran. Date</b>",9,'left');
-            $pdf->ezPlaceData($col_suppitem,$xtop,"<b>Supp./Item</b>",9,'left');
-            $pdf->ezPlaceData($col_warehouse,$xtop,"<b>Warehouse</b>",9,'left');
             $pdf->ezPlaceData($col_qty,$xtop,"<b>Qty</b>",9,'right');
             $pdf->ezPlaceData($col_uom,$xtop,"<b>UOM</b>",9,'left');
+            $pdf->ezPlaceData($col_suppitem,$xtop,"<b>Supp./Item</b>",9,'left');
+            $pdf->ezPlaceData($col_warehouse,$xtop,"<b>Warehouse</b>",9,'left');
             $pdf->ezPlaceData($col_unitprice,$xtop,"<b>Unit Price</b>",9,'right');
             $pdf->ezPlaceData($col_total,$xtop,"<b>Total</b>",9,'right');
             $xtop -= 15;
@@ -101,10 +100,10 @@
             place_multiline_text($col_docnum, $xtop, array("<b>Doc.</b>", "<b>Num.</b>"), 8, 'left', 9);
             place_multiline_text($col_ordernum, $xtop, array("<b>Order</b>", "<b>Num.</b>"), 8, 'left', 9);
             place_multiline_text($col_trndate, $xtop, array("<b>Tran.</b>", "<b>Date</b>"), 8, 'left', 9);
-            $pdf->ezPlaceData($col_suppitem,$xtop,"<b>Supp./Item</b>",9,'left');
-            $pdf->ezPlaceData($col_warehouse,$xtop,"<b>Warehouse</b>",9,'left');
             $pdf->ezPlaceData($col_qty,$xtop,"<b>Qty</b>",9,'right');
             $pdf->ezPlaceData($col_uom,$xtop,"<b>UOM</b>",9,'left');
+            $pdf->ezPlaceData($col_suppitem,$xtop,"<b>Supp./Item</b>",9,'left');
+            $pdf->ezPlaceData($col_warehouse,$xtop,"<b>Warehouse</b>",9,'left');
             place_multiline_text($col_unitprice, $xtop, array("<b>Unit</b>", "<b>Price</b>"), 8, 'right', 9);
             $pdf->ezPlaceData($col_total,$xtop,"<b>Total</b>",9,'right');
             $xtop -= 24;
@@ -198,38 +197,36 @@
         }
 
 
+        $supplier_text = normalize_report_text($rs_main["supplierfile_suppdsc"]);
+        $ordernum_text = normalize_report_text($rs_main["tranfile1_ordernum"]);
         $supplier_lines = ($_POST['txt_output_type']=='tab')
-            ? array((string)$rs_main["supplierfile_suppdsc"])
-            : wrap_text_to_lines($rs_main["supplierfile_suppdsc"], 135, 9);
+            ? array($supplier_text)
+            : wrap_text_to_lines($supplier_text, 135, 9);
         $ordernum_lines = ($_POST['txt_output_type']=='tab')
-            ? array((string)$rs_main["tranfile1_ordernum"])
-            : wrap_text_to_lines($rs_main["tranfile1_ordernum"], 70, 9);
+            ? array($ordernum_text)
+            : wrap_text_to_lines($ordernum_text, 70, 9);
         $main_line_count = max(count($supplier_lines), count($ordernum_lines));
         $main_row_height = 15 + ((max(1, $main_line_count) - 1) * 10);
 
         if(($xtop - $main_row_height) <= 60)
         {
             $pdf->ezNewPage();
-            $xtop = 515;
+            $xtop = 500;
         }
 
         $row_y = $xtop;
-        $pdf->ezPlaceData($col_docnum,$row_y,$rs_main["tranfile1_docnum"],9,"left");
+        $pdf->ezPlaceData($col_docnum,$row_y,xls_safe_text($rs_main["tranfile1_docnum"]),9,"left");
         foreach($ordernum_lines as $line_index => $line_text){
-            $pdf->ezPlaceData($col_ordernum,$row_y - ($line_index * 10),$line_text,9,"left");
+            $pdf->ezPlaceData($col_ordernum,$row_y - ($line_index * 10),xls_safe_text($line_text),9,"left");
         }
-        $pdf->ezPlaceData($col_trndate,$row_y,$rs_main["tranfile1_trndte"],9,"left");
+        $pdf->ezPlaceData($col_trndate,$row_y,xls_safe_text($rs_main["tranfile1_trndte"]),9,"left");
         foreach($supplier_lines as $line_index => $line_text){
-            $pdf->ezPlaceData($col_suppitem,$row_y - ($line_index * 10),$line_text,9,"left");
+            $pdf->ezPlaceData($col_suppitem,$row_y - ($line_index * 10),xls_safe_text($line_text),9,"left");
         }
 
         if($_POST['txt_output_type']!='tab' && $main_line_count > 1){
             $xtop -= (($main_line_count - 1) * 10);
         }
-
-        
-
-
         
 
         $select_db2="SELECT tranfile2.*, itemfile.itmdsc,
@@ -252,28 +249,21 @@
         while($rs_main2 = $stmt_main2->fetch()){
 
             // Build warehouse display value: warehouse_name + floor_no + "floor"
-            $warehouse_display = '';
-            if (!empty($rs_main2["warehouse_name"])) {
-                $warehouse_display = $rs_main2["warehouse_name"];
-                if (!empty($rs_main2["floor_no"])) {
-                    $warehouse_display .= ' ' . $rs_main2["floor_no"] . ' floor';
-                }
-            } elseif (!empty($rs_main2["floor_no"])) {
-                $warehouse_display = $rs_main2["floor_no"] . ' floor';
-            }
+            $warehouse_display = build_warehouse_display($rs_main2["warehouse_name"], $rs_main2["floor_no"]);
 
             // UOM display value
-            $uom_display = !empty($rs_main2["uom_desc"]) ? $rs_main2["uom_desc"] : '';
+            $uom_display = normalize_report_text(!empty($rs_main2["uom_desc"]) ? $rs_main2["uom_desc"] : '');
+            $item_text = normalize_report_text($rs_main2["itmdsc"]);
 
             if ($_POST['txt_output_type']=='tab')
             {
-                $item_lines = array((string)$rs_main2["itmdsc"]);
+                $item_lines = array($item_text);
                 $warehouse_lines = array($warehouse_display);
                 $uom_lines = array($uom_display);
             }else{
-                $item_lines = wrap_text_to_lines($rs_main2["itmdsc"], 140, 9);
-                $warehouse_lines = wrap_text_to_lines($warehouse_display, 165, 9);
-                $uom_lines = wrap_text_to_lines($uom_display, 70, 9);
+                $item_lines = wrap_text_to_lines($item_text, 140, 9);
+                $warehouse_lines = wrap_text_to_lines($warehouse_display, 145, 9);
+                $uom_lines = wrap_text_to_lines($uom_display, 40, 9);
             }
 
             $max_lines = max(count($item_lines), count($warehouse_lines), count($uom_lines));
@@ -281,21 +271,21 @@
 
             if (($xtop - $row_height) <= 60) {
                 $pdf->ezNewPage();
-                $xtop = 515;
+                $xtop = 500;
             }
 
             $row_y = $xtop;
             pad_tab_columns(array($col_docnum, $col_ordernum, $col_trndate), $row_y, 9);
             foreach ($item_lines as $line_idx => $line_text) {
-                $pdf->ezPlaceData($col_suppitem, $row_y - ($line_idx * 10), $line_text, 9, "left");
-            }
-            foreach ($warehouse_lines as $line_idx => $line_text) {
-                $pdf->ezPlaceData($col_warehouse, $row_y - ($line_idx * 10), $line_text, 9, "left");
+                $pdf->ezPlaceData($col_suppitem, $row_y - ($line_idx * 10), xls_safe_text($line_text), 9, "left");
             }
             foreach ($uom_lines as $line_idx => $line_text) {
-                $pdf->ezPlaceData($col_uom, $row_y - ($line_idx * 10), $line_text, 9, "left");
+                $pdf->ezPlaceData($col_uom, $row_y - ($line_idx * 10), xls_safe_text($line_text), 9, "left");
             }
-            $pdf->ezPlaceData($col_qty, $row_y, $rs_main2["itmqty"], 9, "right");
+            foreach ($warehouse_lines as $line_idx => $line_text) {
+                $pdf->ezPlaceData($col_warehouse, $row_y - ($line_idx * 10), xls_safe_text($line_text), 9, "left");
+            }
+            $pdf->ezPlaceData($col_qty, $row_y, format_qty($rs_main2["itmqty"]), 9, "right");
             $pdf->ezPlaceData($col_unitprice, $row_y, number_format($rs_main2["untprc"], "2"), 9, "right");
             $pdf->ezPlaceData($col_total, $row_y, number_format($rs_main2["extprc"], "2"), 9, "right");
 
@@ -306,15 +296,15 @@
 
             if ($xtop <= 60) {
                 $pdf->ezNewPage();
-                $xtop = 515;
+                $xtop = 500;
             }
         }
   
         $pdf->line($line_left, $xtop, $line_right, $xtop);
         $xtop -= 10;
-        pad_tab_columns(array($col_docnum, $col_ordernum, $col_trndate, $col_suppitem, $col_warehouse, $col_qty), $xtop, 9);
+        pad_tab_columns(array($col_docnum, $col_ordernum, $col_trndate, $col_suppitem, $col_warehouse,$col_unitprice,$col_unitprice, $col_qty), $xtop, 9);
         $pdf->ezPlaceData($col_total_label, $xtop, "<b>TOTAL:</b>", 9, "left");
-        $pdf->ezPlaceData($col_unitprice, $xtop, number_format($price_tot, 2), 9, "right");
+        // $pdf->ezPlaceData($col_unitprice, $xtop, number_format($price_tot, 2), 9, "right");
         $pdf->ezPlaceData($col_total, $xtop, number_format($cost_tot, 2), 9, "right");
         $xtop -= 10;
         $pdf->line($line_left, $xtop, $line_right, $xtop); 
@@ -324,7 +314,7 @@
         if($xtop <= 60)
         {
             $pdf->ezNewPage();
-            $xtop = 515;
+            $xtop = 500;
         }
 
         $price_gtot += $price_tot;
@@ -335,14 +325,14 @@
     if($xtop <= 60)
     {
         $pdf->ezNewPage();
-        $xtop = 515;
+        $xtop = 500;
     }
 
     $pdf->line($line_left, $xtop, $line_right, $xtop);
     $xtop -= 10;
-    pad_tab_columns(array($col_docnum, $col_ordernum, $col_trndate, $col_suppitem, $col_warehouse, $col_qty), $xtop, 9);
+    pad_tab_columns(array($col_docnum, $col_ordernum, $col_trndate, $col_suppitem, $col_warehouse,$col_unitprice,$col_unitprice, $col_qty), $xtop, 9);
     $pdf->ezPlaceData($col_total_label, $xtop, "<b>GRAND TOTAL:</b>", 8, "left");
-    $pdf->ezPlaceData($col_unitprice, $xtop, number_format($price_gtot, 2), 9, "right");
+    // $pdf->ezPlaceData($col_unitprice, $xtop, number_format($price_gtot, 2), 9, "right");
     $pdf->ezPlaceData($col_total, $xtop, number_format($cost_gtot, 2), 9, "right");
     $xtop -= 10;
     $pdf->line($line_left, $xtop, $line_right, $xtop); 
@@ -500,6 +490,84 @@
             $xxstr = $xxstr . $value;
         }
         return rtrim($xxstr);
+    }
+
+    function normalize_report_text($string)
+    {
+        $string = trim((string)$string);
+        if($string === ''){
+            return '';
+        }
+
+        $search = array('Ã¢â‚¬Å“', 'Ã¢â‚¬Â', 'Ã¢â‚¬Ëœ', 'Ã¢â‚¬â„¢', 'Ã¢â‚¬â€œ', 'Ã¢â‚¬â€', 'Ã‚', 'â€œ', 'â€', 'â€˜', 'â€™', 'â€“', 'â€”');
+        $replace = array('"', '"', "'", "'", '-', '-', '', '"', '"', "'", "'", '-', '-');
+        $string = str_replace($search, $replace, $string);
+        $string = preg_replace('/\s+/', ' ', $string);
+
+        return trim($string);
+    }
+
+    function xls_safe_text($string)
+    {
+        global $pdf;
+
+        $string = (string)$string;
+        if(get_class($pdf) != 'tab_ezpdf'){
+            return $string;
+        }
+
+        $string = normalize_report_text($string);
+        if(function_exists('mb_check_encoding') && !mb_check_encoding($string, 'UTF-8')){
+            $string = mb_convert_encoding($string, 'UTF-8', 'UTF-8, Windows-1252, ISO-8859-1');
+        }
+
+        if(function_exists('iconv')){
+            $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $string);
+            if($converted !== false && $converted !== ''){
+                $string = $converted;
+            }else{
+                $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+            }
+        }else{
+            $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+        }
+
+        $string = str_replace(array("\t", "\r", "\n", "\0"), ' ', $string);
+        $string = preg_replace('/[\x00-\x1F\x7F]/', ' ', $string);
+        $string = preg_replace('/\s{2,}/', ' ', $string);
+
+        return trim($string);
+    }
+
+    function build_warehouse_display($warehouse_name, $floor_no)
+    {
+        $warehouse_name = normalize_report_text($warehouse_name);
+        $floor_no = trim((string)$floor_no);
+
+        if($warehouse_name !== '' && $floor_no !== ''){
+            return $warehouse_name.' '.$floor_no.' floor';
+        }
+
+        if($warehouse_name !== ''){
+            return $warehouse_name;
+        }
+
+        if($floor_no !== ''){
+            return $floor_no.' floor';
+        }
+
+        return '';
+    }
+
+    function format_qty($qty)
+    {
+        $qty = (float)$qty;
+        $formatted = number_format($qty, 2, '.', ',');
+        $formatted = rtrim(rtrim($formatted, '0'), '.');
+        if($formatted === '-0'){
+            $formatted = '0';
+        }
+        return $formatted;
     }
 
     //returns dynamic width
