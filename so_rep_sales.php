@@ -190,7 +190,7 @@
                 echo "Supplier: ".$_POST['cus_search']."\t\n";
             // }           
                 
-            $tab_headers = "SO. Num.\tOrdered Date\tUpload Date\tPlatform\tPending Orders\tUOM\tShipped Out\tBalance\tMatched Sales Num";
+            $tab_headers = "SO. Num.\tOrdered Date\tUpload Date\tPlatform\tItem\tPending Orders\tUOM\tShipped Out\tBalance\tMatched Sales Num";
             echo $tab_headers;
         }     
         
