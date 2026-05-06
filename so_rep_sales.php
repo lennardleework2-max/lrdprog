@@ -198,7 +198,7 @@
         $xleft = 25;
         $pdf->setLineStyle(.5);
 		$pdf->line($xleft, $xtop+10, 770, $xtop+10);
-        $pdf->line($xleft, $xtop-3, 770, $xtop-3);
+        $pdf->line($xleft, $xtop-13, 770, $xtop-13);
 
         if($_POST['txt_output_type'] !='tab'){
             $pdf->ezPlaceData($xleft,$xtop,"<b>SO. Num.</b>",10,'left');
@@ -206,9 +206,11 @@
             $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Upload Date</b>",10,'left');
             $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Platform</b>",10,'left');
             $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Item</b>",10,'left');
-            $pdf->ezPlaceData($xleft+=140,$xtop,"<b>Pending Orders</b>",10,'right');
+            $pdf->ezPlaceData($xleft+=140,$xtop,"<b>Pending</b>",10,'right');
+            $pdf->ezPlaceData($xleft,$xtop-10,"<b>Orders</b>",10,'right');
             $pdf->ezPlaceData($xleft+=35,$xtop,"<b>UOM</b>",10,'left');
-            $pdf->ezPlaceData($xleft+=55,$xtop,"<b>Shipped Out</b>",10,'right');
+            $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Shipped</b>",10,'right');
+            $pdf->ezPlaceData($xleft,$xtop-10,"<b>Out</b>",10,'right');
             $pdf->ezPlaceData($xleft+=50,$xtop,"<b>Balance</b>",10,'right');
             $pdf->ezPlaceData($xleft+=40,$xtop,"<b>Matched Sales Num</b>",10,'left');
         }
@@ -328,7 +330,7 @@
         }        
         $pdf->ezPlaceData($xleft+=220,$xtop+$xcount_total_itmheight,$rs_main["itmqty"],9,"right");
         $pdf->ezPlaceData($xleft+=35,$xtop+$xcount_total_itmheight,$rs_main["unmdsc"],9,"left");
-        $pdf->ezPlaceData($xleft+=55,$xtop+$xcount_total_itmheight,$received,9,"right");
+        $pdf->ezPlaceData($xleft+=60,$xtop+$xcount_total_itmheight,$received,9,"right");
         $pdf->ezPlaceData($xleft+=50,$xtop+$xcount_total_itmheight,$balance,9,"right");
         $pdf->ezPlaceData($xleft+=40,$xtop+$xcount_total_itmheight,$matched_ponum,9,"left");
         if($xmain_count == $rs_main3['xcount']){
@@ -350,16 +352,18 @@
                 $xleft =25;
                 $pdf->setLineStyle(.5);
                 $pdf->line($xleft, $xtop+10, 770, $xtop+10);
-                $pdf->line($xleft, $xtop-3, 770, $xtop-3);
+                $pdf->line($xleft, $xtop-13, 770, $xtop-13);
 
                 $pdf->ezPlaceData($xleft,$xtop,"<b>SO. Num.</b>",10,'left');
                 $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Ordered Date</b>",10,'left');
                 $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Upload Date</b>",10,'left');
                 $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Platform</b>",10,'left');
                 $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Item</b>",10,'left');
-                $pdf->ezPlaceData($xleft+=140,$xtop,"<b>Pending Orders</b>",10,'right');
+                $pdf->ezPlaceData($xleft+=140,$xtop,"<b>Pending</b>",10,'right');
+                $pdf->ezPlaceData($xleft,$xtop-10,"<b>Orders</b>",10,'right');
                 $pdf->ezPlaceData($xleft+=35,$xtop,"<b>UOM</b>",10,'left');
-                $pdf->ezPlaceData($xleft+=55,$xtop,"<b>Shipped Out</b>",10,'right');
+                $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Shipped</b>",10,'right');
+                $pdf->ezPlaceData($xleft,$xtop-10,"<b>Out</b>",10,'right');
                 $pdf->ezPlaceData($xleft+=50,$xtop,"<b>Balance</b>",10,'right');
                 $pdf->ezPlaceData($xleft+=40,$xtop,"<b>Matched Sales Num</b>",10,'left');
 
