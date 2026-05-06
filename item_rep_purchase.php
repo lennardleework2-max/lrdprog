@@ -52,6 +52,7 @@
 
     $detail_filter = '';
     $item_filter = '';
+    $purchase_trncde = 'PUR';
 
     if((isset($_POST['date_from']) && !empty($_POST['date_from'])) &&
         (isset($_POST['date_to']) && !empty($_POST['date_to']))){
@@ -76,8 +77,10 @@
         WHERE true ".$item_filter."
         AND EXISTS (
             SELECT 1
-            FROM salesorderfile2
-            WHERE salesorderfile2.itmcde = itemfile.itmcde
+            FROM tranfile1
+            LEFT JOIN tranfile2 ON tranfile1.docnum = tranfile2.docnum
+            WHERE tranfile1.trncde = '".$purchase_trncde."'
+            AND tranfile2.itmcde = itemfile.itmcde ".$detail_filter."
         )
         ORDER BY itemfile.itmdsc ASC";
     $stmt_items = $link->prepare($select_items);
@@ -111,7 +114,7 @@
 
     $grand_total = 0;
     foreach($item_rows as $item_row){
-        $stmt_details->execute(array($item_row['itmcde'], $_POST['trncde_hidden']));
+        $stmt_details->execute(array($item_row['itmcde'], $purchase_trncde));
         $detail_rows = $stmt_details->fetchAll(PDO::FETCH_ASSOC);
         if(empty($detail_rows)){
             continue;
