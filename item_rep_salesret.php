@@ -5,6 +5,12 @@
     require_once("resources/lx2.pdodb.php");
     require_once('ezpdfclass/class/class.ezpdf.php');
     require_once('resources/func_pdf2tab.php');
+    require_once('vendor/autoload.php');
+
+    use PhpOffice\PhpSpreadsheet\Spreadsheet;
+    use PhpOffice\PhpSpreadsheet\Style\Alignment;
+    use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+    use PhpOffice\PhpSpreadsheet\Writer\Xls;
 
     ob_start();
 
@@ -82,6 +88,12 @@
 
     if(isset($_POST['item']) && !empty($_POST['item'])){
         $xfilter .= " AND itemfile.itmcde='".$_POST['item']."'";
+    }
+
+    if($is_tab_export){
+        $report_groups = build_salesret_report_groups($link, $xfilter, $xfilter2, $_POST['trncde_hidden']);
+        export_salesret_xls($report_groups, $progname_hidden, $report_user, $date_printed);
+        exit;
     }
 
     // Query items that have sales return records in tranfile2
@@ -450,5 +462,193 @@
             $formatted = '0';
         }
         return $formatted;
+    }
+
+    function build_salesret_report_groups($link, $xfilter, $xfilter2, $trncde_hidden)
+    {
+        $groups = array();
+
+        $select_items = "SELECT itemfile.itmcde, itemfile.itmdsc
+            FROM itemfile
+            WHERE true ".$xfilter."
+            AND EXISTS (
+                SELECT 1
+                FROM tranfile1
+                LEFT JOIN tranfile2 ON tranfile1.docnum = tranfile2.docnum
+                WHERE tranfile1.trncde = '".$trncde_hidden."'
+                AND tranfile2.itmcde = itemfile.itmcde ".$xfilter2."
+            )
+            ORDER BY itemfile.itmdsc ASC";
+
+        $stmt_items = $link->prepare($select_items);
+        $stmt_items->execute();
+
+        $detail_sql = "SELECT tranfile2.docnum,
+                tranfile2.itmqty,
+                tranfile2.untprc,
+                tranfile2.extprc,
+                tranfile2.unmcde,
+                tranfile2.recid,
+                tranfile1.trndte,
+                tranfile1.ordernum,
+                customerfile.cusdsc,
+                mf_buyers.buyer_name,
+                itemunitmeasurefile.unmdsc AS uom_desc,
+                warehouse.warehouse_name,
+                warehouse_floor.floor_no
+            FROM tranfile2
+            LEFT JOIN tranfile1 ON tranfile2.docnum = tranfile1.docnum
+            LEFT JOIN customerfile ON tranfile1.cuscde = customerfile.cuscde
+            LEFT JOIN mf_buyers ON tranfile1.buyer_id = mf_buyers.buyer_id
+            LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
+            LEFT JOIN warehouse ON tranfile2.warcde = warehouse.warcde
+            LEFT JOIN warehouse_floor ON tranfile2.warehouse_floor_id = warehouse_floor.warehouse_floor_id
+            WHERE tranfile2.itmcde = ? ".$xfilter2."
+            AND tranfile1.trncde = ?
+            ORDER BY tranfile1.trndte ASC, tranfile2.recid ASC";
+        $stmt_details = $link->prepare($detail_sql);
+
+        while($item_row = $stmt_items->fetch()){
+            $group = array(
+                'item_desc' => normalize_report_text(isset($item_row['itmdsc']) ? $item_row['itmdsc'] : ''),
+                'rows' => array(),
+                'subtotal_qty' => 0,
+                'subtotal_ext' => 0,
+            );
+
+            $stmt_details->execute(array($item_row['itmcde'], $trncde_hidden));
+
+            while($detail_row = $stmt_details->fetch()){
+                $trndte = '';
+                if(!empty($detail_row['trndte'])){
+                    $trndte = date("m/d/Y", strtotime($detail_row['trndte']));
+                }
+
+                $warehouse_display = build_warehouse_display(
+                    isset($detail_row['warehouse_name']) ? $detail_row['warehouse_name'] : '',
+                    isset($detail_row['floor_no']) ? $detail_row['floor_no'] : ''
+                );
+
+                $group['rows'][] = array(
+                    'trndte' => $trndte,
+                    'ordernum' => isset($detail_row['ordernum']) ? (string)$detail_row['ordernum'] : '',
+                    'cusdsc' => normalize_report_text(isset($detail_row['cusdsc']) ? $detail_row['cusdsc'] : ''),
+                    'buyer_name' => normalize_report_text(isset($detail_row['buyer_name']) ? $detail_row['buyer_name'] : ''),
+                    'itmqty' => (float)$detail_row['itmqty'],
+                    'uom_description' => normalize_report_text(isset($detail_row['uom_desc']) ? $detail_row['uom_desc'] : ''),
+                    'warehouse_display' => $warehouse_display,
+                    'untprc' => (float)$detail_row['untprc'],
+                    'extprc' => (float)$detail_row['extprc'],
+                );
+
+                $group['subtotal_qty'] += (float)$detail_row['itmqty'];
+                $group['subtotal_ext'] += (float)$detail_row['extprc'];
+            }
+
+            if(!empty($group['rows'])){
+                $groups[] = $group;
+            }
+        }
+
+        return $groups;
+    }
+
+    function export_salesret_xls($groups, $report_title, $report_user, $date_printed)
+    {
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Sales Return Item');
+
+        $sheet->mergeCells('A1:I1');
+        $sheet->setCellValue('A1', $report_title);
+        $sheet->setCellValue('A2', 'Pdf Report by: ' . $report_user . ' (Summarized)');
+        $sheet->setCellValue('A3', 'Date Printed : ' . $date_printed);
+
+        $row_num = 5;
+        $grand_total = 0;
+        $header_labels = array(
+            'Tran. Date',
+            'Order Num.',
+            'Shop Name',
+            'Ordered By',
+            'Quantity',
+            'UOM',
+            'Warehouse',
+            'Unit Price',
+            'Extended Price'
+        );
+
+        foreach($groups as $group){
+            $sheet->mergeCells('A' . $row_num . ':I' . $row_num);
+            $sheet->setCellValue('A' . $row_num, 'Item: ' . $group['item_desc']);
+            $sheet->getStyle('A' . $row_num)->getFont()->setBold(true);
+            $sheet->getStyle('A' . $row_num)->getAlignment()->setWrapText(true);
+            $row_num++;
+
+            $sheet->fromArray($header_labels, null, 'A' . $row_num);
+            $sheet->getStyle('A' . $row_num . ':I' . $row_num)->getFont()->setBold(true);
+            $sheet->getStyle('A' . $row_num . ':I' . $row_num)->getAlignment()->setWrapText(true);
+            $row_num++;
+
+            foreach($group['rows'] as $detail_row){
+                $sheet->setCellValue('A' . $row_num, $detail_row['trndte']);
+                $sheet->setCellValue('B' . $row_num, $detail_row['ordernum']);
+                $sheet->setCellValue('C' . $row_num, $detail_row['cusdsc']);
+                $sheet->setCellValue('D' . $row_num, $detail_row['buyer_name']);
+                $sheet->setCellValue('E' . $row_num, (float)$detail_row['itmqty']);
+                $sheet->setCellValue('F' . $row_num, $detail_row['uom_description']);
+                $sheet->setCellValue('G' . $row_num, $detail_row['warehouse_display']);
+                $sheet->setCellValue('H' . $row_num, (float)$detail_row['untprc']);
+                $sheet->setCellValue('I' . $row_num, (float)$detail_row['extprc']);
+                $row_num++;
+            }
+
+            $sheet->setCellValue('D' . $row_num, 'Subtotal:');
+            $sheet->setCellValue('E' . $row_num, (float)$group['subtotal_qty']);
+            $sheet->setCellValue('I' . $row_num, (float)$group['subtotal_ext']);
+            $sheet->getStyle('D' . $row_num . ':I' . $row_num)->getFont()->setBold(true);
+            $grand_total += (float)$group['subtotal_ext'];
+            $row_num += 2;
+        }
+
+        $sheet->setCellValue('D' . $row_num, 'Grand total:');
+        $sheet->setCellValue('I' . $row_num, $grand_total);
+        $sheet->getStyle('D' . $row_num . ':I' . $row_num)->getFont()->setBold(true);
+
+        $sheet->getStyle('A1:A3')->getFont()->setBold(true);
+        $sheet->getStyle('A1:I' . $row_num)->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
+        $sheet->getStyle('C1:G' . $row_num)->getAlignment()->setWrapText(true);
+        $sheet->getStyle('E6:E' . $row_num)->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle('H6:I' . $row_num)->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle('E6:E' . $row_num)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle('H6:I' . $row_num)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
+        $sheet->getColumnDimension('A')->setWidth(14);
+        $sheet->getColumnDimension('B')->setWidth(16);
+        $sheet->getColumnDimension('C')->setWidth(20);
+        $sheet->getColumnDimension('D')->setWidth(24);
+        $sheet->getColumnDimension('E')->setWidth(12);
+        $sheet->getColumnDimension('F')->setWidth(12);
+        $sheet->getColumnDimension('G')->setWidth(28);
+        $sheet->getColumnDimension('H')->setWidth(14);
+        $sheet->getColumnDimension('I')->setWidth(16);
+
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
+        $filename = 'salesret_item.xls';
+
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+        header('Cache-Control: max-age=1');
+        header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
+        header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+        header('Cache-Control: cache, must-revalidate');
+        header('Pragma: public');
+
+        $writer = new Xls($spreadsheet);
+        $writer->save('php://output');
     }
 ?>
