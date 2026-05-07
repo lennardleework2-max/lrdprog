@@ -76,6 +76,10 @@
         FROM itemfile
         WHERE true ".$item_filter."
         AND EXISTS (
+            SELECT 1 FROM salesorderfile2
+            WHERE salesorderfile2.itmcde = itemfile.itmcde
+        )
+        AND EXISTS (
             SELECT 1
             FROM tranfile1
             LEFT JOIN tranfile2 ON tranfile1.docnum = tranfile2.docnum
@@ -155,7 +159,7 @@
                 render_item_section_header($item_row['itmdsc'], $xtop);
             }
 
-            $row_y = $xtop;
+            $row_y = $xtop-2;
             $pdf->ezPlaceData($col_trndate, $row_y, xls_safe_text($display_trndte), 9, 'left');
             foreach($ordernum_lines as $line_index => $line_text){
                 $pdf->ezPlaceData($col_ordernum, $row_y - ($line_index * 10), xls_safe_text($line_text), 9, 'left');
@@ -184,7 +188,7 @@
 
         $pdf->line($line_left, $xtop, $line_right, $xtop);
         $xtop -= 10;
-        pad_tab_columns(array($col_trndate, $col_ordernum, $col_supplier, $col_orderedby, $col_qty, $col_uom), $xtop, 9);
+        pad_tab_columns(array($col_trndate, $col_ordernum, $col_supplier, $col_orderedby, $col_qty, $col_uom,100), $xtop, 9);
         $pdf->ezPlaceData($col_warehouse, $xtop, xls_safe_text("<b>Subtotal:</b>"), 9, 'left');
         $pdf->ezPlaceData($col_total, $xtop, "<b>".number_format($subtotal, 2)."</b>", 9, 'right');
         $xtop -= 10;
@@ -199,7 +203,7 @@
 
     $pdf->line($line_left, $xtop, $line_right, $xtop);
     $xtop -= 10;
-    pad_tab_columns(array($col_trndate, $col_ordernum, $col_supplier, $col_orderedby, $col_qty, $col_uom), $xtop, 9);
+    pad_tab_columns(array($col_trndate, $col_ordernum, $col_supplier, $col_orderedby, $col_qty, $col_uom,100), $xtop, 9);
     $pdf->ezPlaceData($col_warehouse, $xtop, xls_safe_text("<b>Grand Total:</b>"), 9, 'left');
     $pdf->ezPlaceData($col_total, $xtop, "<b>".number_format($grand_total, 2)."</b>", 9, 'right');
     $xtop -= 10;
@@ -250,7 +254,7 @@
         $pdf->ezPlaceData($col_warehouse, $xtop - 9, "<b>Warehouse</b>", 9, 'left');
         place_multiline_text($col_unitprice, $xtop - 9, array("<b>Unit</b>", "<b>Price</b>"), 8, 'right', 9);
         $pdf->ezPlaceData($col_total, $xtop - 9, "<b>Total</b>", 9, 'right');
-        $pdf->line($line_left, $xtop - 18, $line_right, $xtop - 18);
+        $pdf->line($line_left, $xtop - 20, $line_right, $xtop - 20);
         $xtop -= 29;
     }
 

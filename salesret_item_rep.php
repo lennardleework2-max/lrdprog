@@ -82,7 +82,7 @@ $trncde = "SRT";
                                             </div>
                                             
                                             <div class="col-4">
-                                                <input type="button" name="flexRadioDefault" id="flexRadioDefault1"  class="btn btn-primary" value="Export to TXT" onclick="exp_txt()">
+                                                <input type="button" name="flexRadioDefault" id="flexRadioDefault1"  class="btn btn-primary" value="Export to XLS" onclick="exp_txt()">
                                             </div>
                                         </div>
 
@@ -100,24 +100,24 @@ $trncde = "SRT";
             </tr>
         </table>
         <input type="hidden" name="trncde_hidden" id="trncde_hidden" value="<?php echo $trncde; ?>">
+        <input type="hidden" name="txt_output_type" id="txt_output_type">
     </form>
 
 
     <script>
             function exp_pdf(){
-
+                document.getElementById('txt_output_type').value = '';
                 document.forms.myforms.target = "_blank";
                 document.forms.myforms.method = "post";
                 document.forms.myforms.action = "item_rep_salesret.php";
-                //document.forms.myforms.action = "var_dump.php";
                 document.forms.myforms.submit();
             }
 
             function exp_txt(){
-
+                document.getElementById('txt_output_type').value = 'tab';
                 document.forms.myforms.target = "_blank";
                 document.forms.myforms.method = "post";
-                document.forms.myforms.action = "item_txt_salesret.php";
+                document.forms.myforms.action = "item_rep_salesret.php";
                 document.forms.myforms.submit();
             }
     </script>
