@@ -359,12 +359,7 @@
             return '';
         }
 
-        // Fix common mojibake sequences seen in item descriptions
-        $search = array('â€œ', 'â€', 'â€˜', 'â€™', 'â€"', 'â€"', 'Â', '"', '"', ''', ''', '–', '—');
-        $replace = array('"', '"', "'", "'", '-', '-', '', '"', '"', "'", "'", '-', '-');
-        $string = str_replace($search, $replace, $string);
-
-        // Keep spacing consistent after replacements
+        // Keep spacing consistent
         $string = preg_replace('/\s+/', ' ', $string);
         return trim($string);
     }
