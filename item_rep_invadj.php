@@ -4,6 +4,11 @@
     require_once("resources/connect4.php");
     require_once("resources/lx2.pdodb.php");
     require_once('ezpdfclass/class/class.ezpdf.php');
+    require_once('vendor/autoload.php');
+
+    use PhpOffice\PhpSpreadsheet\Spreadsheet;
+    use PhpOffice\PhpSpreadsheet\Style\Alignment;
+    use PhpOffice\PhpSpreadsheet\Writer\Xls;
 
     ob_start();
 
@@ -205,99 +210,135 @@
 
     function output_inventory_adjustment_xls($link, $xfilter, $xfilter2)
     {
-        while (ob_get_level() > 0) {
-            ob_end_clean();
-        }
+        global $date_printed;
 
-        $xline = "\r\n";
-        $delimiter = chr(9);
-        $xchunk = '';
-        $grandtotal = 0;
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Inv Adjustments');
 
-        $headers = array(
-            'Doc. Num.',
-            'Item',
+        $sheet->mergeCells('A1:G1');
+        $sheet->setCellValue('A1', 'Inventory Adjustments');
+        $sheet->setCellValue('A2', 'Pdf Report by: ' . $_SESSION['userdesc'] . ' (Summarized)');
+        $sheet->setCellValue('A3', 'Date Printed : ' . $date_printed);
+
+        $row_num = 5;
+        $grand_total = 0;
+        $header_labels = array(
             'Tran. Date',
             'Order Num.',
-            'Qty',
+            'Quantity',
             'UOM',
             'Warehouse',
             'Unit Price',
             'Total'
         );
+        $report_trncde = 'ADJ';
 
-        foreach($headers as $header){
-            $xchunk .= $header.$delimiter;
-        }
-        $xchunk .= $xline;
-
-        $select_db = "SELECT tranfile2.docnum as tranfile2_docnum,
-            tranfile1.trndte as tranfile1_trndte,
-            tranfile1.ordernum as tranfile1_ordernum,
-            tranfile2.itmqty as tranfile2_itmqty,
-            tranfile2.untprc as tranfile2_untprc,
-            tranfile2.extprc as tranfile2_extprc,
-            itemfile.itmdsc as itemfile_itmdsc,
-            itemunitmeasurefile.unmdsc as itemunitmeasurefile_unmdsc,
-            warehouse.warehouse_name,
-            warehouse_floor.floor_no
-            FROM tranfile2
-            LEFT JOIN tranfile1 ON tranfile2.docnum = tranfile1.docnum
-            LEFT JOIN itemfile ON tranfile2.itmcde = itemfile.itmcde
-            LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
-            LEFT JOIN warehouse ON tranfile2.warcde = warehouse.warcde
-            LEFT JOIN warehouse_floor ON tranfile2.warehouse_floor_id = warehouse_floor.warehouse_floor_id
-            WHERE true AND tranfile1.trncde='".$_POST['trncde_hidden']."' ".$xfilter.$xfilter2."
-            ORDER BY itemfile.itmdsc ASC, tranfile1.trndte ASC, tranfile2.recid ASC";
-
+        $select_db = "SELECT * FROM itemfile WHERE true ".str_replace('itemfile.', '', $xfilter)." ORDER BY itmdsc ASC";
         $stmt_main = $link->prepare($select_db);
         $stmt_main->execute();
 
         while($rs_main = $stmt_main->fetch(PDO::FETCH_ASSOC)){
-            $trndte_display = '';
-            if(isset($rs_main["tranfile1_trndte"]) && !empty($rs_main["tranfile1_trndte"])){
-                $trndte_display = date("m/d/Y", strtotime($rs_main["tranfile1_trndte"]));
+            $detail_sql = "SELECT tranfile2.*, tranfile1.trndte, tranfile1.ordernum,
+                itemunitmeasurefile.unmdsc AS uom_description,
+                warehouse.warehouse_name,
+                warehouse_floor.floor_no
+                FROM tranfile2
+                LEFT JOIN tranfile1 ON tranfile2.docnum = tranfile1.docnum
+                LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
+                LEFT JOIN warehouse ON tranfile2.warcde = warehouse.warcde
+                LEFT JOIN warehouse_floor ON tranfile2.warehouse_floor_id = warehouse_floor.warehouse_floor_id
+                WHERE tranfile2.itmcde = ? ".$xfilter2."
+                AND tranfile1.trncde = ?
+                ORDER BY tranfile1.trndte ASC, tranfile2.recid ASC";
+            $stmt_main2 = $link->prepare($detail_sql);
+            $stmt_main2->execute(array($rs_main['itmcde'], $report_trncde));
+            $detail_rows = $stmt_main2->fetchAll(PDO::FETCH_ASSOC);
+
+            if(empty($detail_rows)){
+                continue;
             }
 
-            $warehouse_display = build_warehouse_display(
-                isset($rs_main['warehouse_name']) ? $rs_main['warehouse_name'] : '',
-                isset($rs_main['floor_no']) ? $rs_main['floor_no'] : ''
-            );
+            $sheet->mergeCells('A' . $row_num . ':G' . $row_num);
+            $sheet->setCellValue('A' . $row_num, 'Item: ' . xls_safe_text(normalize_item_text($rs_main['itmdsc'])));
+            $sheet->getStyle('A' . $row_num)->getFont()->setBold(true);
+            $sheet->getStyle('A' . $row_num)->getAlignment()->setWrapText(true);
+            $row_num++;
 
-            $grandtotal += (float)$rs_main['tranfile2_extprc'];
+            $sheet->fromArray($header_labels, null, 'A' . $row_num);
+            $sheet->getStyle('A' . $row_num . ':G' . $row_num)->getFont()->setBold(true);
+            $sheet->getStyle('A' . $row_num . ':G' . $row_num)->getAlignment()->setWrapText(true);
+            $row_num++;
 
-            $row = array(
-                isset($rs_main['tranfile2_docnum']) ? $rs_main['tranfile2_docnum'] : '',
-                xls_safe_text(normalize_item_text(isset($rs_main['itemfile_itmdsc']) ? $rs_main['itemfile_itmdsc'] : '')),
-                $trndte_display,
-                xls_safe_text(normalize_item_text(isset($rs_main['tranfile1_ordernum']) ? $rs_main['tranfile1_ordernum'] : '')),
-                isset($rs_main['tranfile2_itmqty']) ? (string)$rs_main['tranfile2_itmqty'] : '',
-                xls_safe_text(normalize_item_text(isset($rs_main['itemunitmeasurefile_unmdsc']) ? $rs_main['itemunitmeasurefile_unmdsc'] : '')),
-                xls_safe_text(normalize_item_text($warehouse_display)),
-                number_format((float)$rs_main['tranfile2_untprc'], 2),
-                number_format((float)$rs_main['tranfile2_extprc'], 2)
-            );
+            $subtotal = 0;
+            foreach($detail_rows as $detail_row){
+                $trndte_display = '';
+                if(isset($detail_row['trndte']) && !empty($detail_row['trndte'])){
+                    $trndte_display = date("m/d/Y", strtotime($detail_row['trndte']));
+                }
 
-            foreach($row as $cell){
-                $xchunk .= $cell.$delimiter;
+                $warehouse_display = build_warehouse_display(
+                    isset($detail_row['warehouse_name']) ? $detail_row['warehouse_name'] : '',
+                    isset($detail_row['floor_no']) ? $detail_row['floor_no'] : ''
+                );
+
+                $sheet->setCellValue('A' . $row_num, $trndte_display);
+                $sheet->setCellValue('B' . $row_num, xls_safe_text(normalize_item_text(isset($detail_row['ordernum']) ? $detail_row['ordernum'] : '')));
+                $sheet->setCellValue('C' . $row_num, (float)$detail_row['itmqty']);
+                $sheet->setCellValue('D' . $row_num, xls_safe_text(normalize_item_text(isset($detail_row['uom_description']) ? $detail_row['uom_description'] : '')));
+                $sheet->setCellValue('E' . $row_num, xls_safe_text(normalize_item_text($warehouse_display)));
+                $sheet->setCellValue('F' . $row_num, (float)$detail_row['untprc']);
+                $sheet->setCellValue('G' . $row_num, (float)$detail_row['extprc']);
+
+                $subtotal += (float)$detail_row['extprc'];
+                $grand_total += (float)$detail_row['extprc'];
+                $row_num++;
             }
-            $xchunk .= $xline;
+
+            $sheet->setCellValue('E' . $row_num, 'Subtotal:');
+            $sheet->setCellValue('G' . $row_num, $subtotal);
+            $sheet->getStyle('E' . $row_num . ':G' . $row_num)->getFont()->setBold(true);
+            $row_num += 2;
         }
 
-        $total_row = array('', '', '', '', '', '', 'Grand total:', '', number_format($grandtotal, 2));
-        foreach($total_row as $cell){
-            $xchunk .= $cell.$delimiter;
+        while (ob_get_level() > 0) {
+            ob_end_clean();
         }
-        $xchunk .= $xline;
+
+        $sheet->setCellValue('E' . $row_num, 'Grand total:');
+        $sheet->setCellValue('G' . $row_num, $grand_total);
+        $sheet->getStyle('E' . $row_num . ':G' . $row_num)->getFont()->setBold(true);
+
+        $numeric_range_end_row = max($row_num, 6);
+        $sheet->getStyle('A1:A3')->getFont()->setBold(true);
+        $sheet->getStyle('A1:G' . $row_num)->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
+        $sheet->getStyle('A1:G' . $row_num)->getAlignment()->setWrapText(true);
+        $sheet->getStyle('C6:C' . $numeric_range_end_row)->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle('F6:G' . $numeric_range_end_row)->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle('C6:C' . $numeric_range_end_row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle('F6:G' . $numeric_range_end_row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
+        $sheet->getColumnDimension('A')->setWidth(14);
+        $sheet->getColumnDimension('B')->setWidth(18);
+        $sheet->getColumnDimension('C')->setWidth(12);
+        $sheet->getColumnDimension('D')->setWidth(12);
+        $sheet->getColumnDimension('E')->setWidth(28);
+        $sheet->getColumnDimension('F')->setWidth(14);
+        $sheet->getColumnDimension('G')->setWidth(16);
 
         $xfilename = "inventory_item.xls";
 
-        header("Content-Disposition: attachment; filename=$xfilename");
-        header("Content-Type: application/vnd.ms-excel");
-        header("Content-Transfer-Encoding: binary");
-        header("Pragma: no-cache");
-        header("Expires: 0");
-        echo $xchunk;
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment; filename="' . $xfilename . '"');
+        header('Cache-Control: max-age=0');
+        header('Cache-Control: max-age=1');
+        header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
+        header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+        header('Cache-Control: cache, must-revalidate');
+        header('Pragma: public');
+
+        $writer = new Xls($spreadsheet);
+        $writer->save('php://output');
     }
 
     function render_item_section_header($pdf, &$xtop, $item_desc_header, $layout)
