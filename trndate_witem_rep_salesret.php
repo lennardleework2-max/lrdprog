@@ -228,7 +228,7 @@
         foreach($doc_row['items'] as $item_row){
             // Calculate row height based on longest wrapped text
             $itmdsc_lines = wrap_str_lines($item_row['itmdsc'], 100, 9);
-            $warehouse_lines = wrap_str_lines($item_row['warehouse_display'], 100, 9);
+            $warehouse_lines = wrap_str_lines($item_row['warehouse_display'], 90, 9);
             $max_lines = max(count($itmdsc_lines), count($warehouse_lines));
             $row_height = 12 + (max(1, $max_lines) - 1) * 10;
 
@@ -268,10 +268,10 @@
         }
 
         // Document subtotal line
+        // Note: Unit Price is intentionally blank on Total rows (it's a price field, not summable)
         $pdf->line(25, $xtop, $line_right, $xtop);
         $xtop -= 15;
         $pdf->ezPlaceData($col_warehouse, $xtop + 5, "<b>TOTAL:</b>", 9, "left");
-        $pdf->ezPlaceData($col_unitprice, $xtop + 5, number_format($doc_row['price_tot'], 2), 9, "right");
         $pdf->ezPlaceData($col_total, $xtop + 5, number_format($doc_row['cost_tot'], 2), 9, "right");
         $pdf->line(25, $xtop, $line_right, $xtop);
         $xtop -= 15;
@@ -283,10 +283,10 @@
     }
 
     // Grand total line
+    // Note: Unit Price is intentionally blank on Grand Total row (it's a price field, not summable)
     $pdf->line(25, $xtop, $line_right, $xtop);
     $xtop -= 15;
     $pdf->ezPlaceData($col_warehouse - 30, $xtop + 5, "<b>GRAND TOTAL:</b>", 8, "left");
-    $pdf->ezPlaceData($col_unitprice, $xtop + 5, number_format($price_gtot, 2), 9, "right");
     $pdf->ezPlaceData($col_total, $xtop + 5, number_format($cost_gtot, 2), 9, "right");
     $pdf->line(25, $xtop, $line_right, $xtop);
 
@@ -477,17 +477,15 @@
                 $row_num++;
             }
 
-            // Subtotal row
+            // Subtotal row (Unit Price intentionally blank - it's a price field, not summable)
             $sheet->setCellValue('G' . $row_num, 'TOTAL:');
-            $sheet->setCellValue('H' . $row_num, $doc_row['price_tot']);
             $sheet->setCellValue('I' . $row_num, $doc_row['cost_tot']);
             $sheet->getStyle('G' . $row_num . ':I' . $row_num)->getFont()->setBold(true);
             $row_num++;
         }
 
-        // Grand total row
+        // Grand total row (Unit Price intentionally blank - it's a price field, not summable)
         $sheet->setCellValue('G' . $row_num, 'GRAND TOTAL:');
-        $sheet->setCellValue('H' . $row_num, $price_gtot);
         $sheet->setCellValue('I' . $row_num, $cost_gtot);
         $sheet->getStyle('G' . $row_num . ':I' . $row_num)->getFont()->setBold(true);
 
