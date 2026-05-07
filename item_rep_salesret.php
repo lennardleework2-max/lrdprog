@@ -84,14 +84,10 @@
         $xfilter .= " AND itemfile.itmcde='".$_POST['item']."'";
     }
 
-    // Query items that have records in salesorderfile2
+    // Query items that have sales return records in tranfile2
     $select_items = "SELECT itemfile.itmcde, itemfile.itmdsc
         FROM itemfile
         WHERE true ".$xfilter."
-        AND EXISTS (
-            SELECT 1 FROM salesorderfile2
-            WHERE salesorderfile2.itmcde = itemfile.itmcde
-        )
         AND EXISTS (
             SELECT 1
             FROM tranfile1
