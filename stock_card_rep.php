@@ -19,15 +19,15 @@
 
     $is_tab_export = (isset($_POST['txt_output_type']) && $_POST['txt_output_type']=='tab');
 
-    if ($is_tab_export)
+	if ($is_tab_export)
 	{
 		$pdf = new tab_ezpdf('Letter','landscape');
 	}
 	else
 	{
 		$pdf = new Cezpdf('Letter','landscape');
-		$pdf ->selectFont("ezpdfclass/fonts/Helvetica.afm");
 	}
+	$pdf->selectFont("ezpdfclass/fonts/Helvetica.afm");
 
 	$pdf->ezStartPageNumbers(500,15,8,'right','Page {PAGENUM}  of  {TOTALPAGENUM}',1);
     date_default_timezone_set('Asia/Manila');
@@ -296,20 +296,28 @@
 
         foreach($report_item['transactions'] as $transaction_row){
             if($is_tab_export){
-                $pdf->ezPlaceData($pdf_columns['date']['x'],$xtop,$transaction_row["tranfile1_trndte"],9,"left");
-                $pdf->ezPlaceData($pdf_columns['type']['x'],$xtop,$transaction_row["tranfile1_trncde"],9,"left");
-                $pdf->ezPlaceData($pdf_columns['tran_num']['x'],$xtop,$transaction_row["tranfile2_docnum"],9,"left");
-                $pdf->ezPlaceData($pdf_columns['order_num']['x'],$xtop,$transaction_row["tranfile1_ordernum"],9,"left");
-                $pdf->ezPlaceData($pdf_columns['shop']['x'],$xtop,$transaction_row["supp_or_cus"],9,"left");
-                $pdf->ezPlaceData($pdf_columns['buyer']['x'],$xtop,$transaction_row["buyer_name"],9,"left");
+                $tab_row = array(
+                    'date' => $transaction_row["tranfile1_trndte"],
+                    'type' => $transaction_row["tranfile1_trncde"],
+                    'tran_num' => $transaction_row["tranfile2_docnum"],
+                    'order_num' => $transaction_row["tranfile1_ordernum"],
+                    'shop' => $transaction_row["supp_or_cus"],
+                    'buyer' => $transaction_row["buyer_name"],
+                    'cost' => '',
+                    'price' => '',
+                    'in' => '',
+                    'out' => ''
+                );
 
                 if($transaction_row["tranfile2_stkqty"] > 0){
-                    $pdf->ezPlaceData($pdf_columns['cost']['x'],$xtop,number_format($transaction_row["tranfile2_untprc"],2),9,"right");
-                    $pdf->ezPlaceData($pdf_columns['in']['x'],$xtop,number_format($transaction_row["tranfile2_stkqty"]),9,"right");
+                    $tab_row['cost'] = number_format($transaction_row["tranfile2_untprc"],2);
+                    $tab_row['in'] = number_format($transaction_row["tranfile2_stkqty"]);
                 }else if($transaction_row["tranfile2_stkqty"] < 0){
-                    $pdf->ezPlaceData($pdf_columns['price']['x'],$xtop,number_format($transaction_row["tranfile2_untprc"],2),9,"right");
-                    $pdf->ezPlaceData($pdf_columns['out']['x'],$xtop,number_format($transaction_row["tranfile2_stkqty"] * -1),9,"right");
+                    $tab_row['price'] = number_format($transaction_row["tranfile2_untprc"],2);
+                    $tab_row['out'] = number_format($transaction_row["tranfile2_stkqty"] * -1);
                 }
+
+                write_tab_stock_card_row($xtop, $pdf_columns, $tab_row);
 
                 $xtop -= 15;
 
@@ -400,14 +408,37 @@
         }
 
         $pdf->line(25, $xtop, $line_right, $xtop);
-        $pdf->ezPlaceData(635,$xtop-12,"<b>Total:</b>",9,'right');
-        $pdf->ezPlaceData($pdf_columns['in']['x'],$xtop-12,"<b>".number_format($report_item['in_total'])."</b>",9,'right');
-        $pdf->ezPlaceData($pdf_columns['out']['x'],$xtop-12,"<b>".number_format($report_item['out_total'])."</b>",9,'right');
+        if($is_tab_export){
+            write_tab_stock_card_row(
+                $xtop - 12,
+                $pdf_columns,
+                array(
+                    'price' => '<b>Total:</b>',
+                    'in' => '<b>'.number_format($report_item['in_total']).'</b>',
+                    'out' => '<b>'.number_format($report_item['out_total']).'</b>'
+                )
+            );
+        }else{
+            $pdf->ezPlaceData(635,$xtop-12,"<b>Total:</b>",9,'right');
+            $pdf->ezPlaceData($pdf_columns['in']['x'],$xtop-12,"<b>".number_format($report_item['in_total'])."</b>",9,'right');
+            $pdf->ezPlaceData($pdf_columns['out']['x'],$xtop-12,"<b>".number_format($report_item['out_total'])."</b>",9,'right');
+        }
 
         $xtop -= 24;
 
-        $pdf->ezPlaceData(635,$xtop-12,"<b>Balance:</b>",9,'right');
-        $pdf->ezPlaceData($pdf_columns['out']['x'],$xtop-12,"<b>".number_format($report_item['ending_balance'])."</b>",9,'right');
+        if($is_tab_export){
+            write_tab_stock_card_row(
+                $xtop - 12,
+                $pdf_columns,
+                array(
+                    'price' => '<b>Balance:</b>',
+                    'out' => '<b>'.number_format($report_item['ending_balance']).'</b>'
+                )
+            );
+        }else{
+            $pdf->ezPlaceData(635,$xtop-12,"<b>Balance:</b>",9,'right');
+            $pdf->ezPlaceData($pdf_columns['out']['x'],$xtop-12,"<b>".number_format($report_item['ending_balance'])."</b>",9,'right');
+        }
         $xtop -= 30;
 
         if($xtop <= 70){
@@ -452,6 +483,27 @@
     function draw_stock_card_section_header($item_desc, $balance, &$xtop, $pdf_columns, $is_tab_export, $line_right)
     {
         global $pdf;
+
+        if($is_tab_export){
+            write_tab_stock_card_row(
+                $xtop - 9,
+                $pdf_columns,
+                array(
+                    'date' => '<b>Item:</b>',
+                    'type' => $item_desc,
+                    'price' => '<b>Balance:</b>',
+                    'out' => number_format($balance)
+                )
+            );
+
+            $header_row = array();
+            foreach($pdf_columns as $column_key => $column_config){
+                $header_row[$column_key] = '<b>'.$column_config['header'].'</b>';
+            }
+            write_tab_stock_card_row($xtop - 28, $pdf_columns, $header_row);
+            $xtop = $xtop - 43;
+            return;
+        }
 
         $item_label_y = $xtop - 9;
         $item_line_height = 10;
@@ -499,6 +551,22 @@
         $header_separator_y = $header_top_y - (($max_header_lines - 1) * $item_line_height) - 4;
         $pdf->line(25, $header_separator_y, $line_right, $header_separator_y);
         $xtop = $header_separator_y - 12;
+    }
+
+    function write_tab_stock_card_row($ypos, $pdf_columns, $row_data, $font_size = 9)
+    {
+        global $pdf;
+
+        foreach($pdf_columns as $column_key => $column_config){
+            $cell_value = isset($row_data[$column_key]) ? (string)$row_data[$column_key] : '';
+            $pdf->ezPlaceData(
+                $column_config['x'],
+                $ypos,
+                $cell_value,
+                $font_size,
+                $column_config['align']
+            );
+        }
     }
 
     function wrap_pdf_lines($string, $max_wid, $fsize, $max_lines = 3)
