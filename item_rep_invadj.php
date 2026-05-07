@@ -1,91 +1,28 @@
 <?php
-    //var_dump($_POST);
-
     session_start();
-    require_once("resources/db_init.php") ;
-	require_once("resources/connect4.php");
-	require_once("resources/lx2.pdodb.php");
-	require_once('ezpdfclass/class/class.ezpdf.php');
+    require_once("resources/db_init.php");
+    require_once("resources/connect4.php");
+    require_once("resources/lx2.pdodb.php");
+    require_once('ezpdfclass/class/class.ezpdf.php');
+    require_once('vendor/autoload.php');
+
+    use PhpOffice\PhpSpreadsheet\Spreadsheet;
+    use PhpOffice\PhpSpreadsheet\Style\Alignment;
+    use PhpOffice\PhpSpreadsheet\Writer\Xls;
 
     ob_start();
 
+    $is_tab_export = (isset($_POST['txt_output_type']) && $_POST['txt_output_type'] == 'tab');
     $xreport_title = "List of items";
-		
-	$pdf = new Cezpdf("Letter",'landscape');
-	$pdf ->selectFont("ezpdfclass/fonts/Helvetica.afm");
-	$pdf->ezStartPageNumbers(500,15,8,'right','Page {PAGENUM}  of  {TOTALPAGENUM}',1);
+
     date_default_timezone_set('Asia/Manila');
     $date_printed = date("F j, Y h:i:s A");
-	
-	$xtop = 580;
-    $xleft = 25;
-
-    /**header**/
-    
-    //getting header fields
-    $fields_count = 0;
-    $fields = '';
-
-        $progname_hidden ='';
-        if($_POST['trncde_hidden'] == 'SAL'){
-            $progname_hidden = "Sales";
-        }
-        else if($_POST['trncde_hidden'] == 'SRT'){
-            $progname_hidden = "Sales Return";
-        }
-        else if($_POST['trncde_hidden'] == 'PUR'){
-            $progname_hidden = "Purchases";
-        }
-        else if($_POST['trncde_hidden'] == 'ADJ'){
-            $progname_hidden = "Inventory Adjustments";
-        }
-
-		$xheader = $pdf->openObject();
-        $pdf->saveState();
-        $pdf->ezPlaceData($xleft, $xtop,"<b>".$progname_hidden."</b>", 15, 'left' );
-        $xtop   -= 15;
-        $pdf->ezPlaceData($xleft, $xtop,"<b>Pdf Report by: ".$_SESSION['userdesc']." (Summarized)</b>", 9, 'left' );
-        $xtop   -= 15;
-        
-        $pdf->ezPlaceData($xleft, $xtop, 'Date Printed : '.$date_printed, 10, 'left' );
-        $xtop   -= 15;
-
-		$pdf->setLineStyle(.5);
-		// $pdf->line($xleft, $xtop+10, 770, $xtop+10);
-        // $pdf->line($xleft, $xtop-3, 770, $xtop-3);
-        
-
-        // $xfields_heaeder_counter = 0;
-        
-        // $pdf->ezPlaceData($xleft,$xtop,"<b>Doc. Num.</b>",10,'left');
-        // $pdf->ezPlaceData($xleft+=90,$xtop,"<b>Tran. Date</b>",10,'left');
-        // $pdf->ezPlaceData($xleft+=100,$xtop,"<b>Customer</b>",10,'left');
-        // $pdf->ezPlaceData($xleft+=75,$xtop,"<b>Ship To</b>",10,'left');
-        // $pdf->ezPlaceData($xleft+=135,$xtop,"<b>Paydate</b>",10,'left');
-        // $pdf->ezPlaceData($xleft+=85,$xtop,"<b>Payment Details</b>",10,'left');
-        // $pdf->ezPlaceData($xleft+=215,$xtop,"<b>Total</b>",10,'right');
-
-        $xleft = 25;
-
-
-		$pdf->restoreState();
-		$pdf->closeObject();
-		$pdf->addObject($xheader,'all');
-
-	/***header**/
-
-    #region DO YOU LOOP HERE
 
     $xfilter = '';
-    $xfilter2  = '';
-    $xorder = '';
-
-
-
-
+    $xfilter2 = '';
 
     if((isset($_POST['date_from']) && !empty($_POST['date_from'])) &&
-    (isset($_POST['date_to']) && !empty($_POST['date_to'])) ){
+    (isset($_POST['date_to']) && !empty($_POST['date_to']))){
 
         $_POST['date_from'] = date("Y-m-d", strtotime($_POST['date_from']));
         $_POST['date_to'] = date("Y-m-d", strtotime($_POST['date_to']));
@@ -102,190 +39,469 @@
         $_POST['date_to'] = date("Y-m-d", strtotime($_POST['date_to']));
         $xfilter2 .= " AND tranfile1.trndte<='".$_POST['date_to']."'";
     }
+
     if(isset($_POST['item']) && !empty($_POST['item'])){
-        $xfilter .= " AND itmcde='".$_POST['item']."'";
+        $xfilter .= " AND itemfile.itmcde='".$_POST['item']."'";
     }
 
-    
-    
-    // $select_db="SELECT tranfile1.shipto as tranfile1_shipto,tranfile1.cuscde as tranfile1_cuscde,tranfile1.docnum as tranfile1_docnum,
-    // tranfile1.trndte as tranfile1_trndte,tranfile1.trntot as tranfile1_trntot,tranfile1.orderby as tranfile1_orderby,tranfile1.recid as tranfile1_recid,
-    // customerfile.recid as customerfile1_recid, customerfile.cusdsc as customerfile_cusdsc, tranfile1.paydate as tranfile1_paydate, tranfile1.paydetails as tranfile1_paydetails,
-    // customerfile.cusdsc, customerfile.cuscde FROM tranfile1 LEFT JOIN customerfile ON 
-    // tranfile1.cuscde = customerfile.cuscde WHERE true AND trncde='".$_POST['trncde_hidden']."' ".$xfilter." ORDER BY tranfile1.docnum ASC";
+    if($is_tab_export){
+        output_inventory_adjustment_xls($link, $xfilter, $xfilter2);
+        exit;
+    }
 
-    $select_db = "SELECT * FROM itemfile WHERE true ".$xfilter;
-    $stmt_main	= $link->prepare($select_db);
-    $stmt_main->execute(array($_POST['item']));
+    $pdf = new Cezpdf("Letter", 'landscape');
+    $pdf->selectFont("ezpdfclass/fonts/Helvetica.afm");
+    $pdf->ezStartPageNumbers(500,15,8,'right','Page {PAGENUM}  of  {TOTALPAGENUM}',1);
+
+    $page_left = 25;
+    $page_right = 770;
+    $page_bottom = 60;
+    $xtop = 580;
+    $xleft = $page_left;
+    $row_line_gap = 10;
+
+    $layout = array(
+        'page_left' => $page_left,
+        'page_right' => $page_right,
+        'page_bottom' => $page_bottom,
+        'trndte' => array('x' => 25, 'width' => 60, 'align' => 'left', 'header' => array('Tran.', 'Date')),
+        'ordernum' => array('x' => 100, 'width' => 120, 'align' => 'left', 'header' => array('Order', 'Num.')),
+        'qty' => array('x' => 290, 'width' => 55, 'align' => 'right', 'header' => array('Qty')),
+        'uom' => array('x' => 305, 'width' => 45, 'align' => 'left', 'header' => array('UOM')),
+        'warehouse' => array('x' => 365, 'width' => 170, 'align' => 'left', 'header' => array('Warehouse')),
+        'unitprice' => array('x' => 660, 'width' => 70, 'align' => 'right', 'header' => array('Unit', 'Price')),
+        'total' => array('x' => 755, 'width' => 70, 'align' => 'right', 'header' => array('Total'))
+    );
+
+    $progname_hidden = '';
+    if($_POST['trncde_hidden'] == 'SAL'){
+        $progname_hidden = "Sales";
+    }
+    else if($_POST['trncde_hidden'] == 'SRT'){
+        $progname_hidden = "Sales Return";
+    }
+    else if($_POST['trncde_hidden'] == 'PUR'){
+        $progname_hidden = "Purchases";
+    }
+    else if($_POST['trncde_hidden'] == 'ADJ'){
+        $progname_hidden = "Inventory Adjustments";
+    }
+
+    $xheader = $pdf->openObject();
+    $pdf->saveState();
+    $pdf->ezPlaceData($xleft, $xtop, "<b>".$progname_hidden."</b>", 15, 'left');
+    $xtop -= 15;
+    $pdf->ezPlaceData($xleft, $xtop, "<b>Pdf Report by: ".$_SESSION['userdesc']." (Summarized)</b>", 9, 'left');
+    $xtop -= 15;
+    $pdf->ezPlaceData($xleft, $xtop, 'Date Printed : '.$date_printed, 10, 'left');
+    $xtop -= 15;
+    $pdf->setLineStyle(.5);
+    $pdf->restoreState();
+    $pdf->closeObject();
+    $pdf->addObject($xheader, 'all');
+
+    $select_db = "SELECT * FROM itemfile WHERE true ".str_replace('itemfile.', '', $xfilter);
+    $stmt_main = $link->prepare($select_db);
+    $stmt_main->execute();
     $grand_total = 0;
-    while($rs_main = $stmt_main->fetch()){    
 
-   
+    while($rs_main = $stmt_main->fetch(PDO::FETCH_ASSOC)){
+        $detail_sql = "SELECT tranfile2.*, tranfile1.trndte, tranfile1.ordernum,
+            itemunitmeasurefile.unmdsc AS uom_description,
+            warehouse.warehouse_name,
+            warehouse_floor.floor_no
+            FROM tranfile2
+            LEFT JOIN tranfile1 ON tranfile2.docnum = tranfile1.docnum
+            LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
+            LEFT JOIN warehouse ON tranfile2.warcde = warehouse.warcde
+            LEFT JOIN warehouse_floor ON tranfile2.warehouse_floor_id = warehouse_floor.warehouse_floor_id
+            WHERE tranfile2.itmcde = ? ".$xfilter2."
+            AND tranfile1.trncde = ?
+            ORDER BY tranfile1.trndte ASC, tranfile2.recid ASC";
+        $stmt_main2 = $link->prepare($detail_sql);
+        $stmt_main2->execute(array($rs_main['itmcde'], $_POST['trncde_hidden']));
+        $detail_rows = $stmt_main2->fetchAll(PDO::FETCH_ASSOC);
 
+        if(empty($detail_rows)){
+            continue;
+        }
 
-        $pdf->ezPlaceData(25,$xtop-9,"<b>Item:</b>",10 ,'left');
-        $pdf->ezPlaceData(55,$xtop-9,$rs_main['itmdsc'],10 ,'left');
-        $pdf->line(25, $xtop-12, 770, $xtop-12); 
+        $item_desc_header = normalize_item_text($rs_main['itmdsc']);
+        render_item_section_header($pdf, $xtop, $item_desc_header, $layout);
+        render_detail_header($pdf, $xtop, $layout);
 
-        $xtop-=12;
-        $xleft = 25;
-
-        $pdf->ezPlaceData($xleft,$xtop-9,"<b>Tran. Date</b>",9 ,'left');
-        $pdf->ezPlaceData($xleft+=80,$xtop-9,"<b>Order Num.</b>",9 ,'left');
-        // $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>Customer</b>",9 ,'left');
-        // $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Ordered By</b>",9 ,'left');
-        $pdf->ezPlaceData($xleft+=110,$xtop-9,"<b>Unit Price</b>",9 ,'left');
-        $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Quantity</b>",9 ,'left');
-        $pdf->ezPlaceData($xleft+=60,$xtop-9,"<b>Extended Price</b>",9 ,'left');
-        $pdf->line(25, $xtop-12, 770, $xtop-12); 
-        $xtop-=23;
-
-        // $pdf->restoreState();
-		// $pdf->closeObject();
-		// $pdf->addObject($xheader,'all');
-
-        $select_db2 = "SELECT * FROM tranfile2 LEFT JOIN tranfile1 ON tranfile2.docnum= tranfile1.docnum WHERE itmcde='".$rs_main['itmcde']."' ".$xfilter2." AND tranfile1.trncde='".$_POST['trncde_hidden']."' ORDER BY tranfile1.trndte ASC, tranfile2.recid ASC";
-        $stmt_main2	= $link->prepare($select_db2);
-        $stmt_main2->execute();
         $subtotal = 0;
-    
-        while($rs_main2 = $stmt_main2->fetch()){   
+        foreach($detail_rows as $rs_main2){
+            $ordernum_lines = wrap_str_lines(normalize_item_text(isset($rs_main2['ordernum']) ? $rs_main2['ordernum'] : ''), $layout['ordernum']['width'], 9);
+            $uom_display = isset($rs_main2['uom_description']) ? normalize_item_text($rs_main2['uom_description']) : '';
+            $uom_lines = wrap_str_lines($uom_display, $layout['uom']['width'], 9);
+            $warehouse_display = build_warehouse_display(
+                isset($rs_main2['warehouse_name']) ? $rs_main2['warehouse_name'] : '',
+                isset($rs_main2['floor_no']) ? $rs_main2['floor_no'] : ''
+            );
+            $warehouse_lines = wrap_str_lines(normalize_item_text($warehouse_display), $layout['warehouse']['width'], 9);
 
-            $select_db3 = "SELECT * FROM tranfile1 LEFT JOIN customerfile ON tranfile1.cuscde = customerfile.cuscde WHERE tranfile1.docnum='".$rs_main2['docnum']."'";
-            $stmt_main3	= $link->prepare($select_db3);
-            $stmt_main3->execute();
-            $rs_main3 = $stmt_main3->fetch();
+            $line_count = max(count($ordernum_lines), count($uom_lines), count($warehouse_lines));
+            $row_height = 15 + ((max(1, $line_count) - 1) * $row_line_gap);
 
-            // $pdf->ezPlaceData(625,$xtop,$select_db3,9,"right");
-
-            $xleft = 25;
-            $subtotal+=$rs_main2["extprc"];
-            $grand_total+=$rs_main2["extprc"];
-
-            // $grand_total += $rs_main2["tranfile1_trntot"];
-
-            if(isset($rs_main3["trndte"]) && !empty($rs_main3["trndte"])){
-                $rs_main3["trndte"] = date("m-d-Y",strtotime($rs_main3["trndte"]));
-                $rs_main3["trndte"] = str_replace('-','/',$rs_main3["trndte"]);
-            }
-
-            $pdf->ezPlaceData($xleft,$xtop, $rs_main3['trndte'],9,"left");
-            $pdf->ezPlaceData($xleft+=80,$xtop, trim_str($rs_main3['ordernum'],90,9),9,"left");
-            $pdf->ezPlaceData($xleft+=150,$xtop,number_format($rs_main2["untprc"],2),9,"right");
-            $pdf->ezPlaceData($xleft+=75,$xtop,number_format($rs_main2["itmqty"]),9,"right");
-            $pdf->ezPlaceData($xleft+=95,$xtop,number_format($rs_main2["extprc"],2),9,"right");
-            $xtop -= 15;
-
-                
-            if($xtop <= 60)
-            {
+            if(($xtop - $row_height) <= $page_bottom){
                 $pdf->ezNewPage();
                 $xtop = 530;
-
-                $xheader = $pdf->openObject();
-                $pdf->saveState();
-
-                $pdf->ezPlaceData(25,$xtop-9,"<b>Item:</b>",10 ,'left');
-                $pdf->ezPlaceData(55,$xtop-9,$rs_main['itmdsc'],10 ,'left');
-                $pdf->line(25, $xtop-12, 770, $xtop-12); 
-        
-                $xtop-=12;
-                $xleft = 25;
-        
-                $pdf->ezPlaceData($xleft,$xtop-9,"<b>Tran. Date</b>",9 ,'left');
-                $pdf->ezPlaceData($xleft+=80,$xtop-9,"<b>Order Num.</b>",9 ,'left');
-                // $pdf->ezPlaceData($xleft+=95,$xtop-9,"<b>Customer</b>",9 ,'left');
-                // $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Ordered By</b>",9 ,'left');
-                $pdf->ezPlaceData($xleft+=110,$xtop-9,"<b>Unit Price</b>",9 ,'left');
-                $pdf->ezPlaceData($xleft+=85,$xtop-9,"<b>Quantity</b>",9 ,'left');
-                $pdf->ezPlaceData($xleft+=60,$xtop-9,"<b>Extended Price</b>",9 ,'left');
-                $pdf->line(25, $xtop-12, 770, $xtop-12); 
-                $xtop-=23;
-
-                $pdf->restoreState();
-                $pdf->closeObject();
-                $pdf->addObject($xheader,'add');
+                render_item_section_header($pdf, $xtop, $item_desc_header, $layout);
+                render_detail_header($pdf, $xtop, $layout);
             }
 
+            $row_y = $xtop;
+            $subtotal += (float)$rs_main2["extprc"];
+            $grand_total += (float)$rs_main2["extprc"];
+
+            $trndte_display = '';
+            if(isset($rs_main2["trndte"]) && !empty($rs_main2["trndte"])){
+                $trndte_display = date("m/d/Y", strtotime($rs_main2["trndte"]));
+            }
+
+            $pdf->ezPlaceData($layout['trndte']['x'], $row_y, $trndte_display, 9, $layout['trndte']['align']);
+
+            foreach($ordernum_lines as $idx => $line){
+                $pdf->ezPlaceData($layout['ordernum']['x'], $row_y - ($idx * $row_line_gap), $line, 9, $layout['ordernum']['align']);
+            }
+
+            $pdf->ezPlaceData($layout['qty']['x'], $row_y, number_format((float)$rs_main2["itmqty"]), 9, $layout['qty']['align']);
+
+            foreach($uom_lines as $idx => $line){
+                $pdf->ezPlaceData($layout['uom']['x'], $row_y - ($idx * $row_line_gap), $line, 9, $layout['uom']['align']);
+            }
+
+            foreach($warehouse_lines as $idx => $line){
+                $pdf->ezPlaceData($layout['warehouse']['x'], $row_y - ($idx * $row_line_gap), $line, 9, $layout['warehouse']['align']);
+            }
+
+            $pdf->ezPlaceData($layout['unitprice']['x'], $row_y, number_format((float)$rs_main2["untprc"], 2), 9, $layout['unitprice']['align']);
+            $pdf->ezPlaceData($layout['total']['x'], $row_y, number_format((float)$rs_main2["extprc"], 2), 9, $layout['total']['align']);
+
+            $xtop -= $row_height;
         }
 
-        
-
-
-        $pdf->line(25, $xtop, 770, $xtop); 
-        $pdf->ezPlaceData(305,$xtop-9,"<b>Subtotal:</b>",9 ,'left');
-        $pdf->ezPlaceData(425,$xtop-9,"<b>".number_format($subtotal,2)."</b>",9 ,'right');
-
-        $xtop-=20;
-
-        if($xtop <= 60)
-        {
+        if(($xtop - 20) <= $page_bottom){
             $pdf->ezNewPage();
-            $xtop = 515;
+            $xtop = 530;
+            render_item_section_header($pdf, $xtop, $item_desc_header, $layout);
+            render_detail_header($pdf, $xtop, $layout);
         }
 
-        
+        $pdf->line($page_left, $xtop, $page_right, $xtop);
+        $pdf->ezPlaceData($layout['warehouse']['x'], $xtop - 9, "<b>Subtotal:</b>", 9, 'left');
+        $pdf->ezPlaceData($layout['total']['x'], $xtop - 9, "<b>".number_format($subtotal, 2)."</b>", 9, 'right');
+        $xtop -= 20;
+
+        if($xtop <= $page_bottom){
+            $pdf->ezNewPage();
+            $xtop = 530;
+        }
     }
 
-       
-    $pdf->line(25, $xtop-10, 770, $xtop-10); 
-    $pdf->ezPlaceData(305,$xtop-18,"<b>Grand total:</b>",9 ,'left');
-    $pdf->ezPlaceData(425,$xtop-18,"<b>".number_format($grand_total,2)."</b>",9 ,'right');
-
-    $pdf->line(25, $xtop-10, 770, $xtop-10); 
-	$pdf->addText(30,15,8,"Date Printed : ".date("F j, Y, g:i A"),$angle=0,$wordspaceadjust=1);
-	$pdf->ezStream();
+    $pdf->line($page_left, $xtop - 10, $page_right, $xtop - 10);
+    $pdf->ezPlaceData($layout['warehouse']['x'], $xtop - 18, "<b>Grand total:</b>", 9, 'left');
+    $pdf->ezPlaceData($layout['total']['x'], $xtop - 18, "<b>".number_format($grand_total, 2)."</b>", 9, 'right');
+    $pdf->line($page_left, $xtop - 10, $page_right, $xtop - 10);
+    $pdf->addText(30,15,8,"Date Printed : ".date("F j, Y, g:i A"),$angle=0,$wordspaceadjust=1);
+    $pdf->ezStream();
     ob_end_flush();
 
-    function trim_str($string,$max_wid,$fsize)
-    {   
-        global $pdf;
-        if(  get_class($pdf) == 'tab_ezpdf')
-        {
-            return $string;
+    function output_inventory_adjustment_xls($link, $xfilter, $xfilter2)
+    {
+        global $date_printed;
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Inv Adjustments');
+
+        $sheet->mergeCells('A1:G1');
+        $sheet->setCellValue('A1', 'Inventory Adjustments');
+        $sheet->setCellValue('A2', 'Pdf Report by: ' . $_SESSION['userdesc'] . ' (Summarized)');
+        $sheet->setCellValue('A3', 'Date Printed : ' . $date_printed);
+
+        $row_num = 5;
+        $grand_total = 0;
+        $header_labels = array(
+            'Tran. Date',
+            'Order Num.',
+            'Quantity',
+            'UOM',
+            'Warehouse',
+            'Unit Price',
+            'Total'
+        );
+        $report_trncde = 'ADJ';
+
+        $select_db = "SELECT * FROM itemfile WHERE true ".str_replace('itemfile.', '', $xfilter)." ORDER BY itmdsc ASC";
+        $stmt_main = $link->prepare($select_db);
+        $stmt_main->execute();
+
+        while($rs_main = $stmt_main->fetch(PDO::FETCH_ASSOC)){
+            $detail_sql = "SELECT tranfile2.*, tranfile1.trndte, tranfile1.ordernum,
+                itemunitmeasurefile.unmdsc AS uom_description,
+                warehouse.warehouse_name,
+                warehouse_floor.floor_no
+                FROM tranfile2
+                LEFT JOIN tranfile1 ON tranfile2.docnum = tranfile1.docnum
+                LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
+                LEFT JOIN warehouse ON tranfile2.warcde = warehouse.warcde
+                LEFT JOIN warehouse_floor ON tranfile2.warehouse_floor_id = warehouse_floor.warehouse_floor_id
+                WHERE tranfile2.itmcde = ? ".$xfilter2."
+                AND tranfile1.trncde = ?
+                ORDER BY tranfile1.trndte ASC, tranfile2.recid ASC";
+            $stmt_main2 = $link->prepare($detail_sql);
+            $stmt_main2->execute(array($rs_main['itmcde'], $report_trncde));
+            $detail_rows = $stmt_main2->fetchAll(PDO::FETCH_ASSOC);
+
+            if(empty($detail_rows)){
+                continue;
+            }
+
+            $sheet->mergeCells('A' . $row_num . ':G' . $row_num);
+            $sheet->setCellValue('A' . $row_num, 'Item: ' . xls_safe_text(normalize_item_text($rs_main['itmdsc'])));
+            $sheet->getStyle('A' . $row_num)->getFont()->setBold(true);
+            $sheet->getStyle('A' . $row_num)->getAlignment()->setWrapText(true);
+            $row_num++;
+
+            $sheet->fromArray($header_labels, null, 'A' . $row_num);
+            $sheet->getStyle('A' . $row_num . ':G' . $row_num)->getFont()->setBold(true);
+            $sheet->getStyle('A' . $row_num . ':G' . $row_num)->getAlignment()->setWrapText(true);
+            $row_num++;
+
+            $subtotal = 0;
+            foreach($detail_rows as $detail_row){
+                $trndte_display = '';
+                if(isset($detail_row['trndte']) && !empty($detail_row['trndte'])){
+                    $trndte_display = date("m/d/Y", strtotime($detail_row['trndte']));
+                }
+
+                $warehouse_display = build_warehouse_display(
+                    isset($detail_row['warehouse_name']) ? $detail_row['warehouse_name'] : '',
+                    isset($detail_row['floor_no']) ? $detail_row['floor_no'] : ''
+                );
+
+                $sheet->setCellValue('A' . $row_num, $trndte_display);
+                $sheet->setCellValue('B' . $row_num, xls_safe_text(normalize_item_text(isset($detail_row['ordernum']) ? $detail_row['ordernum'] : '')));
+                $sheet->setCellValue('C' . $row_num, (float)$detail_row['itmqty']);
+                $sheet->setCellValue('D' . $row_num, xls_safe_text(normalize_item_text(isset($detail_row['uom_description']) ? $detail_row['uom_description'] : '')));
+                $sheet->setCellValue('E' . $row_num, xls_safe_text(normalize_item_text($warehouse_display)));
+                $sheet->setCellValue('F' . $row_num, (float)$detail_row['untprc']);
+                $sheet->setCellValue('G' . $row_num, (float)$detail_row['extprc']);
+
+                $subtotal += (float)$detail_row['extprc'];
+                $grand_total += (float)$detail_row['extprc'];
+                $row_num++;
+            }
+
+            $sheet->setCellValue('E' . $row_num, 'Subtotal:');
+            $sheet->setCellValue('G' . $row_num, $subtotal);
+            $sheet->getStyle('E' . $row_num . ':G' . $row_num)->getFont()->setBold(true);
+            $row_num += 2;
         }
-        $xarr_str = str_split($string);
+
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
+        $sheet->setCellValue('E' . $row_num, 'Grand total:');
+        $sheet->setCellValue('G' . $row_num, $grand_total);
+        $sheet->getStyle('E' . $row_num . ':G' . $row_num)->getFont()->setBold(true);
+
+        $numeric_range_end_row = max($row_num, 6);
+        $sheet->getStyle('A1:A3')->getFont()->setBold(true);
+        $sheet->getStyle('A1:G' . $row_num)->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
+        $sheet->getStyle('A1:G' . $row_num)->getAlignment()->setWrapText(true);
+        $sheet->getStyle('C6:C' . $numeric_range_end_row)->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle('F6:G' . $numeric_range_end_row)->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle('C6:C' . $numeric_range_end_row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle('F6:G' . $numeric_range_end_row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
+        $sheet->getColumnDimension('A')->setWidth(14);
+        $sheet->getColumnDimension('B')->setWidth(18);
+        $sheet->getColumnDimension('C')->setWidth(12);
+        $sheet->getColumnDimension('D')->setWidth(12);
+        $sheet->getColumnDimension('E')->setWidth(28);
+        $sheet->getColumnDimension('F')->setWidth(14);
+        $sheet->getColumnDimension('G')->setWidth(16);
+
+        $xfilename = "inventory_item.xls";
+
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment; filename="' . $xfilename . '"');
+        header('Cache-Control: max-age=0');
+        header('Cache-Control: max-age=1');
+        header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
+        header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+        header('Cache-Control: cache, must-revalidate');
+        header('Pragma: public');
+
+        $writer = new Xls($spreadsheet);
+        $writer->save('php://output');
+    }
+
+    function render_item_section_header($pdf, &$xtop, $item_desc_header, $layout)
+    {
+        $item_lines = wrap_str_lines($item_desc_header, 700, 10);
+        $pdf->ezPlaceData($layout['page_left'], $xtop - 9, "<b>Item:</b>", 10, 'left');
+
+        foreach($item_lines as $idx => $line){
+            $pdf->ezPlaceData(55, $xtop - 9 - ($idx * 12), $line, 10, 'left');
+        }
+
+        $item_header_height = max(12, count($item_lines) * 12);
+        $pdf->line($layout['page_left'], $xtop - $item_header_height, $layout['page_right'], $xtop - $item_header_height);
+        $xtop -= $item_header_height;
+    }
+
+    function render_detail_header($pdf, &$xtop, $layout)
+    {
+        $header_top_y = $xtop - 9;
+        $line_gap = 9;
+        $max_lines = 1;
+
+        foreach(array('trndte', 'ordernum', 'qty', 'uom', 'warehouse', 'unitprice', 'total') as $key){
+            $header_lines = $layout[$key]['header'];
+            $max_lines = max($max_lines, count($header_lines));
+            foreach($header_lines as $idx => $line){
+                $pdf->ezPlaceData($layout[$key]['x'], $header_top_y - ($idx * $line_gap), "<b>".$line."</b>", 9, $layout[$key]['align']);
+            }
+        }
+
+        $header_height = 14 + (($max_lines - 1) * $line_gap);
+        $pdf->line($layout['page_left'], $xtop - $header_height, $layout['page_right'], $xtop - $header_height);
+        $xtop -= ($header_height + 11);
+    }
+
+    function build_warehouse_display($warehouse_name, $floor_no)
+    {
+        $warehouse_name = trim((string)$warehouse_name);
+        $floor_no = trim((string)$floor_no);
+        $parts = array();
+
+        if($warehouse_name !== ''){
+            $parts[] = $warehouse_name;
+        }
+
+        if($floor_no !== ''){
+            $parts[] = $floor_no.' floor';
+        }
+
+        return trim(implode(' ', $parts));
+    }
+
+    function normalize_item_text($string)
+    {
+        $string = trim((string)$string);
+        if($string === ''){
+            return '';
+        }
+
+        $search = array('Ã¢â‚¬Å“', 'Ã¢â‚¬Â', 'Ã¢â‚¬Ëœ', 'Ã¢â‚¬â„¢', 'Ã¢â‚¬â€œ', 'Ã¢â‚¬â€', 'Ã‚', 'â€œ', 'â€', 'â€˜', 'â€™', 'â€“', 'â€”');
+        $replace = array('"', '"', "'", "'", '-', '-', '', '"', '"', "'", "'", '-', '-');
+        $string = str_replace($search, $replace, $string);
+        $string = preg_replace('/\s+/', ' ', $string);
+
+        return trim($string);
+    }
+
+    function xls_safe_text($string)
+    {
+        $string = (string)$string;
+
+        if(function_exists('mb_check_encoding') && !mb_check_encoding($string, 'UTF-8')){
+            $string = mb_convert_encoding($string, 'UTF-8', 'UTF-8, Windows-1252, ISO-8859-1');
+        }
+
+        if(function_exists('iconv')){
+            $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $string);
+            if($converted !== false && $converted !== ''){
+                $string = $converted;
+            }
+            else{
+                $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+            }
+        }
+        else{
+            $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+        }
+
+        $string = str_replace(array("\t", "\r", "\n", "\0"), ' ', $string);
+        $string = preg_replace('/[\x00-\x1F\x7F]/', ' ', $string);
+        $string = preg_replace('/\s{2,}/', ' ', $string);
+
+        return trim($string);
+    }
+
+    function wrap_str_lines($string, $max_wid, $fsize)
+    {
+        global $pdf;
+
+        $string = trim((string)$string);
+        if($string === ''){
+            return array('');
+        }
+
         $max_wid -= 5;
-        $xxstr = "";
-        $xcut = false;
-        foreach ($xarr_str as $value) {
-            $xstr_wid = $pdf->getTextWidth($fsize,$xxstr.$value);
-            if($xstr_wid > $max_wid)
-            {   
-                $xcut = true;
+        if($pdf->getTextWidth($fsize, $string) <= $max_wid){
+            return array($string);
+        }
+
+        $wrapped_lines = array();
+        $remaining = $string;
+
+        while($remaining !== ''){
+            if($pdf->getTextWidth($fsize, $remaining) <= $max_wid){
+                $wrapped_lines[] = $remaining;
                 break;
             }
-            $xxstr = $xxstr.$value;
+
+            $line = fit_text_to_width($remaining, $max_wid, $fsize);
+            if($line === ''){
+                $line = substr($remaining, 0, 1);
+            }
+
+            $last_space = strrpos($line, ' ');
+            if($last_space !== false && $last_space > 0){
+                $candidate_line = rtrim(substr($line, 0, $last_space));
+                if($candidate_line !== ''){
+                    $line = $candidate_line;
+                }
+            }
+
+            $wrapped_lines[] = rtrim($line);
+            $remaining = ltrim(substr($remaining, strlen($line)));
         }
-        if($xcut)
-        {   
-            $xxstr = $xxstr.'...';
+
+        if(empty($wrapped_lines)){
+            $wrapped_lines[] = $string;
         }
-        return $xxstr;
+
+        return $wrapped_lines;
     }
 
-    //returns dynamic width
-    function dynamic_width($xstr_chk, $xleft , $spaces ,$xalign_chk){
+    function fit_text_to_width($string, $max_wid, $fsize)
+    {
+        global $pdf;
 
-        if($xalign_chk == "right"){
-            $str_count = strlen($xstr_chk);
-            $xleft_new = $xleft + ($str_count * 4.2) - ($spaces * 4.2);
-            return $xleft_new+5;
-        }else if($xalign_chk == "left"){
-
-            $xleft_new = $xleft + ($spaces * 4.2);
-            return $xleft_new;
+        $string = (string)$string;
+        if($string === ''){
+            return '';
         }
 
-        else if($xalign_chk == "cus_left"){
-            $str_count = strlen($xstr_chk);
-            $xleft_new = $xleft + ($str_count * 4.2) + ($spaces * 4.2);
-            return $xleft_new;
+        $limit_wid = max(1, $max_wid);
+        $xarr_str = str_split($string);
+        $xxstr = '';
+
+        foreach($xarr_str as $value){
+            $xstr_wid = $pdf->getTextWidth($fsize, $xxstr.$value);
+            if($xstr_wid > $limit_wid){
+                break;
+            }
+            $xxstr .= $value;
         }
-        
 
-
+        return rtrim($xxstr);
     }
-
-
 ?>

@@ -33,6 +33,103 @@ $response = [
     "warningUpload" => 0
 ];
 
+$_SESSION['sales_upload_result_summary'] = array();
+$_SESSION['sales_upload_result_platform'] = '';
+$_SESSION['sales_upload_result_generated_at'] = '';
+
+$selected_warcde = isset($_POST['warcde']) ? trim((string)$_POST['warcde']) : '';
+$selected_warehouse_floor_id = isset($_POST['warehouse_floor_id']) ? trim((string)$_POST['warehouse_floor_id']) : '';
+$current_usercode = isset($_POST['usercode']) && trim((string)$_POST['usercode']) !== ''
+    ? trim((string)$_POST['usercode'])
+    : (isset($_SESSION['usercode']) ? trim((string)$_SESSION['usercode']) : '');
+
+if($selected_warcde === '' || $selected_warehouse_floor_id === ''){
+    $response["status"] = 0;
+    $response["errorMsg"] = "Please select both Warehouse and Warehouse Floor before uploading.";
+    echo json_encode($response);
+    exit;
+}
+
+function sales_upload_add_result(&$response, $orderNumber, $success, $reason = ''){
+    $orderNumber = trim((string)$orderNumber);
+    if($orderNumber === ''){
+        return;
+    }
+
+    $messageReason = $reason !== '' ? $reason : ($success ? 'Inserted successfully' : 'Already exists');
+    $statusLabel = $success ? 'Success' : 'Failed';
+
+    if(!$success && strcasecmp($messageReason, 'Already exists') === 0){
+        $statusLabel = 'Duplicate Records';
+    }
+
+    $response["noMatchFile2"][$orderNumber] = array(
+        "success" => $success,
+        "ordernum" => $orderNumber,
+        "reason" => $messageReason,
+        "status_label" => $statusLabel,
+        "message" => " Order Number: <b>".$orderNumber."</b> ".strtolower($messageReason)
+    );
+}
+
+function sales_upload_order_results($results){
+    $failed = array();
+    $successful = array();
+
+    foreach($results as $record){
+        if(isset($record['success']) && $record['success'] === false){
+            $failed[] = $record;
+            continue;
+        }
+
+        $successful[] = $record;
+    }
+
+    return array_merge($failed, $successful);
+}
+
+function sales_upload_collect_order_numbers($sheet, $startRow, $orderNumberIndex){
+    $orderNumbers = array();
+
+    foreach($sheet->getRowIterator($startRow) as $row){
+        $orderNumber = getCellValueAsString($sheet->getCellByColumnAndRow($orderNumberIndex, $row->getRowIndex()));
+        $orderNumber = trim((string)$orderNumber);
+        if($orderNumber === ''){
+            continue;
+        }
+
+        $orderNumbers[$orderNumber] = $orderNumber;
+    }
+
+    return array_values($orderNumbers);
+}
+
+function sales_upload_get_existing_ordernums($link, $orderNumbers, $file_batchno){
+    $existingOrderMap = array();
+    if(empty($orderNumbers)){
+        return $existingOrderMap;
+    }
+
+    $chunks = array_chunk($orderNumbers, 500);
+    foreach($chunks as $chunk){
+        $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+        $selectExisting = "SELECT ordernum FROM tranfile1 WHERE ordernum IN (".$placeholders.") AND file_batchno != ?";
+        $params = $chunk;
+        $params[] = $file_batchno;
+
+        $stmtExisting = $link->prepare($selectExisting);
+        $stmtExisting->execute($params);
+        while($rsExisting = $stmtExisting->fetch()){
+            $existingOrdernum = isset($rsExisting['ordernum']) ? trim((string)$rsExisting['ordernum']) : '';
+            if($existingOrdernum !== ''){
+                $existingOrderMap[$existingOrdernum] = true;
+            }
+        }
+    }
+
+    return $existingOrderMap;
+}
+
 
 if ($_FILES['xfile']['error'] === 0) {
     $filePath = $_FILES['xfile']['tmp_name'];
@@ -95,6 +192,23 @@ if ($_FILES['xfile']['error'] === 0) {
     $fileName = $_FILES['xfile']['name'];
     $current_dateTime = date('Y-m-d H:i:s');
     $file_batchno = $_POST['platform_name'].'_'.$fileName.'_'.$current_dateTime;
+    $selected_warehouse_staff_id = isset($_POST['warehouse_staff_id']) ? trim((string)$_POST['warehouse_staff_id']) : '';
+
+    // Fetch the unmcde for 'pcs' from itemunitmeasurefile - NEVER hardcode UOM values
+    $default_unmcde = '';
+    $select_db_uom = "SELECT unmcde FROM itemunitmeasurefile WHERE LOWER(unmdsc) = 'pcs' LIMIT 1";
+    $stmt_uom = $link->prepare($select_db_uom);
+    $stmt_uom->execute();
+    $rs_uom = $stmt_uom->fetch();
+    if($rs_uom && !empty($rs_uom['unmcde'])){
+        $default_unmcde = $rs_uom['unmcde'];
+    } else {
+        // If 'pcs' UOM not found, return error and prevent upload
+        $response["status"] = 0;
+        $response["errorMsg"] = "Error: Unit of Measure 'pcs' not found in itemunitmeasurefile. Please add it before uploading sales.";
+        echo json_encode($response);
+        exit;
+    }
 
 
     $select_db_column_equivalent="SELECT * FROM sales_upload_column";
@@ -207,6 +321,10 @@ if ($_FILES['xfile']['error'] === 0) {
         $platform_search = 'Lazada';
     }
 
+    $upload_start_row = strtolower($_POST['platform_name']) == 'tiktok' ? 3 : 2;
+    $upload_order_numbers = sales_upload_collect_order_numbers($sheet, $upload_start_row, $orderNumberIndex);
+    $existing_ordernum_map = sales_upload_get_existing_ordernums($link, $upload_order_numbers, $file_batchno);
+
     //CHECK IF EXIST ALREADY BASED ON ORDERNUM
     $select_db_platform="SELECT * FROM customerfile WHERE cusdsc LIKE '%".$platform_search."%' LIMIT 1";
     $stmt_platform	= $link->prepare($select_db_platform);
@@ -233,15 +351,8 @@ if ($_FILES['xfile']['error'] === 0) {
             }
 
             //CHECK IF EXIST ALREADY BASED ON ORDERNUM
-            $select_db_checker="SELECT * FROM tranfile1 WHERE ordernum='".$orderNumber."' AND file_batchno !='".$file_batchno."'";
-            $stmt_checker	= $link->prepare($select_db_checker);
-            $stmt_checker->execute();
-            $rs_checker = $stmt_checker->fetch();
-            if(!empty($rs_checker)){
-
-                $response["noMatchFile2"][$orderNumber]["success"] = false;
-                $response["noMatchFile2"][$orderNumber]["ordernum"] = $orderNumber;
-                $response["noMatchFile2"][$orderNumber]["message"] = " Order Number: <b>".$orderNumber."</b> already exist";
+            if(isset($existing_ordernum_map[$orderNumber])){
+                sales_upload_add_result($response, $orderNumber, false, 'Already exists');
                 continue;
             }
 
@@ -271,6 +382,7 @@ if ($_FILES['xfile']['error'] === 0) {
                 $arr_add['platform_upload'] = $_POST['platform_name'];
                 $arr_add['datetime_upload'] = $current_dateTime;
                 $arr_add['can_change_ordernum'] = 'true';
+                $arr_add['usercode'] = $current_usercode;
                 PDO_InsertRecord($link,'tranfile1',$arr_add, false);
             }else{
                 $docnum = $prevDocnum;
@@ -315,9 +427,13 @@ if ($_FILES['xfile']['error'] === 0) {
             $arr_add2['untprc'] = $untprc;
             $arr_add2['itmqty'] = $itmqty;
             $arr_add2['stkqty'] =  -1*($itmqty);
-            $arr_add2['extprc'] = $extprc;  
+            $arr_add2['extprc'] = $extprc;
             $arr_add2['platform_upload'] = $_POST['platform_name'];
-            $arr_add2['datetime_upload'] = $current_dateTime;  
+            $arr_add2['datetime_upload'] = $current_dateTime;
+            $arr_add2['warcde'] = $selected_warcde;
+            $arr_add2['warehouse_floor_id'] = $selected_warehouse_floor_id;
+            $arr_add2['warehouse_staff_id'] = $selected_warehouse_staff_id;
+            $arr_add2['unmcde'] = $default_unmcde;
             PDO_InsertRecord($link,'tranfile2',$arr_add2, false);
 
             //CHECKING HOW MUCH IS IN TRANFILE1 AND HTEN ADDING
@@ -328,8 +444,8 @@ if ($_FILES['xfile']['error'] === 0) {
 
             $arr_record_upd = array();
             $arr_record_upd['trntot'] 	= $rs_extprc_check['trntot'] + $extprc;
-            PDO_UpdateRecord($link,"tranfile1",$arr_record_upd,"recid = ?",array($rs_extprc_check['recid']));   
-            
+            PDO_UpdateRecord($link,"tranfile1",$arr_record_upd,"recid = ?",array($rs_extprc_check['recid']));
+
             //INSERTS INTO THE RECORD NUMBER
             $arr_add3 = array();
             $arr_add3['docnum'] = $docnum;
@@ -341,21 +457,19 @@ if ($_FILES['xfile']['error'] === 0) {
             $arr_add3['ordernum'] = $orderNumber;
             $arr_add3['untprc'] = $untprc;
             $arr_add3['itmqty'] = $itmqty;
-            $arr_add3['extprc'] = $extprc;   
-            $arr_add3['datetime_upload'] = $current_dateTime;   
+            $arr_add3['extprc'] = $extprc;
+            $arr_add3['datetime_upload'] = $current_dateTime;
             PDO_InsertRecord($link,'upld_salesfile',$arr_add3, false);
-            
+
             //gets the orernumber of the previous
             $prevOrderNumber = $orderNumber;
             $prevDocnum = $docnum;
 
-            $response["noMatchFile2"][$orderNumber]["success"] = true;
-            $response["noMatchFile2"][$orderNumber]["ordernum"] = $orderNumber;
-            $response["noMatchFile2"][$orderNumber]["message"] = " Order Number: <b>".$orderNumber."</b> successfully created as sales.";
+            sales_upload_add_result($response, $orderNumber, true, 'Inserted successfully');
 
-            
 
-    }    
+
+    }
    }else if(strtolower($_POST['platform_name']) == 'shopee'){
         foreach($sheet->getRowIterator(2) as $row) {
 
@@ -376,15 +490,8 @@ if ($_FILES['xfile']['error'] === 0) {
             }
 
             //CHECK IF EXIST ALREADY BASED ON ORDERNUM
-            $select_db_checker="SELECT * FROM tranfile1 WHERE ordernum='".$orderNumber."' AND file_batchno !='".$file_batchno."'";
-            $stmt_checker	= $link->prepare($select_db_checker);
-            $stmt_checker->execute();
-            $rs_checker = $stmt_checker->fetch();
-            if(!empty($rs_checker)){
-
-                $response["noMatchFile2"][$orderNumber]["success"] = false;
-                $response["noMatchFile2"][$orderNumber]["ordernum"] = $orderNumber;
-                $response["noMatchFile2"][$orderNumber]["message"] = " Order Number: <b>".$orderNumber."</b> already exist";
+            if(isset($existing_ordernum_map[$orderNumber])){
+                sales_upload_add_result($response, $orderNumber, false, 'Already exists');
                 continue;
             }
 
@@ -415,6 +522,7 @@ if ($_FILES['xfile']['error'] === 0) {
                 $arr_add['platform_upload'] = $_POST['platform_name'];
                 $arr_add['datetime_upload'] = $current_dateTime;
                 $arr_add['can_change_ordernum'] = 'true';
+                $arr_add['usercode'] = $current_usercode;
                 PDO_InsertRecord($link,'tranfile1',$arr_add, false);
             }else{
                 $docnum = $prevDocnum;
@@ -459,9 +567,13 @@ if ($_FILES['xfile']['error'] === 0) {
             $arr_add2['untprc'] = $untprc;
             $arr_add2['itmqty'] = $itmqty;
             $arr_add2['stkqty'] =  -1*($itmqty);
-            $arr_add2['extprc'] = $extprc;  
+            $arr_add2['extprc'] = $extprc;
             $arr_add2['platform_upload'] = $_POST['platform_name'];
-            $arr_add2['datetime_upload'] = $current_dateTime;  
+            $arr_add2['datetime_upload'] = $current_dateTime;
+            $arr_add2['warcde'] = $selected_warcde;
+            $arr_add2['warehouse_floor_id'] = $selected_warehouse_floor_id;
+            $arr_add2['warehouse_staff_id'] = $selected_warehouse_staff_id;
+            $arr_add2['unmcde'] = $default_unmcde;
             PDO_InsertRecord($link,'tranfile2',$arr_add2, false);
 
             //CHECKING HOW MUCH IS IN TRANFILE1 AND HTEN ADDING
@@ -472,8 +584,8 @@ if ($_FILES['xfile']['error'] === 0) {
 
             $arr_record_upd = array();
             $arr_record_upd['trntot'] 	= $rs_extprc_check['trntot'] + $extprc;
-            PDO_UpdateRecord($link,"tranfile1",$arr_record_upd,"recid = ?",array($rs_extprc_check['recid']));   
-            
+            PDO_UpdateRecord($link,"tranfile1",$arr_record_upd,"recid = ?",array($rs_extprc_check['recid']));
+
             //INSERTS INTO THE RECORD NUMBER
             $arr_add3 = array();
             $arr_add3['docnum'] = $docnum;
@@ -485,18 +597,16 @@ if ($_FILES['xfile']['error'] === 0) {
             $arr_add3['ordernum'] = $orderNumber;
             $arr_add3['untprc'] = $untprc;
             $arr_add3['itmqty'] = $itmqty;
-            $arr_add3['extprc'] = $extprc;   
-            $arr_add3['datetime_upload'] = $current_dateTime;   
+            $arr_add3['extprc'] = $extprc;
+            $arr_add3['datetime_upload'] = $current_dateTime;
             PDO_InsertRecord($link,'upld_salesfile',$arr_add3, false);
-            
+
             //gets the orernumber of the previous
             $prevOrderNumber = $orderNumber;
             $prevDocnum = $docnum;
 
-            $response["noMatchFile2"][$orderNumber]["success"] = true;
-            $response["noMatchFile2"][$orderNumber]["ordernum"] = $orderNumber;
-            $response["noMatchFile2"][$orderNumber]["message"] = " Order Number: <b>".$orderNumber."</b> successfully created as sales.";
-    } 
+            sales_upload_add_result($response, $orderNumber, true, 'Inserted successfully');
+    }
    }else if(strtolower($_POST['platform_name']) == 'lazada'){
         foreach($sheet->getRowIterator(2) as $row) {
 
@@ -542,15 +652,8 @@ if ($_FILES['xfile']['error'] === 0) {
             $trndte = $date_format->format('Y-m-d');
 
             //CHECK IF EXIST ALREADY BASED ON ORDERNUM
-            $select_db_checker="SELECT * FROM tranfile1 WHERE ordernum='".$orderNumber."' AND file_batchno !='".$file_batchno."'";
-            $stmt_checker	= $link->prepare($select_db_checker);
-            $stmt_checker->execute();
-            $rs_checker = $stmt_checker->fetch();
-            if(!empty($rs_checker)){
-
-                $response["noMatchFile2"][$orderNumber]["success"] = false;
-                $response["noMatchFile2"][$orderNumber]["ordernum"] = $orderNumber;
-                $response["noMatchFile2"][$orderNumber]["message"] = " Order Number: <b>".$orderNumber."</b> already exist";
+            if(isset($existing_ordernum_map[$orderNumber])){
+                sales_upload_add_result($response, $orderNumber, false, 'Already exists');
                 continue;
             }
 
@@ -579,6 +682,7 @@ if ($_FILES['xfile']['error'] === 0) {
                 $arr_add['platform_upload'] = $_POST['platform_name'];
                 $arr_add['datetime_upload'] = $current_dateTime;
                 $arr_add['can_change_ordernum'] = 'true';
+                $arr_add['usercode'] = $current_usercode;
                 PDO_InsertRecord($link,'tranfile1',$arr_add, false);
             }else{
                 $docnum = $prevDocnum;
@@ -623,9 +727,13 @@ if ($_FILES['xfile']['error'] === 0) {
             $arr_add2['untprc'] = $untprc;
             $arr_add2['itmqty'] = $itmqty;
             $arr_add2['stkqty'] =  -1*($itmqty);
-            $arr_add2['extprc'] = $extprc;  
+            $arr_add2['extprc'] = $extprc;
             $arr_add2['platform_upload'] = $_POST['platform_name'];
-            $arr_add2['datetime_upload'] = $current_dateTime;  
+            $arr_add2['datetime_upload'] = $current_dateTime;
+            $arr_add2['warcde'] = $selected_warcde;
+            $arr_add2['warehouse_floor_id'] = $selected_warehouse_floor_id;
+            $arr_add2['warehouse_staff_id'] = $selected_warehouse_staff_id;
+            $arr_add2['unmcde'] = $default_unmcde;
             PDO_InsertRecord($link,'tranfile2',$arr_add2, false);
 
             //CHECKING HOW MUCH IS IN TRANFILE1 AND HTEN ADDING
@@ -636,8 +744,8 @@ if ($_FILES['xfile']['error'] === 0) {
 
             $arr_record_upd = array();
             $arr_record_upd['trntot'] 	= $rs_extprc_check['trntot'] + $extprc;
-            PDO_UpdateRecord($link,"tranfile1",$arr_record_upd,"recid = ?",array($rs_extprc_check['recid']));   
-            
+            PDO_UpdateRecord($link,"tranfile1",$arr_record_upd,"recid = ?",array($rs_extprc_check['recid']));
+
             //INSERTS INTO THE RECORD NUMBER
             $arr_add3 = array();
             $arr_add3['docnum'] = $docnum;
@@ -649,18 +757,16 @@ if ($_FILES['xfile']['error'] === 0) {
             $arr_add3['ordernum'] = $orderNumber;
             $arr_add3['untprc'] = $untprc;
             $arr_add3['itmqty'] = $itmqty;
-            $arr_add3['extprc'] = $extprc;   
-            $arr_add3['datetime_upload'] = $current_dateTime;   
+            $arr_add3['extprc'] = $extprc;
+            $arr_add3['datetime_upload'] = $current_dateTime;
             PDO_InsertRecord($link,'upld_salesfile',$arr_add3, false);
-            
+
             //gets the orernumber of the previous
             $prevOrderNumber = $orderNumber;
             $prevDocnum = $docnum;
 
-            $response["noMatchFile2"][$orderNumber]["success"] = true;
-            $response["noMatchFile2"][$orderNumber]["ordernum"] = $orderNumber;
-            $response["noMatchFile2"][$orderNumber]["message"] = " Order Number: <b>".$orderNumber."</b> successfully created as sales.";
-    } 
+            sales_upload_add_result($response, $orderNumber, true, 'Inserted successfully');
+    }
    }
 
     // ----- SAVES THE FILE INTO saleshistory_files ------
@@ -769,6 +875,13 @@ function parseOrders($input) {
 }
 
 
+
+if($response["status"] == 1){
+    $response["upload_results"] = sales_upload_order_results(array_values($response["noMatchFile2"]));
+    $_SESSION['sales_upload_result_summary'] = $response["upload_results"];
+    $_SESSION['sales_upload_result_platform'] = isset($_POST['platform_name']) ? trim((string)$_POST['platform_name']) : '';
+    $_SESSION['sales_upload_result_generated_at'] = date('Y-m-d H:i:s');
+}
 
 echo json_encode($response);
 ?>

@@ -2,12 +2,22 @@
 //error_reporting(E_ALL);
 //ini_set('display_errors',true);
 ini_set('memory_limit',-1);
+
+// DEBUG FLAG: Set to true to enable debug logging, false to disable
+// Logs are written to PHP error log (check php_error.log or Apache error.log)
+$DEBUG_ROLLING_SALES = false;
     session_start();
     require_once("resources/db_init.php") ;
 	require_once("resources/connect4.php");
     require_once("resources/lx2.pdodb.php");
     require_once('ezpdfclass/class/class.ezpdf.php');
 	require_once('resources/func_pdf2tab.php');
+    require_once('vendor/autoload.php');
+
+    use PhpOffice\PhpSpreadsheet\Spreadsheet;
+    use PhpOffice\PhpSpreadsheet\Style\Alignment;
+    use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+    use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
     $tab_file_type = 'xlsx';
     $is_tab_export = (isset($_POST['txt_output_type']) && $_POST['txt_output_type'] == 'tab');
@@ -31,26 +41,17 @@ ini_set('memory_limit',-1);
     $xremarks_log = "Exported ".$export_label." from Top Sales Item";
     PDO_UserActivityLog($link, $username_session, '', $xtrndte_log, $xprog_module_log, $xactivity_log, $username_full_name, $xremarks_log, 0, '', '', '', '', $username_session, '', '');
 
-    ob_start();
-
     $xreport_title = "Top Sales Items";
 
-
-    if ($is_tab_export)
-	{
-		$pdf = new tab_ezpdf('Letter','landscape');
-	}
-	else
-	{
-		$pdf = new Cezpdf('Letter','landscape');
-
-	}
-
-    $pdf ->selectFont("ezpdfclass/fonts/Helvetica.afm");
-
-	$pdf->ezStartPageNumbers(700,15,8,'right','Page {PAGENUM}  of  {TOTALPAGENUM}',1);
     date_default_timezone_set('Asia/Manila');
     $date_printed = date("F j, Y h:i:s A");
+
+    if (!$is_tab_export) {
+        ob_start();
+        $pdf = new Cezpdf('Letter','landscape');
+        $pdf->selectFont("ezpdfclass/fonts/Helvetica.afm");
+        $pdf->ezStartPageNumbers(700,15,8,'right','Page {PAGENUM}  of  {TOTALPAGENUM}',1);
+    }
 
 	$xtop = 570;
     $xleft = 25;
@@ -65,6 +66,7 @@ ini_set('memory_limit',-1);
     $head_date_to=date('m-d-Y');
     $xfilter = '';
     $xfilter_current_stock = '';
+    $xfilter_amount = '';
     $date_from_sql = '';
     $date_to_sql = '';
     $current_stock_qty_sort = 'asc';
@@ -99,6 +101,7 @@ ini_set('memory_limit',-1);
 
         $xfilter .= " AND main_tranfile1.trndte>='".$date_from_sql."'";
         $xfilter_current_stock .= " AND stock_tranfile1.trndte>='".$date_from_sql."'";
+        $xfilter_amount .= " AND amount_tranfile1.trndte>='".$date_from_sql."'";
     }
 
     if(isset($_POST['date_to']) && !empty($_POST['date_to'])){
@@ -108,29 +111,39 @@ ini_set('memory_limit',-1);
 
         $xfilter .= " AND main_tranfile1.trndte<='".$date_to_sql."'";
         $xfilter_current_stock .= " AND stock_tranfile1.trndte<='".$date_to_sql."'";
+        $xfilter_amount .= " AND amount_tranfile1.trndte<='".$date_to_sql."'";
     }
 
-    // Anchor rolling 30/60/90-day columns to selected Date To, otherwise to latest SAL trndte.
-    $latest_sales_date = $date_to_sql;
-    if(empty($latest_sales_date)){
-        $select_latest_date = "SELECT MAX(trndte) AS latest_trndte FROM tranfile1 WHERE trncde='SAL'";
-        if(!empty($date_from_sql)){
-            $select_latest_date .= " AND trndte>='".$date_from_sql."'";
-        }
-        $stmt_latest_date = $link->prepare($select_latest_date);
-        $stmt_latest_date->execute();
-        $rs_latest_date = $stmt_latest_date->fetch();
-        if($rs_latest_date && !empty($rs_latest_date['latest_trndte'])){
-            $latest_sales_date = date("Y-m-d", strtotime($rs_latest_date['latest_trndte']));
-        }
+    // Rolling 30/60/90-day columns ALWAYS use today's date as the reference (current system date).
+    // 30D = today minus 30 days through today
+    // 60D = today minus 2 months through today
+    // 90D = today minus 3 months through today
+    $today_date = date("Y-m-d"); // Always today
+    $head_rolling_sales_date = date("m-d-Y"); // For display in header
+    $past_30_start = date("Y-m-d", strtotime("-30 days"));
+    $past_60_start = date("Y-m-d", strtotime("-2 months"));
+    $past_90_start = date("Y-m-d", strtotime("-3 months"));
+
+    // DEBUG: Log rolling date ranges
+    if($DEBUG_ROLLING_SALES){
+        error_log("=== TOP_SALES_ITEM_PDF DEBUG START ===");
+        error_log("[ROLLING_SALES] Today: " . $today_date);
+        error_log("[ROLLING_SALES] 30D Window: " . $past_30_start . " to " . $today_date);
+        error_log("[ROLLING_SALES] 60D Window: " . $past_60_start . " to " . $today_date);
+        error_log("[ROLLING_SALES] 90D Window: " . $past_90_start . " to " . $today_date);
+        error_log("[ROLLING_SALES] User Date Filter - From: " . ($date_from_sql ?: 'not set') . " | To: " . ($date_to_sql ?: 'not set'));
     }
-    if(empty($latest_sales_date)){
-        $latest_sales_date = date("Y-m-d");
+
+    // For cost lookup, use Date To if specified, otherwise today's date
+    $latest_cost_date_to = !empty($date_to_sql) ? $date_to_sql : $today_date;
+
+    $pcs_unmcde = '';
+    $stmt_pcs = $link->prepare("SELECT unmcde FROM itemunitmeasurefile WHERE LOWER(unmdsc) = 'pcs' LIMIT 1");
+    $stmt_pcs->execute();
+    $rs_pcs = $stmt_pcs->fetch();
+    if($rs_pcs && !empty($rs_pcs['unmcde'])){
+        $pcs_unmcde = $rs_pcs['unmcde'];
     }
-    $head_latest_sales_date = date("m-d-Y", strtotime($latest_sales_date));
-    $past_30_start = date("Y-m-d", strtotime($latest_sales_date." -29 days"));
-    $past_60_start = date("Y-m-d", strtotime($latest_sales_date." -59 days"));
-    $past_90_start = date("Y-m-d", strtotime($latest_sales_date." -89 days"));
 
         $line_right = 760;
     $col_item = 20;
@@ -146,6 +159,7 @@ ini_set('memory_limit',-1);
 
 
 
+if (!$is_tab_export) {
 		$xheader = $pdf->openObject();
         $pdf->saveState();
         $pdf->ezPlaceData($xleft, $xtop,"<b>Top Sales Report (by Items)</b>", 15, 'left' );
@@ -156,7 +170,7 @@ ini_set('memory_limit',-1);
         $xtop   -= 15;
         $pdf->ezPlaceData($xleft, $xtop, "Sales Date Range : ".$head_date_from." to ".$head_date_to, 10, 'left' );
         $xtop   -= 15;
-        $pdf->ezPlaceData($xleft, $xtop, "Rolling Sales As Of : ".$head_latest_sales_date, 10, 'left' );
+        $pdf->ezPlaceData($xleft, $xtop, "Rolling Sales As Of : ".$head_rolling_sales_date, 10, 'left' );
 
 
         // $pdf->ezPlaceData($xleft, $xtop,$_POST['search_hidden_dd'].":", 9, 'left' );
@@ -177,10 +191,10 @@ ini_set('memory_limit',-1);
 
         $pdf->ezPlaceData($col_item,$xheader_base_y,"<b>Item</b>",10,'left');
         $pdf->ezPlaceData($col_amount,$xheader_base_y,"<b>Amount</b>",10,'right');
-        $pdf->ezPlaceData($col_qty,$xheader_base_y,"<b>Qty</b>",10,'right');
-        $pdf->ezPlaceData($col_sales_30,$xheader_base_y,"<b>Sales 30D</b>",9,'right');
-        $pdf->ezPlaceData($col_sales_60,$xheader_base_y,"<b>Sales 60D</b>",9,'right');
-        $pdf->ezPlaceData($col_sales_90,$xheader_base_y,"<b>Sales 90D</b>",9,'right');
+        $pdf->ezPlaceData($col_qty,$xheader_base_y,"<b>Total Qty</b>",10,'right');
+        $pdf->ezPlaceData($col_sales_30,$xheader_base_y,"<b>Sales Qty 30D</b>",9,'right');
+        $pdf->ezPlaceData($col_sales_60,$xheader_base_y,"<b>Sales Qty 60D</b>",9,'right');
+        $pdf->ezPlaceData($col_sales_90,$xheader_base_y,"<b>Sales Qty 90D</b>",9,'right');
         $pdf->ezPlaceData($col_current_stock,$xheader_base_y,"<b>Current Stock</b>",9,'right');
         $pdf->ezPlaceData($col_cost,$xheader_base_y,"<b>Cost</b>",9,'right');
         $pdf->ezPlaceData($col_current_inventory_valuation,$xheader_base_y,"<b>Current Inventory</b>",7,'right');
@@ -192,6 +206,7 @@ ini_set('memory_limit',-1);
 		$pdf->restoreState();
 		$pdf->closeObject();
 		$pdf->addObject($xheader,'all');
+    }
 
 	/***header**/
 
@@ -209,19 +224,62 @@ ini_set('memory_limit',-1);
     }
 
 
+// Rolling sales quantity uses subqueries independent of main date filter - always based on today's date
+// Pattern: SELECT SUM(tranfile2.stkqty) * -1 FROM tranfile1 LEFT JOIN tranfile2 WHERE itmcde=X AND trndte>=start AND trndte<=today
 $select_db_base="SELECT itemfile.itmdsc as itmdsc,
-    SUM(main_tranfile2.extprc) as tot_extprc,
-    SUM(main_tranfile2.itmqty) as tot_itmqty,
-    SUM(CASE WHEN main_tranfile1.trndte>='".$past_30_start."' AND main_tranfile1.trndte<='".$latest_sales_date."' THEN main_tranfile2.extprc ELSE 0 END) AS sales_past_30,
-    SUM(CASE WHEN main_tranfile1.trndte>='".$past_30_start."' AND main_tranfile1.trndte<='".$latest_sales_date."' THEN main_tranfile2.itmqty ELSE 0 END) AS qty_past_30,
-    SUM(CASE WHEN main_tranfile1.trndte>='".$past_60_start."' AND main_tranfile1.trndte<='".$latest_sales_date."' THEN main_tranfile2.extprc ELSE 0 END) AS sales_past_60,
-    SUM(CASE WHEN main_tranfile1.trndte>='".$past_90_start."' AND main_tranfile1.trndte<='".$latest_sales_date."' THEN main_tranfile2.extprc ELSE 0 END) AS sales_past_90,
+    main_tranfile2.itmcde as itmcde,
+    COALESCE((
+        SELECT SUM(amount_tranfile2.extprc)
+        FROM tranfile2 amount_tranfile2
+        LEFT JOIN tranfile1 amount_tranfile1 ON amount_tranfile2.docnum = amount_tranfile1.docnum
+        WHERE amount_tranfile2.itmcde = main_tranfile2.itmcde
+          AND amount_tranfile1.trncde = 'SAL'".$xfilter_amount."
+    ), 0) AS tot_extprc,
+    SUM(main_tranfile2.stkqty * -1) as tot_itmqty,
+    COALESCE((
+        SELECT SUM(t2.stkqty) * -1
+        FROM tranfile1 t1
+        LEFT JOIN tranfile2 t2 ON t1.docnum = t2.docnum
+        WHERE t2.itmcde = main_tranfile2.itmcde
+          AND t1.trncde = 'SAL'
+          AND t1.trndte >= '".$past_30_start."'
+          AND t1.trndte <= '".$today_date."'
+    ), 0) AS sales_past_30,
+    COALESCE((
+        SELECT SUM(t2.itmqty)
+        FROM tranfile1 t1
+        LEFT JOIN tranfile2 t2 ON t1.docnum = t2.docnum
+        WHERE t2.itmcde = main_tranfile2.itmcde
+          AND t1.trncde = 'SAL'
+          AND t1.trndte >= '".$past_30_start."'
+          AND t1.trndte <= '".$today_date."'
+    ), 0) AS qty_past_30,
+    COALESCE((
+        SELECT SUM(t2.stkqty) * -1
+        FROM tranfile1 t1
+        LEFT JOIN tranfile2 t2 ON t1.docnum = t2.docnum
+        WHERE t2.itmcde = main_tranfile2.itmcde
+          AND t1.trncde = 'SAL'
+          AND t1.trndte >= '".$past_60_start."'
+          AND t1.trndte <= '".$today_date."'
+    ), 0) AS sales_past_60,
+    COALESCE((
+        SELECT SUM(t2.stkqty) * -1
+        FROM tranfile1 t1
+        LEFT JOIN tranfile2 t2 ON t1.docnum = t2.docnum
+        WHERE t2.itmcde = main_tranfile2.itmcde
+          AND t1.trncde = 'SAL'
+          AND t1.trndte >= '".$past_90_start."'
+          AND t1.trndte <= '".$today_date."'
+    ), 0) AS sales_past_90,
     COALESCE((
         SELECT pur_tranfile2.untprc
         FROM tranfile2 pur_tranfile2
         LEFT JOIN tranfile1 pur_tranfile1 ON pur_tranfile2.docnum=pur_tranfile1.docnum
         WHERE pur_tranfile2.itmcde=main_tranfile2.itmcde
           AND pur_tranfile1.trncde='PUR'
+          AND pur_tranfile1.trndte<='".$latest_cost_date_to."'" . ($pcs_unmcde !== '' ? "
+          AND pur_tranfile2.unmcde='".$pcs_unmcde."'" : "") . "
         ORDER BY pur_tranfile1.trndte DESC, pur_tranfile2.recid DESC
         LIMIT 1
     ),0) AS latest_cost,
@@ -238,6 +296,7 @@ $select_db_base="SELECT itemfile.itmdsc as itmdsc,
     GROUP BY main_tranfile2.itmcde";
 
 $select_db = "SELECT base.itmdsc,
+    base.itmcde,
     base.tot_extprc,
     base.tot_itmqty,
     base.sales_past_30,
@@ -255,11 +314,58 @@ $select_db = "SELECT base.itmdsc,
 
 
 
+    // DEBUG: Log the generated SQL query
+    if($DEBUG_ROLLING_SALES){
+        error_log("[ROLLING_SALES] Generated SQL Query:");
+        error_log($select_db);
+    }
+
     $stmt_main	= $link->prepare($select_db);
     $stmt_main->execute();
     $grand_total = 0;
-    while($rs_main = $stmt_main->fetch()){
+    $report_rows = array();
 
+    $debug_sample_count = 0;
+    while($rs_main = $stmt_main->fetch()){
+        $report_rows[] = $rs_main;
+        $grand_total += (float)$rs_main["tot_extprc"];
+
+        // DEBUG: Log first 3 sample items with rolling sales values
+        if($DEBUG_ROLLING_SALES && $debug_sample_count < 3){
+            error_log("[ROLLING_SALES] Sample Item #" . ($debug_sample_count + 1) . ":");
+            error_log("  - Item: " . substr($rs_main["itmdsc"], 0, 50));
+            error_log("  - Item Code: " . ($rs_main["itmcde"] ?? 'N/A'));
+            error_log("  - Sales Qty 30D: " . $rs_main["sales_past_30"]);
+            error_log("  - Sales Qty 60D: " . $rs_main["sales_past_60"]);
+            error_log("  - Sales Qty 90D: " . $rs_main["sales_past_90"]);
+            error_log("  - Total Amount: " . $rs_main["tot_extprc"]);
+            $debug_sample_count++;
+        }
+    }
+
+    // DEBUG: Log summary
+    if($DEBUG_ROLLING_SALES){
+        error_log("[ROLLING_SALES] Total rows fetched: " . count($report_rows));
+        error_log("[ROLLING_SALES] Grand Total: " . $grand_total);
+        error_log("=== TOP_SALES_ITEM_PDF DEBUG END ===");
+    }
+
+    // Export to XLSX using PhpSpreadsheet
+    if($is_tab_export){
+        export_top_sales_item_xlsx(
+            $report_rows,
+            $_SESSION['userdesc'],
+            $head_date_from,
+            $head_date_to,
+            $head_rolling_sales_date,
+            $date_printed,
+            $grand_total
+        );
+        exit;
+    }
+
+    // PDF rendering
+    foreach($report_rows as $rs_main){
         $xleft = 20;
         $current_stock = (float)$rs_main["current_stock"];
         $latest_cost = (float)$rs_main["latest_cost"];
@@ -275,7 +381,7 @@ $select_db = "SELECT base.itmdsc,
             $xtop = 485;
         }
 
-                $xtop -= 32;
+        $xtop -= 32;
         $row_y = $xtop;
         foreach($item_lines as $item_line_index => $item_line_text){
             $pdf->ezPlaceData($col_item, $row_y - ($item_line_index * 10), $item_line_text, 9, "left");
@@ -292,8 +398,6 @@ $select_db = "SELECT base.itmdsc,
         $pdf->ezPlaceData($col_cost,$row_y,number_format($latest_cost,"2"),9,"right");
         $pdf->ezPlaceData($col_current_inventory_valuation,$row_y,number_format($current_inventory_valuation,"2"),9,"right");
         $pdf->ezPlaceData($col_current_stock_qty,$row_y,number_format($current_stock_qty,"2"),9,"right");
-        $grand_total = $grand_total + $rs_main["tot_extprc"];
-
 
         if($xtop <= 60)
         {
@@ -309,20 +413,12 @@ $select_db = "SELECT base.itmdsc,
         $pdf->ezPlaceData($xleft,$xtop,"Total",9,"left");
         $pdf->ezPlaceData($col_amount,$xtop,number_format($grand_total,"2"),9,"right");
 
-    if($is_tab_export){
-        $pdf->ezStream($tab_file_type);
-    } else {
-        $pdf->ezStream();
-    }
+    $pdf->ezStream();
     ob_end_flush();
 
     function trim_str($string,$max_wid,$fsize)
     {
         global $pdf;
-        if(  get_class($pdf) == 'tab_ezpdf')
-        {
-            return $string;
-        }
         $xarr_str = str_split($string);
         $max_wid -= 5;
         $xxstr = "";
@@ -350,12 +446,6 @@ $select_db = "SELECT base.itmdsc,
         $string = trim((string)$string);
         if($string === ''){
             return array('');
-        }
-
-        // Keep full text for tab/xlsx export and let the spreadsheet handle
-        // the cell width instead of truncating with ellipses.
-        if(get_class($pdf) == 'tab_ezpdf'){
-            return array($string);
         }
 
         $max_wid -= 5;
@@ -472,12 +562,105 @@ $select_db = "SELECT base.itmdsc,
 
     }
 
+    function export_top_sales_item_xlsx(
+        $rows,
+        $report_user,
+        $head_date_from,
+        $head_date_to,
+        $head_latest_sales_date,
+        $date_printed,
+        $grand_total
+    ) {
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Top Sales Items');
+
+        $sheet->mergeCells('A1:J1');
+        $sheet->setCellValue('A1', 'Top Sales Report (by Items)');
+        $sheet->setCellValue('A2', 'Pdf Report by: ' . $report_user);
+        $sheet->setCellValue('A3', 'Sales Date Range : ' . $head_date_from . ' to ' . $head_date_to);
+        $sheet->setCellValue('A4', 'Rolling Sales As Of : ' . $head_latest_sales_date);
+        $sheet->setCellValue('A5', 'Date Printed : ' . $date_printed);
+
+        $header_row = 7;
+        $sheet->fromArray(array(
+            'Item',
+            'Amount',
+            'Total Qty',
+            'Sales Qty 30D',
+            'Sales Qty 60D',
+            'Sales Qty 90D',
+            'Current Stock',
+            'Cost',
+            'Current Inventory Valuation',
+            'Current Stock/Qty'
+        ), null, 'A' . $header_row);
+
+        $row_num = $header_row + 1;
+        foreach ($rows as $row) {
+            $sheet->setCellValue('A' . $row_num, normalize_item_text($row['itmdsc']));
+            $sheet->setCellValue('B' . $row_num, (float) $row['tot_extprc']);
+            $sheet->setCellValue('C' . $row_num, (float) $row['tot_itmqty']);
+            $sheet->setCellValue('D' . $row_num, (float) $row['sales_past_30']);
+            $sheet->setCellValue('E' . $row_num, (float) $row['sales_past_60']);
+            $sheet->setCellValue('F' . $row_num, (float) $row['sales_past_90']);
+            $sheet->setCellValue('G' . $row_num, (float) $row['current_stock']);
+            $sheet->setCellValue('H' . $row_num, (float) $row['latest_cost']);
+            $sheet->setCellValue('I' . $row_num, (float) $row['current_inventory_valuation']);
+            $sheet->setCellValue('J' . $row_num, (float) $row['current_stock_qty']);
+            $row_num++;
+        }
+
+        $sheet->setCellValue('A' . $row_num, 'Total');
+        $sheet->setCellValue('B' . $row_num, $grand_total);
+
+        $sheet->getStyle('A1:A5')->getFont()->setBold(true);
+        $sheet->getStyle('A' . $header_row . ':J' . $header_row)->getFont()->setBold(true);
+        $sheet->getStyle('A' . $header_row . ':J' . $header_row)->getAlignment()->setWrapText(true);
+        $sheet->getStyle('A' . $header_row . ':J' . $row_num)->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
+        $sheet->getStyle('B' . ($header_row + 1) . ':B' . $row_num)->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle('C' . ($header_row + 1) . ':G' . ($row_num - 1))->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle('H' . ($header_row + 1) . ':I' . ($row_num - 1))->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle('J' . ($header_row + 1) . ':J' . ($row_num - 1))->getNumberFormat()->setFormatCode('0.00');
+        $sheet->getStyle('B' . ($header_row + 1) . ':J' . $row_num)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle('A' . ($header_row + 1) . ':A' . $row_num)->getAlignment()->setWrapText(true);
+        $sheet->getStyle('A' . $row_num . ':J' . $row_num)->getFont()->setBold(true);
+
+        $sheet->getColumnDimension('A')->setWidth(48);
+        $sheet->getColumnDimension('B')->setWidth(14);
+        $sheet->getColumnDimension('C')->setWidth(10);
+        $sheet->getColumnDimension('D')->setWidth(12);
+        $sheet->getColumnDimension('E')->setWidth(12);
+        $sheet->getColumnDimension('F')->setWidth(12);
+        $sheet->getColumnDimension('G')->setWidth(14);
+        $sheet->getColumnDimension('H')->setWidth(12);
+        $sheet->getColumnDimension('I')->setWidth(22);
+        $sheet->getColumnDimension('J')->setWidth(16);
+        $sheet->freezePane('A8');
+
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
+        $filename = 'top_sales_item_report_' . date('Ymd_His') . '.xlsx';
+
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+        header('Cache-Control: max-age=1');
+        header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
+        header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+        header('Cache-Control: cache, must-revalidate');
+        header('Pragma: public');
+
+        $writer = new Xlsx($spreadsheet);
+        $writer->save('php://output');
+    }
+
 
 
 
 ?>
-
-
 
 
 

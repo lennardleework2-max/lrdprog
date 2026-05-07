@@ -145,28 +145,31 @@
                 echo "Supplier: ".$_POST['cus_search']."\t\n";
             // }           
                 
-            $tab_headers = "PO. Num.\tDate\tSupplier\tItem\tOrdered\tReceived\tUndelivered\tMatched Pur. Num";
+            $tab_headers = "PO. Num.\tDate\tSupplier\tItem\tUOM\tOrdered\tReceived\tUndelivered\tMatched Pur. Num";
             echo $tab_headers;
         }     
         
 
         $xleft = 25;
         $pdf->setLineStyle(.5);
-		$pdf->line($xleft, $xtop+10, 770, $xtop+10);
-        $pdf->line($xleft, $xtop-3, 770, $xtop-3);
+		$pdf->line($xleft, $xtop+12, 770, $xtop+12);
+        $pdf->line($xleft, $xtop-12, 770, $xtop-12);
 
         if($_POST['txt_output_type'] !='tab'){
-            $pdf->ezPlaceData($xleft,$xtop,"<b>PO. Num.</b>",10,'left');
-            $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Date</b>",10,'left');
-            $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Supplier</b>",10,'left');
-            $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Item</b>",10,'left');
-            $pdf->ezPlaceData($xleft+=140,$xtop,"<b>Ordered</b>",10,'right');
-            $pdf->ezPlaceData($xleft+=65,$xtop,"<b>Received</b>",10,'right');
-            $pdf->ezPlaceData($xleft+=65,$xtop,"<b>Undelivered</b>",10,'right');
-            $pdf->ezPlaceData($xleft+=30,$xtop,"<b>Matched Pur. Num</b>",10,'left');
+            $pdf->ezPlaceData($xleft,$xtop,"<b>PO. Num.</b>",9,'left');
+            $pdf->ezPlaceData($xleft+=45,$xtop,"<b>Date</b>",9,'left');
+            $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Supplier</b>",9,'left');
+            $pdf->ezPlaceData($xleft+=65,$xtop,"<b>Item</b>",9,'left');
+            $pdf->ezPlaceData($xleft+=95,$xtop,"<b>UOM</b>",9,'left');
+            $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Ordered</b>",9,'right');
+            $pdf->ezPlaceData($xleft+=55,$xtop,"<b>Received</b>",9,'right');
+            $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Undeli-</b>",9,'right');
+            $pdf->ezPlaceData($xleft,$xtop-9,"<b>vered</b>",9,'right');
+            $pdf->ezPlaceData($xleft+=65,$xtop,"<b>Matched</b>",9,'left');
+            $pdf->ezPlaceData($xleft,$xtop-9,"<b>Pur. Num</b>",9,'left');
         }
 
-		$xtop -= 15;
+		$xtop -= 24;
 
 		$pdf->restoreState();
 		$pdf->closeObject();
@@ -176,17 +179,19 @@
 
     #region DO YOU LOOP HERE
     
-    $select_db="SELECT *, purchasesorderfile1.trndte as 'trndte', 
-                          purchasesorderfile1.docnum as 'docnum', 
+    $select_db="SELECT *, purchasesorderfile1.trndte as 'trndte',
+                          purchasesorderfile1.docnum as 'docnum',
                           purchasesorderfile2.itmqty as 'itmqty',
                           purchasesorderfile2.recid as 'pornum_recid',
                           purchasesorderfile2.tranfile2_recid as 'tranfile2_recid',
                           supplierfile.suppdsc as 'suppdsc',
-                          itemfile.itmdsc as 'itmdsc'
-     FROM purchasesorderfile1 LEFT JOIN purchasesorderfile2 ON 
-    purchasesorderfile1.docnum = purchasesorderfile2.docnum LEFT JOIN supplierfile ON 
-    purchasesorderfile1.suppcde = supplierfile.suppcde LEFT JOIN itemfile ON 
-    purchasesorderfile2.itmcde = itemfile.itmcde WHERE true ".$xfilter." ORDER BY purchasesorderfile2.docnum";
+                          itemfile.itmdsc as 'itmdsc',
+                          itemunitmeasurefile.unmdsc as 'unmdsc'
+     FROM purchasesorderfile1 LEFT JOIN purchasesorderfile2 ON
+    purchasesorderfile1.docnum = purchasesorderfile2.docnum LEFT JOIN supplierfile ON
+    purchasesorderfile1.suppcde = supplierfile.suppcde LEFT JOIN itemfile ON
+    purchasesorderfile2.itmcde = itemfile.itmcde LEFT JOIN itemunitmeasurefile ON
+    purchasesorderfile2.unmcde = itemunitmeasurefile.unmcde WHERE true ".$xfilter." ORDER BY purchasesorderfile2.docnum";
     $stmt_main	= $link->prepare($select_db);
     $stmt_main->execute();
     $xmain_count = 1;
@@ -311,48 +316,71 @@
 
 
         $pdf->ezPlaceData($xleft,$xtop,$docnum,9,"left");
-        $pdf->ezPlaceData($xleft+=60,$xtop,$trndte,9,"left");
-        $pdf->ezPlaceData($xleft+=80,$xtop,$suppdsc,9,"left");
+        $pdf->ezPlaceData($xleft+=45,$xtop,$trndte,9,"left");
+        $xleft+=60; // Move to Supplier position (130)
+
+        $uom_value = isset($rs_main["unmdsc"]) ? $rs_main["unmdsc"] : '';
 
         if($_POST['txt_output_type'] == 'tab'){
-        
-            $pdf->ezPlaceData($xleft+=80,$xtop,$rs_main["itmdsc"],9,"left");
-            $xleft -= 80;
+
+            $pdf->ezPlaceData($xleft,$xtop,$suppdsc,9,"left");
+            $pdf->ezPlaceData($xleft+=65,$xtop,$rs_main["itmdsc"],9,"left");
+            $pdf->ezPlaceData($xleft+=95,$xtop,$uom_value,9,"left");
+            $xleft = 130; // Reset to after Supplier position
             $xcount_total_itmheight = 0;
         }else{
 
-            // Define the maximum line width
-            $maxLineWidth = 120; // Adjust based on your layout
             $fontSize = 9;
 
-            // Break the text into lines
-            $lines = breakTextIntoLines($pdf, $rs_main["itmdsc"], $maxLineWidth, $fontSize);
+            // Supplier text wrapping - max width 58 to leave gap before Item column
+            $supplierMaxWidth = 58;
+            $supplierLines = breakTextIntoLines($pdf, $suppdsc, $supplierMaxWidth, $fontSize);
+            $supplierLineCount = count($supplierLines);
+            $supplierHeight = ($supplierLineCount > 1) ? 12 * ($supplierLineCount - 1) : 0;
+
+            // Render Supplier lines
+            $supplierYPos = $xtop;
+            foreach ($supplierLines as $supplierLine) {
+                $pdf->addText($xleft, $supplierYPos, $fontSize, $supplierLine);
+                $supplierYPos -= 12;
+            }
+
+            // Item text wrapping - max width 85
+            $itemMaxWidth = 85;
+            $itemLines = breakTextIntoLines($pdf, $rs_main["itmdsc"], $itemMaxWidth, $fontSize);
 
             $xcounter_item_newline = 0;
             $xchecker = false;
-            $xchecker_add = 0;
             $xcount_total_itmheight = 0;
-            foreach ($lines as $line) {
+            foreach ($itemLines as $line) {
 
                 if($xcounter_item_newline != 0){
                     $xtop -= 12; // Adjust for line spacing
                     $xchecker = true;
                 }
 
-                $pdf->addText($xleft+80, $xtop, $fontSize, $line); // Add the line
+                $pdf->addText($xleft+68, $xtop, $fontSize, $line); // Item at position 198 (130+68) - increased gap
                 $xcounter_item_newline++;
             }
 
             if($xchecker == true){
                 $xcount_total_itmheight = 12 * ($xcounter_item_newline - 1);
-            }  
+            }
+
+            // If Supplier has more lines than Item, adjust xtop accordingly
+            if($supplierHeight > $xcount_total_itmheight){
+                $xtop -= ($supplierHeight - $xcount_total_itmheight);
+                $xcount_total_itmheight = $supplierHeight;
+            }
+
+            // Add UOM data
+            $pdf->addText($xleft+163, $xtop+$xcount_total_itmheight, $fontSize, $uom_value); // UOM at position 293 (130+163)
         }
 
-        // $pdf->ezPlaceData($xleft+=80,$xtop,$rs_main["itmdsc"],9,"left");
         $pdf->ezPlaceData($xleft+=220,$xtop+$xcount_total_itmheight,$rs_main["itmqty"],9,"right");
-        $pdf->ezPlaceData($xleft+=65,$xtop+$xcount_total_itmheight,$received,9,"right");
-        $pdf->ezPlaceData($xleft+=65,$xtop+$xcount_total_itmheight,$balance,9,"right");
-        $pdf->ezPlaceData($xleft+=30,$xtop+$xcount_total_itmheight,$matched_ponum,9,"left");
+        $pdf->ezPlaceData($xleft+=55,$xtop+$xcount_total_itmheight,$received,9,"right");
+        $pdf->ezPlaceData($xleft+=60,$xtop+$xcount_total_itmheight,$balance,9,"right");
+        $pdf->ezPlaceData($xleft+=65,$xtop+$xcount_total_itmheight,$matched_ponum,9,"left");
         if($xmain_count == $rs_main3['xcount']){
             $pdf->line(25, $xtop-10, 770, $xtop-10); 
             $xtop -= 5;
@@ -373,19 +401,22 @@
                 $xheader = $pdf->openObject();
                 $pdf->saveState();
     
-                $xleft =25;
+                $xleft = 25;
                 $pdf->setLineStyle(.5);
-                $pdf->line($xleft, $xtop+10, 770, $xtop+10);
-                $pdf->line($xleft, $xtop-3, 770, $xtop-3);
+                $pdf->line($xleft, $xtop+12, 770, $xtop+12);
+                $pdf->line($xleft, $xtop-12, 770, $xtop-12);
 
-                $pdf->ezPlaceData($xleft,$xtop,"<b>PO. Num.</b>",10,'left');
-                $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Date</b>",10,'left');
-                $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Supplier</b>",10,'left');
-                $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Item</b>",10,'left');
-                $pdf->ezPlaceData($xleft+=140,$xtop,"<b>Ordered</b>",10,'right');
-                $pdf->ezPlaceData($xleft+=65,$xtop,"<b>Received</b>",10,'right');
-                $pdf->ezPlaceData($xleft+=65,$xtop,"<b>Undelivered</b>",10,'right');
-                $pdf->ezPlaceData($xleft+=30,$xtop,"<b>Matched Pur. Num</b>",10,'left');
+                $pdf->ezPlaceData($xleft,$xtop,"<b>PO. Num.</b>",9,'left');
+                $pdf->ezPlaceData($xleft+=45,$xtop,"<b>Date</b>",9,'left');
+                $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Supplier</b>",9,'left');
+                $pdf->ezPlaceData($xleft+=65,$xtop,"<b>Item</b>",9,'left');
+                $pdf->ezPlaceData($xleft+=95,$xtop,"<b>UOM</b>",9,'left');
+                $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Ordered</b>",9,'right');
+                $pdf->ezPlaceData($xleft+=55,$xtop,"<b>Received</b>",9,'right');
+                $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Undeli-</b>",9,'right');
+                $pdf->ezPlaceData($xleft,$xtop-9,"<b>vered</b>",9,'right');
+                $pdf->ezPlaceData($xleft+=65,$xtop,"<b>Matched</b>",9,'left');
+                $pdf->ezPlaceData($xleft,$xtop-9,"<b>Pur. Num</b>",9,'left');
 
                 $xleft = 25;
 
@@ -396,7 +427,7 @@
                 $xheader_check = true;
             }
 
-            $xtop -= 15;            
+            $xtop -= 24;
         }
 
         $xmain_count++;

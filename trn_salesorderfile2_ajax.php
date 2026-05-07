@@ -4,11 +4,52 @@
     // error_reporting(E_ALL);     
 
     session_start();
-    
+
     require_once("resources/db_init.php");
     require "resources/connect4.php";
     require "resources/stdfunc100.php";
     require "resources/lx2.pdodb.php";
+
+    // Activity logging variables
+    $log_username = isset($_SESSION['userdesc']) ? $_SESSION['userdesc'] : '';
+    $log_fullname = '';
+    if(isset($_SESSION['recid'])){
+        $select_log_user = 'SELECT full_name FROM users WHERE recid = ?';
+        $stmt_log_user = $link->prepare($select_log_user);
+        $stmt_log_user->execute(array($_SESSION['recid']));
+        $rs_log_user = $stmt_log_user->fetch();
+        if($rs_log_user){
+            $log_fullname = $rs_log_user['full_name'];
+        }
+    }
+    $log_module = 'SALES ORDER';
+    $log_trndte = date('Y-m-d H:i:s');
+
+    // Helper function to get item description
+    function salesorder_get_item_desc($link, $itmcde){
+        $itmcde = trim((string)$itmcde);
+        if($itmcde === ''){
+            return '';
+        }
+        $select = "SELECT itmdsc FROM itemfile WHERE itmcde = ? LIMIT 1";
+        $stmt = $link->prepare($select);
+        $stmt->execute(array($itmcde));
+        $rs = $stmt->fetch();
+        return $rs ? trim((string)$rs['itmdsc']) : $itmcde;
+    }
+
+    // Helper function to get UOM description from unmcde
+    function salesorder_get_uom_desc($link, $unmcde){
+        $unmcde = trim((string)$unmcde);
+        if($unmcde === ''){
+            return '';
+        }
+        $select = "SELECT unmdsc FROM itemunitmeasurefile WHERE unmcde = ? LIMIT 1";
+        $stmt = $link->prepare($select);
+        $stmt->execute(array($unmcde));
+        $rs = $stmt->fetch();
+        return $rs ? trim((string)$rs['unmdsc']) : $unmcde;
+    }
 
     $xret = array();
     $xret["html"] = "";
@@ -18,11 +59,43 @@
     $xret["status"] = 1;
     $xret["itm_search"] = '';
     $xret["retEdit"] = array();
+    $xret["uom_labels"] = array();
 
     $xret["matched_checked"] = false;
     $xret["error1"] = 0;
     $xret["error2"] = 0;
     $xret["error3"] = 0;
+
+    $current_usercode = '';
+    if(isset($_POST['usercode_1']) && trim((string)$_POST['usercode_1']) !== ''){
+        $current_usercode = trim((string)$_POST['usercode_1']);
+    }else if(isset($_SESSION['usercode']) && trim((string)$_SESSION['usercode']) !== ''){
+        $current_usercode = trim((string)$_SESSION['usercode']);
+    }
+
+    function salesorder_get_item_conversion($link, $itmcde, $unmcde){
+        $itmcde = trim((string)$itmcde);
+        $unmcde = trim((string)$unmcde);
+
+        if($itmcde === '' || $unmcde === ''){
+            return array('found' => false, 'conversion' => 1);
+        }
+
+        if(strtolower($unmcde) === 'pcs'){
+            return array('found' => true, 'conversion' => 1);
+        }
+
+        $select_conversion = "SELECT conversion FROM itemunitfile WHERE itmcde = ? AND unmcde = ? LIMIT 1";
+        $stmt_conversion = $link->prepare($select_conversion);
+        $stmt_conversion->execute(array($itmcde, $unmcde));
+        $rs_conversion = $stmt_conversion->fetch();
+
+        if($rs_conversion && $rs_conversion['conversion'] !== null && $rs_conversion['conversion'] !== ''){
+            return array('found' => true, 'conversion' => (float)$rs_conversion['conversion']);
+        }
+
+        return array('found' => false, 'conversion' => 1);
+    }
 
     if(isset($_POST["event_action"]) && ($_POST["event_action"] == "search_itm" || $_POST["event_action"] == "search_itm")){
 
@@ -105,6 +178,30 @@
         return;
     }    
 
+    if(isset($_POST["event_action"]) && $_POST["event_action"] == "get_item_uom_labels"){
+
+        $itmcde = isset($_POST["itmcde"]) ? trim((string)$_POST["itmcde"]) : '';
+        if($itmcde !== ''){
+            $select_item_units = "SELECT unmcde, conversion FROM itemunitfile WHERE itmcde = ?";
+            $stmt_item_units = $link->prepare($select_item_units);
+            $stmt_item_units->execute(array($itmcde));
+
+            while($rs_item_units = $stmt_item_units->fetch()){
+                $item_unmcde = trim((string)$rs_item_units["unmcde"]);
+                if($item_unmcde === ''){
+                    continue;
+                }
+
+                $xret["uom_labels"][$item_unmcde] = array(
+                    "conversion" => $rs_item_units["conversion"]
+                );
+            }
+        }
+
+        echo json_encode($xret);
+        return;
+    }
+
 
 
     $trncde = $_POST["trncde"];
@@ -146,8 +243,13 @@
                 $arr_record['trncde'] 	= $trncde;
                 $arr_record['order_status'] 	= $_POST['order_status1'];
                 $arr_record['file_created_date'] = $date_time_today;
+                $arr_record['usercode'] = $current_usercode;
                 PDO_InsertRecord($link,'salesorderfile1',$arr_record, false);
-    
+
+                // Log activity: add header
+	                $log_remarks = useractivitylog_build_insert_docnum_remark($docnum);
+	                PDO_UserActivityLog($link, $log_username, '', $log_trndte, $log_module, 'add', $log_fullname, $log_remarks, 0, '', 'SOR', '', '', $log_username, $docnum, '');
+
                 if($_POST["event_action"] == "save_exit"){
                     $xret["msg"] = "save_exit";
                 }
@@ -184,9 +286,15 @@
                 $arr_record_update['remarks'] 	= $_POST['remarks_1'];
                 $arr_record_update['order_status'] 	= $_POST['order_status1'];
                 PDO_UpdateRecord($link,"salesorderfile1",$arr_record_update,"recid = ?",array($recid),false);
+
+                // Log activity: edit header
+	                $log_remarks = useractivitylog_build_header_edit_remark($link, 'SOR', $docnum, $rs_docnum, $arr_record_update);
+	                if($log_remarks !== ''){
+	                    PDO_UserActivityLog($link, $log_username, '', $log_trndte, $log_module, 'edit', $log_fullname, $log_remarks, 0, '', 'SOR', '', '', $log_username, $docnum, '');
+	                }
             }
         }
-        
+
         if($_POST["event_action"] == "save_new" && $xret["status"] == 1){
 
             $select_db_docnum="SELECT * FROM salesorderfile1 WHERE trncde=? AND salesorderfile1.docnum NOT LIKE '%BOM%' ORDER BY docnum DESC LIMIT 1";
@@ -287,12 +395,18 @@
             $arr_record['itmcde'] 	= $_POST['itmcde_add_hidden'];
             $arr_record['itmqty'] 	= $_POST['itmqty_add'];
             // $arr_record['stkqty'] 	= $_POST['itmqty_add'] * -1;
+            $arr_record['unmcde']   = isset($_POST['unmcde_add']) ? $_POST['unmcde_add'] : '';
             $arr_record['untprc'] 	= $_POST['price_add'];
             $arr_record['extprc'] 	= $_POST['amount_add'];
             $arr_record['wholesaleprc'] 	= $_POST['wholesaleprc_add'];
             $arr_record_file1['trncde']     = $trncde;
             PDO_InsertRecord($link,'salesorderfile2',$arr_record, false);
 
+            // Log activity: add line item
+            $log_itmdsc_add = salesorder_get_item_desc($link, $_POST['itmcde_add_hidden']);
+            $log_uomdsc_add = salesorder_get_uom_desc($link, isset($_POST['unmcde_add']) ? $_POST['unmcde_add'] : '');
+            $log_remarks = $log_username . " added item '" . $log_itmdsc_add . "' qty='" . $_POST['itmqty_add'] . "' uom='" . $log_uomdsc_add . "' price='" . $_POST['price_add'] . "' in docnum='" . $_POST['docnum'] . "'";
+            PDO_UserActivityLog($link, $log_username, '', $log_trndte, $log_module, 'add', $log_fullname, $log_remarks, 0, '', 'SOR', '', '', $log_username, $_POST['docnum'], '');
 
             //ADDING BOM
             // $select_check_is_bom="SELECT * FROM itemfile WHERE itmcde='".$_POST['itmcde_add_hidden']."' LIMIT 1";
@@ -351,7 +465,7 @@
 
     if(isset($_POST["event_action"]) && $_POST["event_action"] == "getEdit"){
 
-        $select_salesorderfile2="SELECT salesorderfile2.wholesaleprc as wholesaleprc, salesorderfile2.itmcde as 'itmcde', salesorderfile2.itmqty, salesorderfile2.untprc, salesorderfile2.extprc, itemfile.itmdsc, salesorderfile2.recid as salesorderfile2_recid FROM salesorderfile2 LEFT JOIN itemfile ON itemfile.itmcde = salesorderfile2.itmcde WHERE salesorderfile2.recid=?";
+        $select_salesorderfile2="SELECT salesorderfile2.wholesaleprc as wholesaleprc, salesorderfile2.itmcde as 'itmcde', salesorderfile2.itmqty, salesorderfile2.unmcde, salesorderfile2.untprc, salesorderfile2.extprc, itemfile.itmdsc, itemunitmeasurefile.unmdsc, salesorderfile2.recid as salesorderfile2_recid FROM salesorderfile2 LEFT JOIN itemfile ON itemfile.itmcde = salesorderfile2.itmcde LEFT JOIN itemunitmeasurefile ON itemunitmeasurefile.unmcde = salesorderfile2.unmcde WHERE salesorderfile2.recid=?";
         $stmt_salesorderfile2	= $link->prepare($select_salesorderfile2);
         $stmt_salesorderfile2->execute(array($_POST["recid"]));
         $rs_salesorderfile2 = $stmt_salesorderfile2->fetch();
@@ -363,10 +477,13 @@
             $rs_salesorderfile2["extprc"] = number_format($rs_salesorderfile2["extprc"],2);
         }
 
+        $retedit_unmcde = isset($rs_salesorderfile2["unmcde"]) ? trim((string)$rs_salesorderfile2["unmcde"]) : '';
         $xret["retEdit"] = [
             "itmcde" =>  $rs_salesorderfile2["itmcde"],
             "itmdsc" =>  $rs_salesorderfile2["itmdsc"],
             "itmqty" =>  $rs_salesorderfile2["itmqty"],
+            "unmcde" =>  $retedit_unmcde,
+            "unmdsc" =>  !empty($rs_salesorderfile2["unmdsc"]) ? trim((string)$rs_salesorderfile2["unmdsc"]) : $retedit_unmcde,
             "untprc" =>  $rs_salesorderfile2["untprc"],
             "extprc" =>  $rs_salesorderfile2["extprc"],
             "recid" =>  $rs_salesorderfile2["salesorderfile2_recid"],
@@ -431,6 +548,7 @@
             $arr_record['itmcde'] 	= $_POST['itmcde_edit_hidden'];
             $arr_record['itmqty'] 	= $_POST['itmqty_edit'];
             // $arr_record['stkqty'] 	= $_POST['itmqty_edit'] * -1;
+            $arr_record['unmcde']   = isset($_POST['unmcde_edit']) ? $_POST['unmcde_edit'] : '';
             $arr_record['untprc'] 	= $_POST['price_edit'];
             $arr_record['extprc'] 	= $_POST['amount_edit'];
             $arr_record['wholesaleprc'] 	= $_POST['wholesaleprc_edit'];
@@ -543,9 +661,54 @@
             //         $arr_record_bom['trncde']     = 'SOR';
             //         PDO_InsertRecord($link,'salesorderfile2',$arr_record_bom, false);
             //     };
-            // }                 
-    
-            PDO_UpdateRecord($link,"salesorderfile2",$arr_record,"recid = ?",array($_POST['recid']),false);   
+	            // }                 
+	    
+	            $select_log_old = "SELECT * FROM salesorderfile2 WHERE recid = ? LIMIT 1";
+	            $stmt_log_old = $link->prepare($select_log_old);
+	            $stmt_log_old->execute(array($_POST['recid']));
+	            $log_old_record = $stmt_log_old->fetch();
+
+	            PDO_UpdateRecord($link,"salesorderfile2",$arr_record,"recid = ?",array($_POST['recid']),false);
+
+	            // Log activity: edit line item
+	            $log_format_number = function($value){
+	                $value = trim(str_replace(',', '', (string)$value));
+	                if($value === '' || !is_numeric($value)){
+	                    return trim((string)$value);
+	                }
+	                $formatted = number_format((float)$value, 2, '.', '');
+	                $formatted = rtrim(rtrim($formatted, '0'), '.');
+	                return ($formatted === '-0') ? '0' : $formatted;
+	            };
+	            $log_old_item_code = isset($log_old_record['itmcde']) ? trim((string)$log_old_record['itmcde']) : '';
+	            $log_new_item_code = trim((string)$_POST['itmcde_edit_hidden']);
+	            $log_old_item_desc = salesorder_get_item_desc($link, $log_old_item_code);
+	            $log_new_item_desc = salesorder_get_item_desc($link, $log_new_item_code);
+	            $log_change_parts = array();
+
+	            if((float)(isset($log_old_record['itmqty']) ? $log_old_record['itmqty'] : 0) !== (float)$_POST['itmqty_edit']){
+	                $log_change_parts[] = "qty from '" . $log_format_number(isset($log_old_record['itmqty']) ? $log_old_record['itmqty'] : '') . "' to '" . $log_format_number($_POST['itmqty_edit']) . "'";
+	            }
+
+	            if(trim((string)(isset($log_old_record['unmcde']) ? $log_old_record['unmcde'] : '')) !== trim((string)$_POST['unmcde_edit'])){
+	                $log_change_parts[] = "uom from '" . salesorder_get_uom_desc($link, isset($log_old_record['unmcde']) ? $log_old_record['unmcde'] : '') . "' to '" . salesorder_get_uom_desc($link, isset($_POST['unmcde_edit']) ? $_POST['unmcde_edit'] : '') . "'";
+	            }
+
+	            if($log_format_number(isset($log_old_record['untprc']) ? $log_old_record['untprc'] : '') !== $log_format_number($_POST['price_edit'])){
+	                $log_change_parts[] = "price per unit from '" . $log_format_number(isset($log_old_record['untprc']) ? $log_old_record['untprc'] : '') . "' to '" . $log_format_number($_POST['price_edit']) . "'";
+	            }
+
+	            if($log_old_item_code !== $log_new_item_code){
+	                $log_remarks = $log_username . " edited item from '" . $log_old_item_desc . "' to '" . $log_new_item_desc . "' in docnum='" . $_POST['docnum'] . "'";
+	            }else{
+	                $log_remarks = $log_username . " edited item '" . $log_new_item_desc . "' in docnum='" . $_POST['docnum'] . "'";
+	            }
+
+	            if(!empty($log_change_parts)){
+	                $log_remarks .= ": " . implode(', ', $log_change_parts);
+	            }
+	            PDO_UserActivityLog($link, $log_username, '', $log_trndte, $log_module, 'edit', $log_fullname, $log_remarks, 0, '', 'SOR', '', '', $log_username, $_POST['docnum'], '');
+
             $xret["msg"] = "submitEdit";
         }
 
@@ -583,8 +746,21 @@
 
         // }  
 
-        // delete			
+        // delete
         $delete_id=$_POST['recid'];
+
+        // Log activity: delete line item (capture item details before delete)
+        $select_del_record = "SELECT itmcde, docnum FROM salesorderfile2 WHERE recid = ? LIMIT 1";
+        $stmt_del_record = $link->prepare($select_del_record);
+        $stmt_del_record->execute(array($delete_id));
+        $rs_del_record = $stmt_del_record->fetch();
+        if($rs_del_record){
+            $log_itmdsc_del = salesorder_get_item_desc($link, $rs_del_record['itmcde']);
+            $log_docnum_del = $rs_del_record['docnum'];
+            $log_remarks = $log_username . " deleted item '" . $log_itmdsc_del . "' in docnum='" . $log_docnum_del . "'";
+            PDO_UserActivityLog($link, $log_username, '', $log_trndte, $log_module, 'delete', $log_fullname, $log_remarks, 0, '', 'SOR', '', '', $log_username, $log_docnum_del, '');
+        }
+
         $delete_query="DELETE  FROM  salesorderfile2 WHERE recid=?";
         $xstmt=$link->prepare($delete_query);
         $xstmt->execute(array($delete_id));
@@ -608,14 +784,17 @@
             $xret["html"] .= "<tr style='font-weight:bold'>";
                 $xret["html"] .= "<td>Item</td>";
                 $xret["html"] .= "<td style='text-align:right'>Quantity</td>";
+                $xret["html"] .= "<td>UOM</td>";
                 $xret["html"] .= "<td style='text-align:right'>Price</td>";
                 $xret["html"] .= "<td style='text-align:right'>Amount</td>";
                 $xret["html"] .= "<td style='text-align:right'>Wholesale Price</td>";
                 $xret["html"] .= "<td class='text-center'>Action</td>";
             $xret["html"] .= "</tr>";  
 
-            $select_salesfile2="SELECT salesorderfile2.wholesaleprc as wholesaleprc, salesorderfile2.docnum as salesorderfile2_docnum, itemfile.itmdsc as itemfile_itmdsc,itemfile.itmcde as itemfile_itmcde, salesorderfile2.itmqty, salesorderfile2.untprc, salesorderfile2.extprc, salesorderfile2.recid as salesorderfile2_recid
-            FROM salesorderfile2 LEFT JOIN itemfile ON itemfile.itmcde = salesorderfile2.itmcde WHERE docnum=?";
+            $select_salesfile2="SELECT salesorderfile2.wholesaleprc as wholesaleprc, salesorderfile2.docnum as salesorderfile2_docnum, itemfile.itmdsc as itemfile_itmdsc,itemfile.itmcde as itemfile_itmcde, salesorderfile2.itmqty, salesorderfile2.untprc, salesorderfile2.extprc, salesorderfile2.recid as salesorderfile2_recid, itemunitmeasurefile.unmdsc
+            FROM salesorderfile2 LEFT JOIN itemfile ON itemfile.itmcde = salesorderfile2.itmcde
+            LEFT JOIN itemunitmeasurefile ON itemunitmeasurefile.unmcde = salesorderfile2.unmcde
+            WHERE docnum=?";
             $stmt_salesfile2	= $link->prepare($select_salesfile2);
             $stmt_salesfile2->execute(array($docnum));
 
@@ -650,6 +829,7 @@
                 $xret["html"] .= "<tr>";
                     $xret["html"] .= "<td>".htmlspecialchars($rs_salesfile2['itemfile_itmdsc'],ENT_QUOTES)."</td>";
                     $xret["html"] .= "<td style='text-align:right'>".$rs_salesfile2['itmqty']."</td>";
+                    $xret["html"] .= "<td>".htmlspecialchars(isset($rs_salesfile2['unmdsc']) ? $rs_salesfile2['unmdsc'] : '',ENT_QUOTES)."</td>";
                     $xret["html"] .= "<td style='text-align:right'>".$rs_salesfile2['untprc']."</td>";
                     $xret["html"] .= "<td style='text-align:right'>".$rs_salesfile2['extprc']."</td>";
                     $xret["html"] .= "<td style='text-align:right'>".$rs_salesfile2['wholesaleprc']."</td>";
@@ -705,6 +885,11 @@
                 $xret["html_mobile"] .= "<tr>";
                     $xret["html_mobile"] .= "<td class='fw-bold'>Price</td>";
                     $xret["html_mobile"] .= "<td style='text-align:right'>".$rs_salesfile2['untprc']."</td>";
+                $xret["html_mobile"] .= "</tr>";
+
+                $xret["html_mobile"] .= "<tr>";
+                    $xret["html_mobile"] .= "<td class='fw-bold'>UOM</td>";
+                    $xret["html_mobile"] .= "<td>".htmlspecialchars(isset($rs_salesfile2['unmdsc']) ? $rs_salesfile2['unmdsc'] : '',ENT_QUOTES)."</td>";
                 $xret["html_mobile"] .= "</tr>";
 
                 $xret["html_mobile"] .= "<tr>";

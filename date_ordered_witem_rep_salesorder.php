@@ -149,7 +149,7 @@
                 echo "Platform: ".$_POST['cus_search']."\t\n";
             // }           
                 
-            $tab_headers = "Doc. Num.\tOrdered Date\tUpload Date\tOrdered By\tPlatform/Item\tQuatity\tUnit Price\tTotal\n";
+            $tab_headers = "Doc. Num.\tOrdered Date\tUpload Date\tOrdered By\tPlatform/Item\tQuantity\tUOM\tUnit Price\tTotal\n";
             echo $tab_headers;
         }     
         
@@ -164,9 +164,10 @@
             $pdf->ezPlaceData($xleft+=75,$xtop,"<b>Upload Date</b>",10,'left');
             $pdf->ezPlaceData($xleft+=75,$xtop,"<b>Ordered By</b>",10,'left');
             $pdf->ezPlaceData($xleft+=130,$xtop,"<b>Platform/Item</b>",10,'left');
-            $pdf->ezPlaceData($xleft+=170,$xtop,"<b>Quantity</b>",10,'right');
-            $pdf->ezPlaceData($xleft+=90,$xtop,"<b>Unit Price</b>",10,'right');
-            $pdf->ezPlaceData($xleft+=90,$xtop,"<b>Total</b>",10,'right');
+            $pdf->ezPlaceData($xleft+=155,$xtop,"<b>Quantity</b>",10,'right');
+            $pdf->ezPlaceData($xleft+=10,$xtop,"<b>UOM</b>",10,'left');
+            $pdf->ezPlaceData($xleft+=115,$xtop,"<b>Unit Price</b>",10,'right');
+            $pdf->ezPlaceData($xleft+=85,$xtop,"<b>Total</b>",10,'right');
         }       
         
 		$xtop -= 15;
@@ -301,9 +302,10 @@
                     $pdf->ezPlaceData($xleft+=75,$xtop,"<b>Upload Date</b>",10,'left');
                     $pdf->ezPlaceData($xleft+=75,$xtop,"<b>Ordered By</b>",10,'left');
                     $pdf->ezPlaceData($xleft+=130,$xtop,"<b>Platform/Item</b>",10,'left');
-                    $pdf->ezPlaceData($xleft+=170,$xtop,"<b>Quantity</b>",10,'right');
-                    $pdf->ezPlaceData($xleft+=90,$xtop,"<b>Unit Price</b>",10,'right');
-                    $pdf->ezPlaceData($xleft+=90,$xtop,"<b>Total</b>",10,'right');
+                    $pdf->ezPlaceData($xleft+=155,$xtop,"<b>Quantity</b>",10,'right');
+                    $pdf->ezPlaceData($xleft+=10,$xtop,"<b>UOM</b>",10,'left');
+                    $pdf->ezPlaceData($xleft+=115,$xtop,"<b>Unit Price</b>",10,'right');
+                    $pdf->ezPlaceData($xleft+=85,$xtop,"<b>Total</b>",10,'right');
                 }
     
         
@@ -321,7 +323,11 @@
 
 
 
-        $select_db2="SELECT * FROM salesorderfile2 LEFT JOIN itemfile ON salesorderfile2.itmcde = itemfile.itmcde WHERE salesorderfile2.docnum='".$rs_main['salesorderfile1_docnum']."'";
+        $select_db2="SELECT salesorderfile2.*, itemfile.itmdsc as itmdsc, itemunitmeasurefile.unmdsc as unmdsc
+        FROM salesorderfile2
+        LEFT JOIN itemfile ON salesorderfile2.itmcde = itemfile.itmcde
+        LEFT JOIN itemunitmeasurefile ON salesorderfile2.unmcde = itemunitmeasurefile.unmcde
+        WHERE salesorderfile2.docnum='".$rs_main['salesorderfile1_docnum']."'";
         $stmt_main2	= $link->prepare($select_db2);
         $stmt_main2->execute();
         // $pdf->ezPlaceData(15,$xtop-100,$select_db3,8,"left");
@@ -368,14 +374,16 @@
                 $tab_output = "\t\t\t\t".
                 $rs_main2["itmdsc"]. "\t" .
                 $rs_main2["itmqty"]. "\t" .
+                (isset($rs_main2["unmdsc"]) ? $rs_main2["unmdsc"] : ''). "\t" .
                 $rs_main2["untprc"] . "\t" .
                 $rs_main2["extprc"] . "\n";
 
                 echo $tab_output;
             }else{
-                $pdf->ezPlaceData($xleft+=235,$xtop+$xcount_total_itmheight,$rs_main2["itmqty"],9,"right");
-                $pdf->ezPlaceData($xleft+=90,$xtop+$xcount_total_itmheight,number_format($rs_main2["untprc"],"2"),9,"right");
-                $pdf->ezPlaceData($xleft+=90,$xtop+$xcount_total_itmheight,number_format($rs_main2["extprc"],"2"),9,"right");
+                $pdf->ezPlaceData($xleft+=220,$xtop+$xcount_total_itmheight,$rs_main2["itmqty"],9,"right");
+                $pdf->ezPlaceData($xleft+=10,$xtop+$xcount_total_itmheight,trim_str(isset($rs_main2["unmdsc"]) ? $rs_main2["unmdsc"] : '',60,9),9,"left");
+                $pdf->ezPlaceData($xleft+=115,$xtop+$xcount_total_itmheight,number_format($rs_main2["untprc"],"2"),9,"right");
+                $pdf->ezPlaceData($xleft+=85,$xtop+$xcount_total_itmheight,number_format($rs_main2["extprc"],"2"),9,"right");
             }              
 
 
@@ -409,9 +417,10 @@
                     $pdf->ezPlaceData($xleft+=75,$xtop,"<b>Upload Date</b>",10,'left');
                     $pdf->ezPlaceData($xleft+=75,$xtop,"<b>Ordered By</b>",10,'left');
                     $pdf->ezPlaceData($xleft+=130,$xtop,"<b>Platform/Item</b>",10,'left');
-                    $pdf->ezPlaceData($xleft+=170,$xtop,"<b>Quantity</b>",10,'right');
-                    $pdf->ezPlaceData($xleft+=90,$xtop,"<b>Unit Price</b>",10,'right');
-                    $pdf->ezPlaceData($xleft+=90,$xtop,"<b>Total</b>",10,'right');
+                    $pdf->ezPlaceData($xleft+=155,$xtop,"<b>Quantity</b>",10,'right');
+                    $pdf->ezPlaceData($xleft+=10,$xtop,"<b>UOM</b>",10,'left');
+                    $pdf->ezPlaceData($xleft+=115,$xtop,"<b>Unit Price</b>",10,'right');
+                    $pdf->ezPlaceData($xleft+=85,$xtop,"<b>Total</b>",10,'right');
             
                     $xleft = 25;
             
@@ -434,12 +443,12 @@
         $xleft = 0;
         if($_POST['txt_output_type'] == 'tab'){
             // Include remarks in the tab-delimited output generation
-            $tab_output =  "\t\t\t\t\t\tTOTAL\t" .
+            $tab_output =  "\t\t\t\t\t\t\tTOTAL\t" .
             // $price_tot . "\t".
             $cost_tot . "\n";
             echo $tab_output;
         }else{
-            $pdf->ezPlaceData($xleft+=605,$xtop+=5,"<b>TOTAL:</b>",9,"left");
+            $pdf->ezPlaceData($xleft+=620,$xtop+=5,"<b>TOTAL:</b>",9,"left");
             // $pdf->ezPlaceData($xleft+=110,$xtop,number_format($price_tot,2),9,"right");
             $pdf->ezPlaceData($xleft+=110,$xtop,number_format($cost_tot,2),9,"right");
         }              
@@ -472,9 +481,10 @@
                 $pdf->ezPlaceData($xleft+=75,$xtop,"<b>Upload Date</b>",10,'left');
                 $pdf->ezPlaceData($xleft+=75,$xtop,"<b>Ordered By</b>",10,'left');
                 $pdf->ezPlaceData($xleft+=130,$xtop,"<b>Platform/Item</b>",10,'left');
-                $pdf->ezPlaceData($xleft+=170,$xtop,"<b>Quantity</b>",10,'right');
-                $pdf->ezPlaceData($xleft+=90,$xtop,"<b>Unit Price</b>",10,'right');
-                $pdf->ezPlaceData($xleft+=90,$xtop,"<b>Total</b>",10,'right');
+                $pdf->ezPlaceData($xleft+=155,$xtop,"<b>Quantity</b>",10,'right');
+                $pdf->ezPlaceData($xleft+=10,$xtop,"<b>UOM</b>",10,'left');
+                $pdf->ezPlaceData($xleft+=115,$xtop,"<b>Unit Price</b>",10,'right');
+                $pdf->ezPlaceData($xleft+=85,$xtop,"<b>Total</b>",10,'right');
         
                 $xleft = 25;
         
@@ -499,12 +509,12 @@
     $xleft = 0;
     if($_POST['txt_output_type'] == 'tab'){
         // Include remarks in the tab-delimited output generation
-        $tab_output =  "\t\t\t\t\t\tGRAND TOTAL\t" .
+        $tab_output =  "\t\t\t\t\t\t\tGRAND TOTAL\t" .
         // $price_gtot . "\t".
         $cost_gtot . "\n";
         echo $tab_output;
     }else{
-        $pdf->ezPlaceData($xleft+=585,$xtop+=5,"<b>GRAND TOTAL:</b>",8,"left");
+        $pdf->ezPlaceData($xleft+=600,$xtop+=5,"<b>GRAND TOTAL:</b>",8,"left");
         // $pdf->ezPlaceData($xleft+=137,$xtop,number_format($price_gtot,2),9,"right");
         $pdf->ezPlaceData($xleft+=130,$xtop,number_format($cost_gtot,2),9,"right");
     }   
