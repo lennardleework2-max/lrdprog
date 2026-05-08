@@ -290,7 +290,7 @@
             {
                 // XLS: Item header row - columns 1-2 for item, 7-8 for starting balance
                 $pdf->ezPlaceData(1,$xtop-9,"<b>Item:</b>",9 ,'left');
-                $pdf->ezPlaceData(2,$xtop-9,$rs_main['itmdsc'],9 ,'left');
+                $pdf->ezPlaceData(2,$xtop-9,xls_safe_text($rs_main['itmdsc']),9 ,'left');
                 $pdf->ezPlaceData(3,$xtop-9," ",9 ,'left');
                 $pdf->ezPlaceData(4,$xtop-9," ",9 ,'left');
                 $pdf->ezPlaceData(5,$xtop-9," ",9 ,'left');
@@ -418,13 +418,13 @@
 
                     $pdf->ezPlaceData($col_date,$xtop,$rs_main2["tranfile1_trndte"],9,"left");
                     $pdf->ezPlaceData($col_type,$xtop,$rs_main2["tranfile1_trncde"],9,"left");
-                    $pdf->ezPlaceData($col_docnum,$xtop,$rs_main2["tranfile2_docnum"],9,"left");
-                    $pdf->ezPlaceData($col_ordernum,$xtop,$rs_main2["tranfile1_ordernum"],9,"left");
-                    $pdf->ezPlaceData($col_shop,$xtop,$supp_or_cus,9,"left");
+                    $pdf->ezPlaceData($col_docnum,$xtop,xls_safe_text($rs_main2["tranfile2_docnum"]),9,"left");
+                    $pdf->ezPlaceData($col_ordernum,$xtop,xls_safe_text($rs_main2["tranfile1_ordernum"]),9,"left");
+                    $pdf->ezPlaceData($col_shop,$xtop,xls_safe_text($supp_or_cus),9,"left");
                     if(empty($rs_main2["buyer_name"])){
                         $rs_main2["buyer_name"] = " ";
                     }
-                    $pdf->ezPlaceData($col_buyer,$xtop,$rs_main2["buyer_name"],9,"left");
+                    $pdf->ezPlaceData($col_buyer,$xtop,xls_safe_text($rs_main2["buyer_name"]),9,"left");
 
                     if($rs_main2["tranfile2_stkqty"] > 0){
                         $pdf->ezPlaceData($col_in,$xtop,number_format($rs_main2["tranfile2_stkqty"]),9,"right");
@@ -704,9 +704,47 @@
             $xleft_new = $xleft + ($str_count * 4.2) + ($spaces * 4.2);
             return $xleft_new;
         }
-        
 
 
+
+    }
+
+    // XLS-safe text encoding: sanitizes text for tab-separated XLS output
+    // Handles mojibake, special chars, and non-ASCII that can break Excel layout
+    function xls_safe_text($string)
+    {
+        global $pdf;
+
+        $string = (string)$string;
+        if(get_class($pdf) != 'tab_ezpdf'){
+            return $string;
+        }
+
+        // Try to fix encoding issues first
+        if(function_exists('mb_check_encoding') && !mb_check_encoding($string, 'UTF-8')){
+            $string = mb_convert_encoding($string, 'UTF-8', 'UTF-8, Windows-1252, ISO-8859-1');
+        }
+
+        // Transliterate to ASCII to prevent layout-breaking chars in XLS
+        if(function_exists('iconv')){
+            $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $string);
+            if($converted !== false && $converted !== ''){
+                $string = $converted;
+            } else {
+                // Fallback: strip all non-printable-ASCII
+                $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+            }
+        } else {
+            // No iconv available: strip all non-printable-ASCII
+            $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+        }
+
+        // Remove tabs, line breaks, and control chars that break TSV format
+        $string = str_replace(array("\t", "\r", "\n", "\0"), ' ', $string);
+        $string = preg_replace('/[\x00-\x1F\x7F]/', ' ', $string);
+        $string = preg_replace('/\s{2,}/', ' ', $string);
+
+        return trim($string);
     }
 
 

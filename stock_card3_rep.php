@@ -562,6 +562,8 @@
 
         foreach($pdf_columns as $column_key => $column_config){
             $cell_value = isset($row_data[$column_key]) ? (string)$row_data[$column_key] : '';
+            // Apply XLS-safe encoding for text fields in XLS export
+            $cell_value = xls_safe_text($cell_value);
             $pdf->ezPlaceData(
                 $column_config['x'],
                 $ypos,
@@ -570,6 +572,44 @@
                 $column_config['align']
             );
         }
+    }
+
+    // XLS-safe text encoding: sanitizes text for tab-separated XLS output
+    // Handles mojibake, special chars, and non-ASCII that can break Excel layout
+    function xls_safe_text($string)
+    {
+        global $pdf;
+
+        $string = (string)$string;
+        if(get_class($pdf) != 'tab_ezpdf'){
+            return $string;
+        }
+
+        // Try to fix encoding issues first
+        if(function_exists('mb_check_encoding') && !mb_check_encoding($string, 'UTF-8')){
+            $string = mb_convert_encoding($string, 'UTF-8', 'UTF-8, Windows-1252, ISO-8859-1');
+        }
+
+        // Transliterate to ASCII to prevent layout-breaking chars in XLS
+        if(function_exists('iconv')){
+            $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $string);
+            if($converted !== false && $converted !== ''){
+                $string = $converted;
+            } else {
+                // Fallback: strip all non-printable-ASCII
+                $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+            }
+        } else {
+            // No iconv available: strip all non-printable-ASCII
+            $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+        }
+
+        // Remove tabs, line breaks, and control chars that break TSV format
+        $string = str_replace(array("\t", "\r", "\n", "\0"), ' ', $string);
+        $string = preg_replace('/[\x00-\x1F\x7F]/', ' ', $string);
+        $string = preg_replace('/\s{2,}/', ' ', $string);
+
+        return trim($string);
     }
 
     function wrap_pdf_lines($string, $max_wid, $fsize, $max_lines = 3)
