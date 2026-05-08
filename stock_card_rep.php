@@ -279,11 +279,18 @@
         );
     }
 
+    $is_first_item = true;
     foreach($report_items as $report_item){
         if($xtop <= 120){
             $pdf->ezNewPage();
             $xtop = $page_content_top;
         }
+
+        // Add blank row before each new item section (XLS only, not before first item)
+        if($is_tab_export && !$is_first_item){
+            $xtop -= 15;
+        }
+        $is_first_item = false;
 
         draw_stock_card_section_header(
             $report_item['itmdsc'],
