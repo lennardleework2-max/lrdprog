@@ -7,6 +7,11 @@ require "includes/main_header.php";
     <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
     <!-- Select2 JS -->
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <style>
+        #ui-datepicker-div {
+            z-index: 2000 !important;
+        }
+    </style>
     <form name='myforms' id="myforms" method="post" target="_self" style="height:calc(100vh - 85px)"> 
         <table class='big_table'> 
             <tr colspan=1>
