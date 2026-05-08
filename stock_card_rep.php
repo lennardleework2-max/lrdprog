@@ -288,6 +288,7 @@
 
         // Add blank row before each new item section (XLS only, not before first item)
         if($is_tab_export && !$is_first_item){
+            write_tab_stock_card_row($xtop, $pdf_columns, array());
             $xtop -= 15;
         }
         $is_first_item = false;
