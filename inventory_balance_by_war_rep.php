@@ -70,21 +70,14 @@
         $xtop -= 15;
     }
     $pdf->ezPlaceData($xleft, $xtop, xls_safe_text('Date Printed: ' . $date_printed), 10, 'left');
-    $xtop -= 20;
-
-    $pdf->setLineStyle(.5);
-    $pdf->line($xleft, $xtop + 10, $line_right, $xtop + 10);
-    $pdf->line($xleft, $xtop - 3, $line_right, $xtop - 3);
-
-    $pdf->ezPlaceData($col_floor, $xtop, xls_safe_text("<b>Floor</b>"), 10, 'left');
-    $pdf->ezPlaceData($col_item, $xtop, xls_safe_text("<b>Item</b>"), 10, 'left');
-    $pdf->ezPlaceData($col_balance, $xtop, xls_safe_text("<b>Balance</b>"), 10, 'right');
-
     $xtop -= 15;
 
     $pdf->restoreState();
     $pdf->closeObject();
     $pdf->addObject($xheader, 'all');
+
+    // Calculate content start position after page header
+    $content_start_top = $xtop;
 
     // Query inventory data grouped by warehouse, floor, item
     $select_db = "SELECT
@@ -169,15 +162,29 @@
             continue;
         }
 
-        // Print warehouse header
-        if (($xtop - 30) <= 60) {
+        // Print warehouse header with column headers
+        // Need space for: warehouse name (15) + line + column headers (15) + line spacing (5) = ~50
+        if (($xtop - 50) <= 60) {
             $pdf->ezNewPage();
-            $xtop = 685;
+            $xtop = $content_start_top;
         }
 
+        // Warehouse name
+        $pdf->ezPlaceData($col_floor, $xtop, xls_safe_text("<b>" . $warehouse_name . "</b>"), 11, 'left');
+        $xtop -= 15;
+
+        // Separator line above column headers
+        $pdf->setLineStyle(.5);
         $pdf->line($xleft, $xtop + 5, $line_right, $xtop + 5);
-        $pdf->ezPlaceData($col_floor, $xtop - 5, xls_safe_text("<b>" . $warehouse_name . "</b>"), 11, 'left');
-        $xtop -= 20;
+
+        // Column headers
+        $pdf->ezPlaceData($col_floor, $xtop - 5, xls_safe_text("<b>Floor</b>"), 10, 'left');
+        $pdf->ezPlaceData($col_item, $xtop - 5, xls_safe_text("<b>Item</b>"), 10, 'left');
+        $pdf->ezPlaceData($col_balance, $xtop - 5, xls_safe_text("<b>Balance</b>"), 10, 'right');
+
+        // Separator line below column headers
+        $pdf->line($xleft, $xtop - 18, $line_right, $xtop - 18);
+        $xtop -= 30;
 
         foreach ($warehouse_data['floors'] as $floor_id => $floor_data) {
             $floor_no = $floor_data['floor_no'];
@@ -202,7 +209,7 @@
 
                 if (($xtop - $row_height) <= 60) {
                     $pdf->ezNewPage();
-                    $xtop = 685;
+                    $xtop = $content_start_top;
                 }
 
                 // Floor column - only show on first item of floor
@@ -235,7 +242,7 @@
             if ($floor_subtotal != 0) {
                 if (($xtop - 18) <= 60) {
                     $pdf->ezNewPage();
-                    $xtop = 685;
+                    $xtop = $content_start_top;
                 }
 
                 if ($is_tab_export) {
@@ -253,7 +260,7 @@
         if ($warehouse_total != 0) {
             if (($xtop - 18) <= 60) {
                 $pdf->ezNewPage();
-                $xtop = 685;
+                $xtop = $content_start_top;
             }
 
             if ($is_tab_export) {
@@ -279,7 +286,7 @@
     if ($has_data) {
         if (($xtop - 25) <= 60) {
             $pdf->ezNewPage();
-            $xtop = 685;
+            $xtop = $content_start_top;
         }
 
         $pdf->line($xleft, $xtop - 5, $line_right, $xtop - 5);
