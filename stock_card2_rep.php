@@ -288,10 +288,15 @@
 
             if ($_POST['txt_output_type'] =='tab')
             {
+                // XLS: Item header row - columns 1-2 for item, 7-8 for starting balance
                 $pdf->ezPlaceData(1,$xtop-9,"<b>Item:</b>",9 ,'left');
                 $pdf->ezPlaceData(2,$xtop-9,$rs_main['itmdsc'],9 ,'left');
-                $pdf->ezPlaceData(560,$xtop-9,"<b>Balance:</b>",9 ,'left');
-                $pdf->ezPlaceData(626,$xtop-9,number_format($rs_balance['xsum']),9 ,'right');
+                $pdf->ezPlaceData(3,$xtop-9," ",9 ,'left');
+                $pdf->ezPlaceData(4,$xtop-9," ",9 ,'left');
+                $pdf->ezPlaceData(5,$xtop-9," ",9 ,'left');
+                $pdf->ezPlaceData(6,$xtop-9,"<b>Balance:</b>",9 ,'right');
+                $pdf->ezPlaceData(7,$xtop-9," ",9 ,'right');
+                $pdf->ezPlaceData(8,$xtop-9,number_format($rs_balance['xsum']),9 ,'right');
             }else{
                 $pdf->ezPlaceData(25,$xtop-9,"<b>Item:</b>",9 ,'left');
                 $pdf->ezPlaceData(55,$xtop-9,$rs_main['itmdsc'],9 ,'left');
@@ -304,36 +309,61 @@
 
             $xtop-=14;
 
-            // Define column positions with 5px+ gaps between columns
-            $col_date = 25;      // Tran. Date
-            $col_type = 85;      // Tran. Type (60px width for date)
-            $col_docnum = 135;   // Tran. Num (50px width for type)
-            $col_docnum_w = 75;  // Width for docnum column
-            $col_ordernum = 215; // Order Num
-            $col_ordernum_w = 85; // Width for ordernum column
-            $col_shop = 305;     // Shop Name/Supplier
-            $col_shop_w = 90;    // Width for shop column
-            $col_buyer = 400;    // Ordered By
-            $col_buyer_w = 95;   // Width for buyer column
-            $col_in = 575;       // In
-            $col_out = 640;      // Out
+            // Define column positions for PDF (pixel positions) and XLS (column indices)
+            if ($_POST['txt_output_type'] =='tab') {
+                // XLS: Use column indices (1-based)
+                $col_date = 1;       // Tran. Date
+                $col_type = 2;       // Tran. Type
+                $col_docnum = 3;     // Tran. Num
+                $col_ordernum = 4;   // Order Num
+                $col_shop = 5;       // Shop Name/Supplier
+                $col_buyer = 6;      // Ordered By
+                $col_in = 7;         // In
+                $col_out = 8;        // Out
 
-            $pdf->ezPlaceData($col_date,$xtop-9,"<b>Tran.</b>",9 ,'left');
-            $pdf->ezPlaceData($col_date,$xtop-18,"<b>Date</b>",9 ,'left');
-            $pdf->ezPlaceData($col_type,$xtop-9,"<b>Tran.</b>",9,'left');
-            $pdf->ezPlaceData($col_type,$xtop-18,"<b>Type</b>",9,'left');
-            $pdf->ezPlaceData($col_docnum,$xtop-9,"<b>Tran.</b>",9,'left');
-            $pdf->ezPlaceData($col_docnum,$xtop-18,"<b>Num.</b>",9,'left');
-            $pdf->ezPlaceData($col_ordernum,$xtop-9,"<b>Order</b>",9 ,'left');
-            $pdf->ezPlaceData($col_ordernum,$xtop-18,"<b>Num.</b>",9 ,'left');
-            $pdf->ezPlaceData($col_shop,$xtop-9,"<b>Shop Name/</b>",9 ,'left');
-            $pdf->ezPlaceData($col_shop,$xtop-18,"<b>Supplier</b>",9 ,'left');
-            $pdf->ezPlaceData($col_buyer,$xtop-9,"<b>Ordered</b>",9 ,'left');
-            $pdf->ezPlaceData($col_buyer,$xtop-18,"<b>By</b>",9 ,'left');
-            $pdf->ezPlaceData($col_in,$xtop-14,"<b>In</b>",9 ,'right');
-            $pdf->ezPlaceData($col_out,$xtop-14,"<b>Out</b>",9 ,'right');
-            $pdf->line(25, $xtop-22, 770, $xtop-22);
-            $xtop-=35;
+                // XLS: Single-line headers
+                $pdf->ezPlaceData($col_date,$xtop-9,"<b>Tran. Date</b>",9 ,'left');
+                $pdf->ezPlaceData($col_type,$xtop-9,"<b>Tran. Type</b>",9,'left');
+                $pdf->ezPlaceData($col_docnum,$xtop-9,"<b>Tran. Num.</b>",9,'left');
+                $pdf->ezPlaceData($col_ordernum,$xtop-9,"<b>Order Num.</b>",9 ,'left');
+                $pdf->ezPlaceData($col_shop,$xtop-9,"<b>Shop Name/Supplier</b>",9 ,'left');
+                $pdf->ezPlaceData($col_buyer,$xtop-9,"<b>Ordered By</b>",9 ,'left');
+                $pdf->ezPlaceData($col_in,$xtop-9,"<b>In</b>",9 ,'right');
+                $pdf->ezPlaceData($col_out,$xtop-9,"<b>Out</b>",9 ,'right');
+                $xtop-=15;
+            } else {
+                // PDF: Use pixel positions
+                $col_date = 25;      // Tran. Date
+                $col_type = 85;      // Tran. Type (60px width for date)
+                $col_docnum = 135;   // Tran. Num (50px width for type)
+                $col_docnum_w = 75;  // Width for docnum column
+                $col_ordernum = 215; // Order Num
+                $col_ordernum_w = 85; // Width for ordernum column
+                $col_shop = 305;     // Shop Name/Supplier
+                $col_shop_w = 90;    // Width for shop column
+                $col_buyer = 400;    // Ordered By
+                $col_buyer_w = 95;   // Width for buyer column
+                $col_in = 575;       // In
+                $col_out = 640;      // Out
+
+                // PDF: Two-line headers
+                $pdf->ezPlaceData($col_date,$xtop-9,"<b>Tran.</b>",9 ,'left');
+                $pdf->ezPlaceData($col_date,$xtop-18,"<b>Date</b>",9 ,'left');
+                $pdf->ezPlaceData($col_type,$xtop-9,"<b>Tran.</b>",9,'left');
+                $pdf->ezPlaceData($col_type,$xtop-18,"<b>Type</b>",9,'left');
+                $pdf->ezPlaceData($col_docnum,$xtop-9,"<b>Tran.</b>",9,'left');
+                $pdf->ezPlaceData($col_docnum,$xtop-18,"<b>Num.</b>",9,'left');
+                $pdf->ezPlaceData($col_ordernum,$xtop-9,"<b>Order</b>",9 ,'left');
+                $pdf->ezPlaceData($col_ordernum,$xtop-18,"<b>Num.</b>",9 ,'left');
+                $pdf->ezPlaceData($col_shop,$xtop-9,"<b>Shop Name/</b>",9 ,'left');
+                $pdf->ezPlaceData($col_shop,$xtop-18,"<b>Supplier</b>",9 ,'left');
+                $pdf->ezPlaceData($col_buyer,$xtop-9,"<b>Ordered</b>",9 ,'left');
+                $pdf->ezPlaceData($col_buyer,$xtop-18,"<b>By</b>",9 ,'left');
+                $pdf->ezPlaceData($col_in,$xtop-14,"<b>In</b>",9 ,'right');
+                $pdf->ezPlaceData($col_out,$xtop-14,"<b>Out</b>",9 ,'right');
+                $pdf->line(25, $xtop-22, 770, $xtop-22);
+                $xtop-=35;
+            }
     
             // $xfilter2.= " AND tranfile2.itmcde='".$rs_main["itmcde"]."'";
     
@@ -487,14 +517,15 @@
             $xtop -= 5;
 
             if($_POST['txt_output_type'] =='tab'){
-                $pdf->ezPlaceData(6,$xtop-9," ",9 ,'right');
-                $pdf->ezPlaceData(7,$xtop-9," ",9 ,'right');
-                $pdf->ezPlaceData(8,$xtop-9," ",9 ,'right');
-                $pdf->ezPlaceData(9,$xtop-9," ",9 ,'right');
-                $pdf->ezPlaceData(10,$xtop-9," ",9 ,'right');
-                $pdf->ezPlaceData($col_buyer + 50,$xtop-9,"<b>Total:</b>",9 ,'right');
-                $pdf->ezPlaceData($col_in,$xtop-9,"<b>".number_format($in_total)."</b>",9 ,'right');
-                $pdf->ezPlaceData($col_out,$xtop-9,"<b>".number_format($out_total)."</b>",9 ,'right');
+                // XLS: Total row - use column indices matching data columns
+                $pdf->ezPlaceData(1,$xtop-9," ",9 ,'left');
+                $pdf->ezPlaceData(2,$xtop-9," ",9 ,'left');
+                $pdf->ezPlaceData(3,$xtop-9," ",9 ,'left');
+                $pdf->ezPlaceData(4,$xtop-9," ",9 ,'left');
+                $pdf->ezPlaceData(5,$xtop-9," ",9 ,'left');
+                $pdf->ezPlaceData(6,$xtop-9,"<b>Total:</b>",9 ,'right');
+                $pdf->ezPlaceData(7,$xtop-9,"<b>".number_format($in_total)."</b>",9 ,'right');
+                $pdf->ezPlaceData(8,$xtop-9,"<b>".number_format($out_total)."</b>",9 ,'right');
             }else{
                 $pdf->ezPlaceData($col_buyer + 50,$xtop-9,"<b>Total:</b>",9 ,'right');
                 $pdf->ezPlaceData($col_in,$xtop-9,"<b>".number_format($in_total)."</b>",9 ,'right');
@@ -505,14 +536,16 @@
 
             // Balance row with proper spacing from Total
             if($_POST['txt_output_type'] =='tab'){
-                $pdf->ezPlaceData(6,$xtop-9," ",9 ,'right');
-                $pdf->ezPlaceData(7,$xtop-9," ",9 ,'right');
-                $pdf->ezPlaceData(8,$xtop-9," ",9 ,'right');
-                $pdf->ezPlaceData(9,$xtop-9," ",9 ,'right');
-                $pdf->ezPlaceData(10,$xtop-9," ",9 ,'right');
-                $pdf->ezPlaceData($col_buyer + 50,$xtop-9,"<b>Balance:</b>",9,'right');
+                // XLS: Balance row - use column indices matching data columns
+                $pdf->ezPlaceData(1,$xtop-9," ",9 ,'left');
+                $pdf->ezPlaceData(2,$xtop-9," ",9 ,'left');
+                $pdf->ezPlaceData(3,$xtop-9," ",9 ,'left');
+                $pdf->ezPlaceData(4,$xtop-9," ",9 ,'left');
+                $pdf->ezPlaceData(5,$xtop-9," ",9 ,'left');
+                $pdf->ezPlaceData(6,$xtop-9,"<b>Balance:</b>",9,'right');
                 $balance = ($rs_balance['xsum'] + $in_total) - $out_total;
-                $pdf->ezPlaceData($col_out,$xtop-9,"<b>".number_format($balance)."</b>",9 ,'right');
+                $pdf->ezPlaceData(7,$xtop-9," ",9 ,'right');
+                $pdf->ezPlaceData(8,$xtop-9,"<b>".number_format($balance)."</b>",9 ,'right');
             }else{
                 $pdf->ezPlaceData($col_buyer + 50,$xtop-9,"<b>Balance:</b>",9,'right');
                 $balance = ($rs_balance['xsum'] + $in_total) - $out_total;
@@ -522,6 +555,15 @@
             $xtop -= 25;
 
             if($_POST['txt_output_type'] =='tab'){
+                // XLS: Add blank row between items
+                $pdf->ezPlaceData(1,$xtop-9," ",9 ,'left');
+                $pdf->ezPlaceData(2,$xtop-9," ",9 ,'left');
+                $pdf->ezPlaceData(3,$xtop-9," ",9 ,'left');
+                $pdf->ezPlaceData(4,$xtop-9," ",9 ,'left');
+                $pdf->ezPlaceData(5,$xtop-9," ",9 ,'left');
+                $pdf->ezPlaceData(6,$xtop-9," ",9 ,'left');
+                $pdf->ezPlaceData(7,$xtop-9," ",9 ,'left');
+                $pdf->ezPlaceData(8,$xtop-9," ",9 ,'left');
                 $xtop-=15;
             }
 
