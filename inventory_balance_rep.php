@@ -137,6 +137,14 @@
             $pdf->ezPlaceData($col_balance,$xtop,"<b>".format_report_balance($current_item_total)."</b>",9,"right");
             $grand_total += $current_item_total;
             $xtop -= 24;
+
+            // XLS: Add blank row before next item group
+            if($is_tab_export){
+                $pdf->ezPlaceData($col_item,$xtop,"",9,"left");
+                $pdf->ezPlaceData($col_warehouse,$xtop,"",9,"left");
+                $pdf->ezPlaceData($col_balance,$xtop,"",9,"right");
+                $xtop -= 15;
+            }
         }
 
         $show_item_name = ($current_item_code !== $rs_main['itmcde']);
