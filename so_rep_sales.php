@@ -209,10 +209,10 @@
             $pdf->ezPlaceData($xleft+=140,$xtop,"<b>Pending</b>",10,'right');
             $pdf->ezPlaceData($xleft,$xtop-10,"<b>Orders</b>",10,'right');
             $pdf->ezPlaceData($xleft+=35,$xtop,"<b>UOM</b>",10,'left');
-            $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Shipped</b>",10,'right');
+            $pdf->ezPlaceData($xleft+=70,$xtop,"<b>Shipped</b>",10,'right');
             $pdf->ezPlaceData($xleft,$xtop-10,"<b>Out</b>",10,'right');
-            $pdf->ezPlaceData($xleft+=50,$xtop,"<b>Balance</b>",10,'right');
-            $pdf->ezPlaceData($xleft+=40,$xtop,"<b>Matched Sales Num</b>",10,'left');
+            $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Balance</b>",10,'right');
+            $pdf->ezPlaceData($xleft+=20,$xtop,"<b>Matched Sales Num</b>",10,'left');
         }
 
 		$xtop -= 15;
@@ -290,14 +290,14 @@
             $file_created_date = '';
         }
 
-        $pdf->ezPlaceData($xleft,$xtop,$docnum,9,"left");
+        $pdf->ezPlaceData($xleft,$xtop-=10,$docnum,9,"left");
         $pdf->ezPlaceData($xleft+=80,$xtop,$file_created_date,9,"left");
         $pdf->ezPlaceData($xleft+=80,$xtop,$trndte,9,"left");
         $pdf->ezPlaceData($xleft+=80,$xtop,$cusdsc,9,"left");
 
         if($_POST['txt_output_type'] == 'tab'){
-        
-            $pdf->ezPlaceData($xleft+=80,$xtop,$rs_main["itmdsc"],9,"left");
+
+            $pdf->ezPlaceData($xleft+=80,$xtop,xls_safe_text($rs_main["itmdsc"]),9,"left");
             $xleft -= 80;
             $xcount_total_itmheight = 0;
         }else{
@@ -327,12 +327,12 @@
             if($xchecker == true){
                 $xcount_total_itmheight = 12 * ($xcounter_item_newline - 1);
             }  
-        }        
+        }
         $pdf->ezPlaceData($xleft+=220,$xtop+$xcount_total_itmheight,$rs_main["itmqty"],9,"right");
-        $pdf->ezPlaceData($xleft+=35,$xtop+$xcount_total_itmheight,$rs_main["unmdsc"],9,"left");
-        $pdf->ezPlaceData($xleft+=60,$xtop+$xcount_total_itmheight,$received,9,"right");
-        $pdf->ezPlaceData($xleft+=50,$xtop+$xcount_total_itmheight,$balance,9,"right");
-        $pdf->ezPlaceData($xleft+=40,$xtop+$xcount_total_itmheight,$matched_ponum,9,"left");
+        $pdf->ezPlaceData($xleft+=35,$xtop+$xcount_total_itmheight,xls_safe_text($rs_main["unmdsc"]),9,"left");
+        $pdf->ezPlaceData($xleft+=70,$xtop+$xcount_total_itmheight,$received,9,"right");
+        $pdf->ezPlaceData($xleft+=60,$xtop+$xcount_total_itmheight,$balance,9,"right");
+        $pdf->ezPlaceData($xleft+=20,$xtop+$xcount_total_itmheight,$matched_ponum,9,"left");
         if($xmain_count == $rs_main3['xcount']){
             $pdf->line(25, $xtop-10, 770, $xtop-10); 
             $xtop -= 5;
@@ -362,10 +362,10 @@
                 $pdf->ezPlaceData($xleft+=140,$xtop,"<b>Pending</b>",10,'right');
                 $pdf->ezPlaceData($xleft,$xtop-10,"<b>Orders</b>",10,'right');
                 $pdf->ezPlaceData($xleft+=35,$xtop,"<b>UOM</b>",10,'left');
-                $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Shipped</b>",10,'right');
+                $pdf->ezPlaceData($xleft+=70,$xtop,"<b>Shipped</b>",10,'right');
                 $pdf->ezPlaceData($xleft,$xtop-10,"<b>Out</b>",10,'right');
-                $pdf->ezPlaceData($xleft+=50,$xtop,"<b>Balance</b>",10,'right');
-                $pdf->ezPlaceData($xleft+=40,$xtop,"<b>Matched Sales Num</b>",10,'left');
+                $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Balance</b>",10,'right');
+                $pdf->ezPlaceData($xleft+=20,$xtop,"<b>Matched Sales Num</b>",10,'left');
 
                 $xleft = 25;
 
@@ -467,7 +467,39 @@
         }
 
         return $lines;
-    }      
+    }
+
+    // XLS-safe text encoding: sanitizes text for tab-separated XLS output
+    function xls_safe_text($string)
+    {
+        global $pdf;
+
+        $string = (string)$string;
+        if(get_class($pdf) != 'tab_ezpdf'){
+            return $string;
+        }
+
+        if(function_exists('mb_check_encoding') && !mb_check_encoding($string, 'UTF-8')){
+            $string = mb_convert_encoding($string, 'UTF-8', 'UTF-8, Windows-1252, ISO-8859-1');
+        }
+
+        if(function_exists('iconv')){
+            $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $string);
+            if($converted !== false && $converted !== ''){
+                $string = $converted;
+            } else {
+                $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+            }
+        } else {
+            $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+        }
+
+        $string = str_replace(array("\t", "\r", "\n", "\0"), ' ', $string);
+        $string = preg_replace('/[\x00-\x1F\x7F]/', ' ', $string);
+        $string = preg_replace('/\s{2,}/', ' ', $string);
+
+        return trim($string);
+    }
 
 
 ?>

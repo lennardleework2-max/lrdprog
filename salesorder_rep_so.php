@@ -133,7 +133,7 @@
                 echo "Platform: ".$_POST['cus_search']."\t\n";
             // }           
                 
-            $tab_headers = "Sales Num.\tTran. Date\tPlatform\tItem\tDelivered\tOrdered\tExcess\tMatched Sales Order Num./s\n";
+            $tab_headers = "Sales Num.\tTran. Date\tPlatform\tItem\tUOM\tDelivered\tOrdered\tExcess\tMatched Sales Order Num./s\n";
             echo $tab_headers;
         }     
         
@@ -148,9 +148,10 @@
             $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Tran. Date</b>",10,'left');
             $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Platform</b>",10,'left');
             $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Item</b>",10,'left');
-            $pdf->ezPlaceData($xleft+=140,$xtop,"<b>Delivered</b>",10,'right');
-            $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Ordered</b>",10,'right');
-            $pdf->ezPlaceData($xleft+=65,$xtop,"<b>Excess</b>",10,'right');
+            $pdf->ezPlaceData($xleft+=115,$xtop,"<b>UOM</b>",10,'left');
+            $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Delivered</b>",10,'right');
+            $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Ordered</b>",10,'right');
+            $pdf->ezPlaceData($xleft+=50,$xtop,"<b>Excess</b>",10,'right');
             $pdf->ezPlaceData($xleft+=30,$xtop,"<b>Matched Sales Order Num.</b>",10,'left');
         }
 
@@ -164,15 +165,17 @@
 	/***header**/
 
     #region DO YOU LOOP HERE
-       $select_db="SELECT *, tranfile1.trndte as 'trndte', 
-                          tranfile1.docnum as 'docnum', 
+       $select_db="SELECT *, tranfile1.trndte as 'trndte',
+                          tranfile1.docnum as 'docnum',
                           tranfile2.itmqty as 'itmqty',
                           customerfile.cusdsc as 'cusdsc',
-                          itemfile.itmdsc as 'itmdsc'
-     FROM tranfile1 LEFT JOIN tranfile2 ON 
-    tranfile1.docnum = tranfile2.docnum LEFT JOIN customerfile ON 
-    tranfile1.cuscde = customerfile.cuscde LEFT JOIN itemfile ON 
-    tranfile2.itmcde = itemfile.itmcde WHERE true ".$xfilter." AND tranfile1.trncde='SAL' AND tranfile1.docnum NOT LIKE '%BOM%' ORDER BY tranfile2.docnum";
+                          itemfile.itmdsc as 'itmdsc',
+                          itemunitmeasurefile.unmdsc as 'unmdsc'
+     FROM tranfile1 LEFT JOIN tranfile2 ON
+    tranfile1.docnum = tranfile2.docnum LEFT JOIN customerfile ON
+    tranfile1.cuscde = customerfile.cuscde LEFT JOIN itemfile ON
+    tranfile2.itmcde = itemfile.itmcde LEFT JOIN itemunitmeasurefile ON
+    tranfile2.unmcde = itemunitmeasurefile.unmcde WHERE true ".$xfilter." AND tranfile1.trncde='SAL' AND tranfile1.docnum NOT LIKE '%BOM%' ORDER BY tranfile2.docnum";
     $stmt_main	= $link->prepare($select_db);
     $stmt_main->execute();
     $xmain_count = 1;
@@ -267,25 +270,27 @@
 
 
         if ($_POST['txt_output_type'] == 'tab') {
-        
+
             // Include remarks in the tab-delimited output generation
-            $tab_output = 
+            $tab_output =
                             $docnum . "\t" .
                             $trndte . "\t" .
                             $cusdsc . "\t" .
-                            $rs_main["itmdsc"] . "\t" .
+                            xls_safe_text($rs_main["itmdsc"]) . "\t" .
+                            xls_safe_text($rs_main["unmdsc"] ?? '') . "\t" .
                             $rs_main["itmqty"]. "\t" .
                             $received . "\t" .
                             $balance . "\t" .
                             $matched_ponum . "\n";
-                            
-        
+
+
             echo $tab_output;
         }else{
-            $pdf->ezPlaceData($xleft+=215,$xtop+$xcount_total_itmheight,$rs_main["itmqty"],9,"right");
-            $pdf->ezPlaceData($xleft+=80,$xtop+$xcount_total_itmheight,$received,9,"right");
-            $pdf->ezPlaceData($xleft+=65,$xtop+$xcount_total_itmheight,$balance,9,"right");
-            $pdf->ezPlaceData($xleft+=40,$xtop+$xcount_total_itmheight,$matched_ponum,9,"left");
+            $pdf->ezPlaceData($xleft+=195,$xtop+$xcount_total_itmheight,($rs_main["unmdsc"] ?? ''),9,"left");
+            $pdf->ezPlaceData($xleft+=80,$xtop+$xcount_total_itmheight,$rs_main["itmqty"],9,"right");
+            $pdf->ezPlaceData($xleft+=60,$xtop+$xcount_total_itmheight,$received,9,"right");
+            $pdf->ezPlaceData($xleft+=50,$xtop+$xcount_total_itmheight,$balance,9,"right");
+            $pdf->ezPlaceData($xleft+=30,$xtop+$xcount_total_itmheight,$matched_ponum,9,"left");
             if($xmain_count == $rs_main3['xcount']){
                 $pdf->line(25, $xtop-10, 770, $xtop-10); 
                 $xtop -= 5;
@@ -315,9 +320,10 @@
                 $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Tran. Date</b>",10,'left');
                 $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Platform</b>",10,'left');
                 $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Item</b>",10,'left');
-                $pdf->ezPlaceData($xleft+=140,$xtop,"<b>Delivered</b>",10,'right');
-                $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Ordered</b>",10,'right');
-                $pdf->ezPlaceData($xleft+=65,$xtop,"<b>Excess</b>",10,'right');
+                $pdf->ezPlaceData($xleft+=115,$xtop,"<b>UOM</b>",10,'left');
+                $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Delivered</b>",10,'right');
+                $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Ordered</b>",10,'right');
+                $pdf->ezPlaceData($xleft+=50,$xtop,"<b>Excess</b>",10,'right');
                 $pdf->ezPlaceData($xleft+=30,$xtop,"<b>Matched Sales Order Num.</b>",10,'left');
 
                 $xleft = 25;
@@ -422,7 +428,39 @@
         }
 
         return $lines;
-    }    
+    }
+
+    // XLS-safe text encoding: sanitizes text for tab-separated XLS output
+    function xls_safe_text($string)
+    {
+        global $pdf;
+
+        $string = (string)$string;
+        if(get_class($pdf) != 'tab_ezpdf'){
+            return $string;
+        }
+
+        if(function_exists('mb_check_encoding') && !mb_check_encoding($string, 'UTF-8')){
+            $string = mb_convert_encoding($string, 'UTF-8', 'UTF-8, Windows-1252, ISO-8859-1');
+        }
+
+        if(function_exists('iconv')){
+            $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $string);
+            if($converted !== false && $converted !== ''){
+                $string = $converted;
+            } else {
+                $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+            }
+        } else {
+            $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+        }
+
+        $string = str_replace(array("\t", "\r", "\n", "\0"), ' ', $string);
+        $string = preg_replace('/[\x00-\x1F\x7F]/', ' ', $string);
+        $string = preg_replace('/\s{2,}/', ' ', $string);
+
+        return trim($string);
+    }
 
 
 ?>

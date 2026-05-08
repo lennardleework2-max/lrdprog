@@ -157,7 +157,7 @@
 
         if($_POST['txt_output_type'] !='tab'){
             $pdf->ezPlaceData($xleft,$xtop,"<b>PO. Num.</b>",9,'left');
-            $pdf->ezPlaceData($xleft+=45,$xtop,"<b>Date</b>",9,'left');
+            $pdf->ezPlaceData($xleft+=65,$xtop,"<b>Date</b>",9,'left');
             $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Supplier</b>",9,'left');
             $pdf->ezPlaceData($xleft+=65,$xtop,"<b>Item</b>",9,'left');
             $pdf->ezPlaceData($xleft+=95,$xtop,"<b>UOM</b>",9,'left');
@@ -316,16 +316,16 @@
 
 
         $pdf->ezPlaceData($xleft,$xtop,$docnum,9,"left");
-        $pdf->ezPlaceData($xleft+=45,$xtop,$trndte,9,"left");
+        $pdf->ezPlaceData($xleft+=65,$xtop,$trndte,9,"left");
         $xleft+=60; // Move to Supplier position (130)
 
         $uom_value = isset($rs_main["unmdsc"]) ? $rs_main["unmdsc"] : '';
 
         if($_POST['txt_output_type'] == 'tab'){
 
-            $pdf->ezPlaceData($xleft,$xtop,$suppdsc,9,"left");
-            $pdf->ezPlaceData($xleft+=65,$xtop,$rs_main["itmdsc"],9,"left");
-            $pdf->ezPlaceData($xleft+=95,$xtop,$uom_value,9,"left");
+            $pdf->ezPlaceData($xleft,$xtop,xls_safe_text($suppdsc),9,"left");
+            $pdf->ezPlaceData($xleft+=65,$xtop,xls_safe_text($rs_main["itmdsc"]),9,"left");
+            $pdf->ezPlaceData($xleft+=95,$xtop,xls_safe_text($uom_value),9,"left");
             $xleft = 130; // Reset to after Supplier position
             $xcount_total_itmheight = 0;
         }else{
@@ -407,7 +407,7 @@
                 $pdf->line($xleft, $xtop-12, 770, $xtop-12);
 
                 $pdf->ezPlaceData($xleft,$xtop,"<b>PO. Num.</b>",9,'left');
-                $pdf->ezPlaceData($xleft+=45,$xtop,"<b>Date</b>",9,'left');
+                $pdf->ezPlaceData($xleft+=65,$xtop,"<b>Date</b>",9,'left');
                 $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Supplier</b>",9,'left');
                 $pdf->ezPlaceData($xleft+=65,$xtop,"<b>Item</b>",9,'left');
                 $pdf->ezPlaceData($xleft+=95,$xtop,"<b>UOM</b>",9,'left');
@@ -522,7 +522,39 @@
         }
 
         return $lines;
-    }    
+    }
+
+    // XLS-safe text encoding: sanitizes text for tab-separated XLS output
+    function xls_safe_text($string)
+    {
+        global $pdf;
+
+        $string = (string)$string;
+        if(get_class($pdf) != 'tab_ezpdf'){
+            return $string;
+        }
+
+        if(function_exists('mb_check_encoding') && !mb_check_encoding($string, 'UTF-8')){
+            $string = mb_convert_encoding($string, 'UTF-8', 'UTF-8, Windows-1252, ISO-8859-1');
+        }
+
+        if(function_exists('iconv')){
+            $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $string);
+            if($converted !== false && $converted !== ''){
+                $string = $converted;
+            } else {
+                $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+            }
+        } else {
+            $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+        }
+
+        $string = str_replace(array("\t", "\r", "\n", "\0"), ' ', $string);
+        $string = preg_replace('/[\x00-\x1F\x7F]/', ' ', $string);
+        $string = preg_replace('/\s{2,}/', ' ', $string);
+
+        return trim($string);
+    }
 
 
 ?>
