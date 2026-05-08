@@ -40,6 +40,20 @@
         $display_date = date("m/d/Y", strtotime($date_sql));
     }
 
+    // Warehouse filter
+    $xfilter_warehouse = '';
+    $display_warehouse = '';
+    if (isset($_POST['warehouse']) && !empty($_POST['warehouse'])) {
+        $xfilter_warehouse = " AND tranfile2.warcde = '" . $_POST['warehouse'] . "'";
+        // Get warehouse name for display
+        $stmt_war_name = $link->prepare("SELECT warehouse_name FROM warehouse WHERE warcde = ?");
+        $stmt_war_name->execute(array($_POST['warehouse']));
+        $rs_war_name = $stmt_war_name->fetch();
+        if ($rs_war_name) {
+            $display_warehouse = $rs_war_name['warehouse_name'];
+        }
+    }
+
     // Build header
     $xheader = $pdf->openObject();
     $pdf->saveState();
@@ -49,6 +63,10 @@
     $xtop -= 15;
     if (!empty($display_date)) {
         $pdf->ezPlaceData($xleft, $xtop, xls_safe_text("As of Date: " . $display_date), 10, 'left');
+        $xtop -= 15;
+    }
+    if (!empty($display_warehouse)) {
+        $pdf->ezPlaceData($xleft, $xtop, xls_safe_text("Warehouse: " . $display_warehouse), 10, 'left');
         $xtop -= 15;
     }
     $pdf->ezPlaceData($xleft, $xtop, xls_safe_text('Date Printed: ' . $date_printed), 10, 'left');
@@ -83,7 +101,7 @@
         LEFT JOIN warehouse_floor ON tranfile2.warehouse_floor_id = warehouse_floor.warehouse_floor_id
         LEFT JOIN itemfile ON tranfile2.itmcde = itemfile.itmcde
         WHERE tranfile2.warcde IS NOT NULL
-            AND tranfile2.warcde != '' " . $xfilter_date . "
+            AND tranfile2.warcde != '' " . $xfilter_date . $xfilter_warehouse . "
         GROUP BY
             warehouse.warcde,
             warehouse.warehouse_name,

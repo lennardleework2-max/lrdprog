@@ -41,28 +41,21 @@ require "includes/main_header.php";
                                     <td>
                                         <div class="w-100 h-100 d-flex justify-content-center align-items-top">
                                             <div class="m-2" style='width:80%'>
-                                                <label for="">Item:</label>
-                                                <select class="form-select" id="item" name="item" autocomplete="off" style="width:100%">
-                                                    <option value="">-- Select Item --</option>
+                                                <label for="">Warehouse:</label>
+                                                <select class="form-select" id="warehouse" name="warehouse" autocomplete="off" style="width:100%">
+                                                    <option value="">-- All Warehouses --</option>
                                                     <?php
-                                                        $select_db_itemfile="SELECT * FROM itemfile ORDER BY itmdsc";
-                                                        $stmt_itemfile	= $link->prepare($select_db_itemfile);
-                                                        $stmt_itemfile->execute();
+                                                        $select_db_warehouse="SELECT * FROM warehouse ORDER BY warcde";
+                                                        $stmt_warehouse = $link->prepare($select_db_warehouse);
+                                                        $stmt_warehouse->execute();
 
-                                                        while($rs_itemfile = $stmt_itemfile->fetch()){
-                                                            echo "<option value=\"".$rs_itemfile['itmcde']."\">".$rs_itemfile['itmdsc']."</option>";
+                                                        while($rs_warehouse = $stmt_warehouse->fetch()){
+                                                            echo "<option value=\"".$rs_warehouse['warcde']."\">".$rs_warehouse['warehouse_name']."</option>";
                                                         }
                                                     ?>
                                                 </select>
                                             </div>
                                         </div>
-                                    </td>
-                                </tr>
-
-                                <tr>
-                                    <td colspan="2">
-                                    <div class="w-100 d-flex justify-content-center" id="item_total">
-                                    </div>
                                     </td>
                                 </tr>
 
@@ -98,105 +91,23 @@ require "includes/main_header.php";
 
 
     <script>
-
-            $("#item").change(function(){
-                var end = this.value;
-                if(end == ""){
-
-                    $("#item_total").html("");
-
-                    $(".btns_item").html(`
-                    <div class='col-4'>\
-                        <input type='button' name='flexRadioDefault' id='flexRadioDefault1' class='btn btn-primary' value='Export to PDF' onclick='exp_pdf()'>\
-                    </div>\
-                    
-                    <div class='col-4'>\
-                        <input type='button' name='flexRadioDefault' id='flexRadioDefault1'  class='btn btn-primary' value='Export to XLS' onclick='exp_txt()'>\
-                    </div>
-                        
-                    `);
-                }else{
-
-                    $(".btns_item").html(`<div class='col-8 d-flex justify-content-center'>\
-                    <input type='button' name='flexRadioDefault' id='flexRadioDefault1'  class='btn btn-primary' value='Display Balance' onclick='exp_txt()'>\
-                    </div>`); 
-                }
-
-            });
-
             function exp_pdf(){
-
-                
-                if($("#item").val() == ""){
-
-                    $("#txt_output_type").val("");
-
-                    document.forms.myforms.target = "_blank";
-                    document.forms.myforms.method = "post";
-                    document.forms.myforms.action = "inventory_balance_by_war_rep.php";
-                    document.forms.myforms.submit();
-
-                }else{
-                    var date_filter = $("#date_search").val();
-                    var item_filter = $("#item").val();
-                    xdata = "date_search="+date_filter+"&item="+item_filter;
-
-                    jQuery.ajax({    
-
-                        data:xdata,
-                        dataType:"json",
-                        type:"post",
-                        url:"inventory_balance_ajax.php", 
-
-                        success: function(xdata2){  
-
-                            if(xdata2["itm_total"] == null){
-                                xdata2["itm_total"] = 0;
-                            }
-                            
-                            $("#item_total").html("Balance: <b>"+xdata2["itm_total"]+"</b>");
-                        }   
-                    })
-                }
-
-
+                $("#txt_output_type").val("");
+                document.forms.myforms.target = "_blank";
+                document.forms.myforms.method = "post";
+                document.forms.myforms.action = "inventory_balance_by_war_rep.php";
+                document.forms.myforms.submit();
             }
 
             function exp_txt(){
-
-                if($("#item").val() == ""){
-                    $("#txt_output_type").val("tab");
-                    document.forms.myforms.target = "_blank";
-                    document.forms.myforms.method = "post";
-                    document.forms.myforms.action = "inventory_balance_by_war_rep.php";
-                    document.forms.myforms.submit();
-                }else{
-                    var date_filter = $("#date_search").val();
-                    var item_filter = $("#item").val();
-                    xdata = "date_search="+date_filter+"&item="+item_filter;
-
-                    jQuery.ajax({    
-
-                        data:xdata,
-                        dataType:"json",
-                        type:"post",
-                        url:"inventory_balance_ajax.php", 
-
-                        success: function(xdata2){  
-
-                            if(xdata2["itm_total"] == null){
-                                xdata2["itm_total"] = 0;
-                            }
-                            $("#item_total").html("Balance: <b>"+xdata2["itm_total"]+"</b>");
-                        }
-                    })
-                }
-
-
+                $("#txt_output_type").val("tab");
+                document.forms.myforms.target = "_blank";
+                document.forms.myforms.method = "post";
+                document.forms.myforms.action = "inventory_balance_by_war_rep.php";
+                document.forms.myforms.submit();
             }
 
             $(document).ready(function(){
-
                     var d = new Date();
                     var month = d.getMonth()+1;
                     var day = d.getDate();
@@ -205,9 +116,9 @@ require "includes/main_header.php";
                     $('#date_search').val(output);
 
                     // Initialize Select2 with search functionality
-                    $('#item').select2({
+                    $('#warehouse').select2({
                         theme: 'bootstrap-5',
-                        placeholder: '-- Select Item --',
+                        placeholder: '-- All Warehouses --',
                         allowClear: true,
                         width: '100%'
                     });
