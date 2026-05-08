@@ -140,6 +140,9 @@
         $item_dsc =  $rs_main['itmdsc'];
 
         
+        // Initialize for both PDF and XLS modes - needed for line 178
+        $xcount_total_itmheight = 0;
+
         if(isset($_POST['txt_output_type']) && $_POST['txt_output_type'] == 'tab'){
             //$pdf->ezPlaceData($xleft+=140,$xtop,$item_dsc,9,"left");
         }else{
@@ -148,8 +151,6 @@
             $fontSize = 9;
 
             $lines = breakTextIntoLines($pdf, $item_dsc, $maxLineWidth, $fontSize);
-
-            $xcount_total_itmheight = 0;
             $xcounter_item_newline = 0;
             $xchecker = false;
             $xchecker_add = 0;
@@ -172,7 +173,7 @@
         $xleft = 25;
         
         if(isset($_POST['txt_output_type']) && $_POST['txt_output_type'] == 'tab'){
-            $pdf->ezPlaceData($xleft,$xtop,$item_dsc,9,"left");
+            $pdf->ezPlaceData($xleft,$xtop,xls_safe_text($item_dsc),9,"left");
         }
 
         $pdf->ezPlaceData($xleft+=300,$xtop+$xcount_total_itmheight,$item_total,9,"right");
@@ -321,7 +322,42 @@
         return $lines;
     }
 
-    
+    // XLS-safe text encoding: sanitizes text for tab-separated XLS output
+    // Handles mojibake, special chars, and non-ASCII that can break Excel layout
+    function xls_safe_text($string)
+    {
+        global $pdf;
 
+        $string = (string)$string;
+        if(get_class($pdf) != 'tab_ezpdf'){
+            return $string;
+        }
+
+        // Try to fix encoding issues first
+        if(function_exists('mb_check_encoding') && !mb_check_encoding($string, 'UTF-8')){
+            $string = mb_convert_encoding($string, 'UTF-8', 'UTF-8, Windows-1252, ISO-8859-1');
+        }
+
+        // Transliterate to ASCII to prevent layout-breaking chars in XLS
+        if(function_exists('iconv')){
+            $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $string);
+            if($converted !== false && $converted !== ''){
+                $string = $converted;
+            } else {
+                // Fallback: strip all non-printable-ASCII
+                $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+            }
+        } else {
+            // No iconv available: strip all non-printable-ASCII
+            $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+        }
+
+        // Remove tabs, line breaks, and control chars that break TSV format
+        $string = str_replace(array("\t", "\r", "\n", "\0"), ' ', $string);
+        $string = preg_replace('/[\x00-\x1F\x7F]/', ' ', $string);
+        $string = preg_replace('/\s{2,}/', ' ', $string);
+
+        return trim($string);
+    }
 
 ?>
