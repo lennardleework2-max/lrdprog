@@ -127,6 +127,16 @@
     $select_db = "SELECT * FROM itemfile WHERE true ".$xfilter. " ORDER BY itmdsc ASC";
     $stmt_main	= $link->prepare($select_db);
     $stmt_main->execute();
+    $pcs_unmcde = '';
+    $latest_cost_uom_filter = " AND 1=0";
+    $select_db_pcs = "SELECT unmcde FROM itemunitmeasurefile WHERE unmdsc = 'pcs' LIMIT 1";
+    $stmt_pcs = $link->prepare($select_db_pcs);
+    $stmt_pcs->execute();
+    $rs_pcs = $stmt_pcs->fetch();
+    if(!empty($rs_pcs['unmcde'])){
+        $pcs_unmcde = $rs_pcs['unmcde'];
+        $latest_cost_uom_filter = " AND tranfile2.unmcde='".$pcs_unmcde."'";
+    }
     $total_cost = 0;
     while($rs_main = $stmt_main->fetch()){    
 
@@ -201,7 +211,7 @@
         */
         
         $select_db3 = "SELECT untprc,tranfile1.trndte as po1_trndte,tranfile1.docnum as xdocnum from tranfile2 LEFT JOIN tranfile1 ON tranfile2.docnum =tranfile1.docnum 
-                       WHERE tranfile2.itmcde='".$rs_main['itmcde']."' AND tranfile1.trncde='PUR'  ORDER BY tranfile1.trndte DESC LIMIT 1";
+                       WHERE tranfile2.itmcde='".$rs_main['itmcde']."' AND tranfile1.trncde='PUR' ".$latest_cost_uom_filter." ORDER BY tranfile1.trndte DESC, tranfile2.recid DESC LIMIT 1";
 
 
         $stmt_main3	= $link->prepare($select_db3);
