@@ -133,6 +133,7 @@ $critical_only=0;
 
 
         if(isset($_POST['txt_output_type']) && $_POST['txt_output_type'] == 'tab'){
+            $xcount_total_itmheight = 0;
             //$pdf->ezPlaceData($xleft+=140,$xtop,$item_dsc,9,"left");
         }else{
 
