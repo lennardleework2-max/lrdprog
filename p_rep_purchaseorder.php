@@ -144,7 +144,7 @@
             echo "Purchase Type: ".$_POST['purchase_type']."\t\n";
         // }           
             
-        $tab_headers = "Purchase Num.\tTran. Date\tSupplier\tItem\tDelivered\tOrdered\tExcess\tMatched Purchase Order Num./s\n";
+        $tab_headers = "Purchase Num.\tTran. Date\tSupplier\tItem\tUOM\tDelivered\tOrdered\tExcess\tMatched Purchase Order Num./s\n";
         echo $tab_headers;
     }     
     
@@ -152,20 +152,25 @@
         $xleft = 25;
         $pdf->setLineStyle(.5);
         $pdf->line($xleft, $xtop+10, 770, $xtop+10);
-        $pdf->line($xleft, $xtop-3, 770, $xtop-3);
+        $pdf->line($xleft, $xtop-13, 770, $xtop-13);
 
         if($_POST['txt_output_type'] !='tab'){
-            $pdf->ezPlaceData($xleft,$xtop,"<b>Purchase Num.</b>",10,'left');
-            $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Tran. Date</b>",10,'left');
-            $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Supplier</b>",10,'left');
-            $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Item</b>",10,'left');
-            $pdf->ezPlaceData($xleft+=170,$xtop,"<b>Delivered</b>",10,'right');
-            $pdf->ezPlaceData($xleft+=55,$xtop,"<b>Ordered</b>",10,'right');
-            $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Excess</b>",10,'right');
-            $pdf->ezPlaceData($xleft+=22,$xtop,"<b>Matched Purchase Order Num./s</b>",10,'left');
+            // Two-line headers for crowded columns
+            $pdf->addText($xleft, $xtop, 10, '<b>Purchase</b>');
+            $pdf->addText($xleft, $xtop-10, 10, '<b>Num.</b>');
+            $xleft += 75;
+            $pdf->addText($xleft, $xtop, 10, '<b>Tran.</b>');
+            $pdf->addText($xleft, $xtop-10, 10, '<b>Date</b>');
+            $pdf->ezPlaceData($xleft+=55,$xtop,"<b>Supplier</b>",10,'left');
+            $pdf->ezPlaceData($xleft+=70,$xtop,"<b>Item</b>",10,'left');
+            $pdf->ezPlaceData($xleft+=115,$xtop,"<b>UOM</b>",10,'left');
+            $pdf->ezPlaceData($xleft+=85,$xtop,"<b>Delivered</b>",10,'right');
+            $pdf->ezPlaceData($xleft+=50,$xtop,"<b>Ordered</b>",10,'right');
+            $pdf->ezPlaceData($xleft+=50,$xtop,"<b>Excess</b>",10,'right');
+            $pdf->ezPlaceData($xleft+=35,$xtop,"<b>Matched Purchase Order Num./s</b>",10,'left');
         }
 
-        $xtop -= 15;
+        $xtop -= 25;
 
         $pdf->restoreState();
         $pdf->closeObject();
@@ -175,13 +180,15 @@
 	/***header**/
 
     #region DO YOU LOOP HERE
-    $select_db="SELECT *, tranfile1.trndte as 'trndte', tranfile2.recid as 'tranfile2_recid' FROM tranfile1 
-                    LEFT JOIN tranfile2 
-                    ON tranfile2.docnum = tranfile1.docnum 
-                    LEFT JOIN supplierfile ON 
+    $select_db="SELECT *, tranfile1.trndte as 'trndte', tranfile2.recid as 'tranfile2_recid', COALESCE(itemunitmeasurefile.unmdsc, '') as uom_description FROM tranfile1
+                    LEFT JOIN tranfile2
+                    ON tranfile2.docnum = tranfile1.docnum
+                    LEFT JOIN supplierfile ON
                     tranfile1.suppcde = supplierfile.suppcde
-                    LEFT JOIN itemfile ON 
+                    LEFT JOIN itemfile ON
                     itemfile.itmcde = tranfile2.itmcde
+                    LEFT JOIN itemunitmeasurefile ON
+                    tranfile2.unmcde = itemunitmeasurefile.unmcde
                     WHERE true ".$xfilter." AND tranfile2.trncde='PUR' ORDER BY tranfile2.docnum ";
     $stmt_main	= $link->prepare($select_db);
     $stmt_main->execute();
@@ -227,23 +234,35 @@
 
         if($_POST['txt_output_type'] !== 'tab'){
             $pdf->ezPlaceData($xleft,$xtop,$docnum,9,"left");
-            $pdf->ezPlaceData($xleft+=80,$xtop,$trndte,9,"left");
-            $pdf->ezPlaceData($xleft+=60,$xtop,$suppdsc,9,"left");
+            $pdf->ezPlaceData($xleft+=75,$xtop,$trndte,9,"left");
+            $xleft+=55; // Move to Supplier column position (155)
+
+            // Supplier column - wrap if too long (max width before Item column)
+            $supp_max_width = 65; // Width before reaching Item column
+            $supp_lines = breakTextIntoLines($pdf, $suppdsc, $supp_max_width, 9);
+            $supp_line_count = count($supp_lines);
+            $supp_height = 0;
+            if($supp_line_count > 1){
+                $supp_height = 12 * ($supp_line_count - 1);
+            }
+            // Render Supplier lines from top down
+            foreach ($supp_lines as $supp_idx => $supp_line) {
+                $pdf->addText($xleft, $xtop - ($supp_idx * 12), 9, $supp_line);
+            }
         }
 
-
-
-        // Define the maximum line width
-        $maxLineWidth = 135; // Adjust based on your layout
+        // Define the maximum line width for Item
+        $maxLineWidth = 105; // Adjust based on your layout
         $fontSize = 9;
 
-        // Break the text into lines
+        // Break the Item text into lines
         $lines = breakTextIntoLines($pdf, $rs_main["itmdsc"], $maxLineWidth, $fontSize);
 
         $xcounter_item_newline = 0;
         $xchecker = false;
         $xchecker_add = 0;
         $xcount_total_itmheight = 0;
+        $item_height = 0;
         foreach ($lines as $line) {
 
             if($xcounter_item_newline != 0){
@@ -251,12 +270,18 @@
                 $xchecker = true;
             }
 
-            $pdf->addText($xleft+80, $xtop, $fontSize, $line); // Add the line
+            $pdf->addText($xleft+70, $xtop, $fontSize, $line); // Add the line
             $xcounter_item_newline++;
-        }    
+        }
 
         if($xchecker == true){
             $xcount_total_itmheight = 12 * ($xcounter_item_newline - 1);
+            $item_height = $xcount_total_itmheight;
+        }
+
+        // Use the greater of Supplier or Item height for row positioning
+        if(isset($supp_height) && $supp_height > $xcount_total_itmheight){
+            $xcount_total_itmheight = $supp_height;
         }
         
         $received = '';
@@ -307,27 +332,40 @@
 
 
         if ($_POST['txt_output_type'] == 'tab') {
-        
+
             // Include remarks in the tab-delimited output generation
-            $tab_output = 
+            $tab_output =
                             $docnum . "\t" .
                             $trndte . "\t" .
                             $suppdsc . "\t" .
                             $rs_main["itmdsc"] . "\t" .
+                            $rs_main["uom_description"] . "\t" .
                             $rs_main["itmqty"] . "\t" .
                             $ordered_arr['ordered'] . "\t" .
                             $excess . "\t" .
                             $ordered_arr['po_num'] . "\n";
-        
+
             echo $tab_output;
         }else{
-            // $pdf->ezPlaceData($xleft+=80,$xtop,$rs_main["itmdsc"],9,"left");
-            $pdf->ezPlaceData($xleft+=245,$xtop+$xcount_total_itmheight,$rs_main["itmqty"],9,"right");
-            $pdf->ezPlaceData($xleft+=55,$xtop+$xcount_total_itmheight,$ordered_arr['ordered'],9,"right");
-            $pdf->ezPlaceData($xleft+=65,$xtop+$xcount_total_itmheight,$excess ,9,"right");
+            // UOM column - wrap if too long
+            $uom_max_width = 50;
+            $uom_lines = breakTextIntoLines($pdf, $rs_main["uom_description"], $uom_max_width, 9);
+            $uom_line_count = count($uom_lines);
+            $uom_y_offset = 0;
+            foreach ($uom_lines as $uom_idx => $uom_line) {
+                $pdf->addText($xleft+185, $xtop+$xcount_total_itmheight - ($uom_idx * 10), 9, $uom_line);
+            }
+            if($uom_line_count > 1 && ($uom_line_count - 1) * 10 > $xcount_total_itmheight){
+                $xcount_total_itmheight = ($uom_line_count - 1) * 10;
+            }
 
-            // Define the maximum line width
-            $maxLineWidth = 165; // Adjust based on your layout
+            // Delivered, Ordered, Excess columns
+            $pdf->ezPlaceData($xleft+=270,$xtop+$xcount_total_itmheight,$rs_main["itmqty"],9,"right");
+            $pdf->ezPlaceData($xleft+=50,$xtop+$xcount_total_itmheight,$ordered_arr['ordered'],9,"right");
+            $pdf->ezPlaceData($xleft+=50,$xtop+$xcount_total_itmheight,$excess ,9,"right");
+
+            // Define the maximum line width for Matched PO
+            $maxLineWidth = 200; // Adjust based on your layout
             $fontSize = 9;
 
             // Break the text into lines
@@ -343,7 +381,7 @@
                     $xchecker = true;
                 }
 
-                $pdf->addText($xleft+25, $xtop+$xcount_total_itmheight, $fontSize, $line); // Add the line
+                $pdf->addText($xleft+35, $xtop+$xcount_total_itmheight, $fontSize, $line); // Add the line
                 $xcounter_item_newline++;
             }    
 
@@ -376,27 +414,32 @@
                 $xleft =25;
                 $pdf->setLineStyle(.5);
                 $pdf->line($xleft, $xtop+10, 770, $xtop+10);
-                $pdf->line($xleft, $xtop-3, 770, $xtop-3);
-                
-                $pdf->ezPlaceData($xleft,$xtop,"<b>Purchase Num.</b>",10,'left');
-                $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Tran. Date</b>",10,'left');
-                $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Supplier</b>",10,'left');
-                $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Item</b>",10,'left');
-                $pdf->ezPlaceData($xleft+=170,$xtop,"<b>Delivered</b>",10,'right');
-                $pdf->ezPlaceData($xleft+=55,$xtop,"<b>Ordered</b>",10,'right');
-                $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Excess</b>",10,'right');
-                $pdf->ezPlaceData($xleft+=22,$xtop,"<b>Matched Purchase Order Num./s</b>",10,'left');
+                $pdf->line($xleft, $xtop-13, 770, $xtop-13);
+
+                // Two-line headers for crowded columns
+                $pdf->addText($xleft, $xtop, 10, '<b>Purchase</b>');
+                $pdf->addText($xleft, $xtop-10, 10, '<b>Num.</b>');
+                $xleft += 75;
+                $pdf->addText($xleft, $xtop, 10, '<b>Tran.</b>');
+                $pdf->addText($xleft, $xtop-10, 10, '<b>Date</b>');
+                $pdf->ezPlaceData($xleft+=55,$xtop,"<b>Supplier</b>",10,'left');
+                $pdf->ezPlaceData($xleft+=70,$xtop,"<b>Item</b>",10,'left');
+                $pdf->ezPlaceData($xleft+=115,$xtop,"<b>UOM</b>",10,'left');
+                $pdf->ezPlaceData($xleft+=85,$xtop,"<b>Delivered</b>",10,'right');
+                $pdf->ezPlaceData($xleft+=50,$xtop,"<b>Ordered</b>",10,'right');
+                $pdf->ezPlaceData($xleft+=50,$xtop,"<b>Excess</b>",10,'right');
+                $pdf->ezPlaceData($xleft+=35,$xtop,"<b>Matched Purchase Order Num./s</b>",10,'left');
 
                 $xleft = 25;
 
                 $pdf->restoreState();
                 $pdf->closeObject();
-                $pdf->addObject($xheader,'all'); 
+                $pdf->addObject($xheader,'all');
 
                 $xheader_check = true;
             }
 
-            $xtop -= 15;  
+            $xtop -= 25;  
         }
 
         $xmain_count++;

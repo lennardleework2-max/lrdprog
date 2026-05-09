@@ -190,7 +190,7 @@
                 echo "Supplier: ".$_POST['cus_search']."\t\n";
             // }           
                 
-            $tab_headers = "SO. Num.\tOrdered Date\tUpload Date\tPlatform\tPending Orders\tShipped Out\tBalance\tMatched Sales Num";
+            $tab_headers = "SO. Num.\tOrdered Date\tUpload Date\tPlatform\tItem\tPending Orders\tUOM\tShipped Out\tBalance\tMatched Sales Num";
             echo $tab_headers;
         }     
         
@@ -198,7 +198,7 @@
         $xleft = 25;
         $pdf->setLineStyle(.5);
 		$pdf->line($xleft, $xtop+10, 770, $xtop+10);
-        $pdf->line($xleft, $xtop-3, 770, $xtop-3);
+        $pdf->line($xleft, $xtop-13, 770, $xtop-13);
 
         if($_POST['txt_output_type'] !='tab'){
             $pdf->ezPlaceData($xleft,$xtop,"<b>SO. Num.</b>",10,'left');
@@ -206,10 +206,13 @@
             $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Upload Date</b>",10,'left');
             $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Platform</b>",10,'left');
             $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Item</b>",10,'left');
-            $pdf->ezPlaceData($xleft+=140,$xtop,"<b>Pending Orders</b>",10,'right');
-            $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Shipped Out</b>",10,'right');
-            $pdf->ezPlaceData($xleft+=65,$xtop,"<b>Balance</b>",10,'right');
-            $pdf->ezPlaceData($xleft+=30,$xtop,"<b>Matched Sales Num</b>",10,'left');
+            $pdf->ezPlaceData($xleft+=140,$xtop,"<b>Pending</b>",10,'right');
+            $pdf->ezPlaceData($xleft,$xtop-10,"<b>Orders</b>",10,'right');
+            $pdf->ezPlaceData($xleft+=35,$xtop,"<b>UOM</b>",10,'left');
+            $pdf->ezPlaceData($xleft+=70,$xtop,"<b>Shipped</b>",10,'right');
+            $pdf->ezPlaceData($xleft,$xtop-10,"<b>Out</b>",10,'right');
+            $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Balance</b>",10,'right');
+            $pdf->ezPlaceData($xleft+=20,$xtop,"<b>Matched Sales Num</b>",10,'left');
         }
 
 		$xtop -= 15;
@@ -222,17 +225,19 @@
 	/***header**/
 
     #region DO YOU LOOP HERE
-    $select_db="SELECT *, salesorderfile1.trndte as 'trndte', 
+    $select_db="SELECT *, salesorderfile1.trndte as 'trndte',
                           salesorderfile1.file_created_date as 'file_created_date',
-                          salesorderfile1.docnum as 'docnum', 
+                          salesorderfile1.docnum as 'docnum',
                           salesorderfile2.itmqty as 'itmqty',
                           salesorderfile2.recid as 'sonum_recid',
                           customerfile.cusdsc as 'cusdsc',
-                          itemfile.itmdsc as 'itmdsc'
-     FROM salesorderfile1 LEFT JOIN salesorderfile2 ON 
-    salesorderfile1.docnum = salesorderfile2.docnum LEFT JOIN customerfile ON 
-    salesorderfile1.cuscde = customerfile.cuscde LEFT JOIN itemfile ON 
-    salesorderfile2.itmcde = itemfile.itmcde WHERE true ".$xfilter." AND salesorderfile1.docnum NOT LIKE '%-BOM%' ORDER BY salesorderfile2.docnum";
+                          itemfile.itmdsc as 'itmdsc',
+                          COALESCE(itemunitmeasurefile.unmdsc, '') as 'unmdsc'
+     FROM salesorderfile1 LEFT JOIN salesorderfile2 ON
+    salesorderfile1.docnum = salesorderfile2.docnum LEFT JOIN customerfile ON
+    salesorderfile1.cuscde = customerfile.cuscde LEFT JOIN itemfile ON
+    salesorderfile2.itmcde = itemfile.itmcde LEFT JOIN itemunitmeasurefile ON
+    salesorderfile2.unmcde = itemunitmeasurefile.unmcde WHERE true ".$xfilter." AND salesorderfile1.docnum NOT LIKE '%-BOM%' ORDER BY salesorderfile2.docnum";
     $stmt_main	= $link->prepare($select_db);
     $stmt_main->execute();
     $xmain_count = 1;
@@ -285,14 +290,14 @@
             $file_created_date = '';
         }
 
-        $pdf->ezPlaceData($xleft,$xtop,$docnum,9,"left");
+        $pdf->ezPlaceData($xleft,$xtop-=10,$docnum,9,"left");
         $pdf->ezPlaceData($xleft+=80,$xtop,$file_created_date,9,"left");
         $pdf->ezPlaceData($xleft+=80,$xtop,$trndte,9,"left");
         $pdf->ezPlaceData($xleft+=80,$xtop,$cusdsc,9,"left");
 
         if($_POST['txt_output_type'] == 'tab'){
-        
-            $pdf->ezPlaceData($xleft+=80,$xtop,$rs_main["itmdsc"],9,"left");
+
+            $pdf->ezPlaceData($xleft+=80,$xtop,xls_safe_text($rs_main["itmdsc"]),9,"left");
             $xleft -= 80;
             $xcount_total_itmheight = 0;
         }else{
@@ -322,11 +327,12 @@
             if($xchecker == true){
                 $xcount_total_itmheight = 12 * ($xcounter_item_newline - 1);
             }  
-        }        
+        }
         $pdf->ezPlaceData($xleft+=220,$xtop+$xcount_total_itmheight,$rs_main["itmqty"],9,"right");
-        $pdf->ezPlaceData($xleft+=80,$xtop+$xcount_total_itmheight,$received,9,"right");
-        $pdf->ezPlaceData($xleft+=65,$xtop+$xcount_total_itmheight,$balance,9,"right");
-        $pdf->ezPlaceData($xleft+=30,$xtop+$xcount_total_itmheight,$matched_ponum,9,"left");
+        $pdf->ezPlaceData($xleft+=35,$xtop+$xcount_total_itmheight,xls_safe_text($rs_main["unmdsc"]),9,"left");
+        $pdf->ezPlaceData($xleft+=70,$xtop+$xcount_total_itmheight,$received,9,"right");
+        $pdf->ezPlaceData($xleft+=60,$xtop+$xcount_total_itmheight,$balance,9,"right");
+        $pdf->ezPlaceData($xleft+=20,$xtop+$xcount_total_itmheight,$matched_ponum,9,"left");
         if($xmain_count == $rs_main3['xcount']){
             $pdf->line(25, $xtop-10, 770, $xtop-10); 
             $xtop -= 5;
@@ -346,17 +352,20 @@
                 $xleft =25;
                 $pdf->setLineStyle(.5);
                 $pdf->line($xleft, $xtop+10, 770, $xtop+10);
-                $pdf->line($xleft, $xtop-3, 770, $xtop-3);
+                $pdf->line($xleft, $xtop-13, 770, $xtop-13);
 
                 $pdf->ezPlaceData($xleft,$xtop,"<b>SO. Num.</b>",10,'left');
                 $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Ordered Date</b>",10,'left');
                 $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Upload Date</b>",10,'left');
                 $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Platform</b>",10,'left');
                 $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Item</b>",10,'left');
-                $pdf->ezPlaceData($xleft+=140,$xtop,"<b>Pending Orders</b>",10,'right');
-                $pdf->ezPlaceData($xleft+=80,$xtop,"<b>Shipped Out</b>",10,'right');
-                $pdf->ezPlaceData($xleft+=65,$xtop,"<b>Balance</b>",10,'right');
-                $pdf->ezPlaceData($xleft+=30,$xtop,"<b>Matched Sales Num</b>",10,'left');
+                $pdf->ezPlaceData($xleft+=140,$xtop,"<b>Pending</b>",10,'right');
+                $pdf->ezPlaceData($xleft,$xtop-10,"<b>Orders</b>",10,'right');
+                $pdf->ezPlaceData($xleft+=35,$xtop,"<b>UOM</b>",10,'left');
+                $pdf->ezPlaceData($xleft+=70,$xtop,"<b>Shipped</b>",10,'right');
+                $pdf->ezPlaceData($xleft,$xtop-10,"<b>Out</b>",10,'right');
+                $pdf->ezPlaceData($xleft+=60,$xtop,"<b>Balance</b>",10,'right');
+                $pdf->ezPlaceData($xleft+=20,$xtop,"<b>Matched Sales Num</b>",10,'left');
 
                 $xleft = 25;
 
@@ -458,7 +467,39 @@
         }
 
         return $lines;
-    }      
+    }
+
+    // XLS-safe text encoding: sanitizes text for tab-separated XLS output
+    function xls_safe_text($string)
+    {
+        global $pdf;
+
+        $string = (string)$string;
+        if(get_class($pdf) != 'tab_ezpdf'){
+            return $string;
+        }
+
+        if(function_exists('mb_check_encoding') && !mb_check_encoding($string, 'UTF-8')){
+            $string = mb_convert_encoding($string, 'UTF-8', 'UTF-8, Windows-1252, ISO-8859-1');
+        }
+
+        if(function_exists('iconv')){
+            $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $string);
+            if($converted !== false && $converted !== ''){
+                $string = $converted;
+            } else {
+                $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+            }
+        } else {
+            $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+        }
+
+        $string = str_replace(array("\t", "\r", "\n", "\0"), ' ', $string);
+        $string = preg_replace('/[\x00-\x1F\x7F]/', ' ', $string);
+        $string = preg_replace('/\s{2,}/', ' ', $string);
+
+        return trim($string);
+    }
 
 
 ?>

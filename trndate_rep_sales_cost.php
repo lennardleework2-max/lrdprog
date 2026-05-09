@@ -55,13 +55,13 @@
 
 
         $xfields_heaeder_counter = 0;
-        // Keep total column width within printable area (x=25 to x=770).
-        $col_docnum = 58;
-        $col_ordernum = 90;
+        // Keep total column width within printable area (x=25 to x=790).
+        $col_docnum = 92;
+        $col_ordernum = 96;
         $col_trndte = 58;
         $col_paydate = 58;
-        $col_customer = 80;
-        $col_shop_item = 136;
+        $col_customer = 92;
+        $col_shop_item = 104;
         $col_qty = 45;
         $col_price = 73;
         $col_cost = 73;
@@ -72,8 +72,8 @@
 
         $header_row1_y = $xtop;
         $header_row2_y = $xtop - 10;
-		$pdf->line($xleft, $header_row1_y+10, 770, $header_row1_y+10);
-        $pdf->line($xleft, $header_row2_y-4, 770, $header_row2_y-4);
+		$pdf->line($xleft, $header_row1_y+10, 790, $header_row1_y+10);
+        $pdf->line($xleft, $header_row2_y-4, 790, $header_row2_y-4);
 
         $xcol = $xleft;
         $pdf->ezPlaceData($xcol,$header_row1_y,"<b>Doc.</b>",10,'left');
@@ -268,6 +268,7 @@
         customerfile.cusdsc as cus_cusdsc,
         tranfile2.recid as t2_recid,
         tranfile2.itmcde as t2_itmcde,
+        tranfile2.unmcde as t2_unmcde,
         tranfile2.itmqty as t2_itmqty,
         tranfile2.extprc as t2_extprc,
         itemfile.itmdsc as itm_itmdsc
@@ -299,7 +300,7 @@
         $placeholders = implode(',', array_fill(0, count($item_list), '?'));
 
         // Get the latest cost for each item (by recid DESC)
-        $cost_query = "SELECT t2.itmcde, t2.untprc, t2.recid, t1.trndte
+        $cost_query = "SELECT t2.itmcde, t2.unmcde, t2.untprc, t2.recid, t1.trndte
             FROM tranfile2 t2
             INNER JOIN tranfile1 t1 ON t1.docnum = t2.docnum
             WHERE t2.itmcde IN ($placeholders)
@@ -310,23 +311,28 @@
         $stmt_cost = $link->prepare($cost_query);
         $stmt_cost->execute($item_list);
 
-        // Store ALL cost records grouped by item code (for date-based lookup)
+        // Store ALL cost records grouped by item code + unit code (for date-based lookup)
         while($cost_row = $stmt_cost->fetch(PDO::FETCH_ASSOC)) {
-            $itmcde = $cost_row['itmcde'];
-            if(!isset($cost_cache[$itmcde])) {
-                $cost_cache[$itmcde] = array();
+            $cost_key = sales_cost_cache_key($cost_row['itmcde'], $cost_row['unmcde']);
+            if(!isset($cost_cache[$cost_key])) {
+                $cost_cache[$cost_key] = array();
             }
-            $cost_cache[$itmcde][] = $cost_row;
+            $cost_cache[$cost_key][] = $cost_row;
         }
     }
 
+    function sales_cost_cache_key($itmcde, $unmcde) {
+        return (string)$itmcde . '|' . ($unmcde === NULL ? '__NULL__' : (string)$unmcde);
+    }
+
     // Function to get unit cost from cache (no database query)
-    function get_cached_unitcost($itmcde, $trndte, $sal_recid, &$cost_cache) {
-        if(!isset($cost_cache[$itmcde]) || empty($cost_cache[$itmcde])) {
+    function get_cached_unitcost($itmcde, $unmcde, $trndte, $sal_recid, &$cost_cache) {
+        $cost_key = sales_cost_cache_key($itmcde, $unmcde);
+        if(!isset($cost_cache[$cost_key]) || empty($cost_cache[$cost_key])) {
             return 0;
         }
 
-        $costs = $cost_cache[$itmcde];
+        $costs = $cost_cache[$cost_key];
 
         // If we have a date, find cost where trndte <= sale date
         if(!empty($trndte)) {
@@ -375,6 +381,7 @@
             $grouped_data[$docnum]['items'][] = array(
                 'recid' => $row['t2_recid'],
                 'itmcde' => $row['t2_itmcde'],
+                'unmcde' => $row['t2_unmcde'],
                 'itmqty' => $row['t2_itmqty'],
                 'extprc' => $row['t2_extprc'],
                 'itmdsc' => $row['itm_itmdsc']
@@ -410,37 +417,51 @@
         $shop_name = trim((string)$header["cusdsc"]);
 
         if ($_POST['txt_output_type']=='tab') {
-            $display_buyer_name = $buyer_name;
-            $display_cusdsc = $shop_name;
-            $display_ordernum = $header["ordernum"];
+            $display_docnum = sanitize_tab_text($header["docnum"]);
+            $buyer_lines = array(sanitize_tab_text($buyer_name));
+            $display_cusdsc = sanitize_tab_text($shop_name);
+            $display_ordernum = sanitize_tab_text($header["ordernum"]);
         } else {
-            $display_buyer_name = trim_str($buyer_name, $col_customer - 5, 9);
+            $display_docnum = $header["docnum"];
+            $buyer_lines = wrap_text_limited($buyer_name, $col_customer - 5, 9, 3);
             $display_cusdsc = trim_str($shop_name, $col_shop_item - $shop_item_text_padding, 9);
             $display_ordernum = trim_str($header["ordernum"], $col_ordernum - 5, 9);
         }
 
-        $pdf->ezPlaceData($xleft,$xtop,$header["docnum"],9,"left");
+        $buyer_line_count = count($buyer_lines);
+        $header_row_height = max(12, (($buyer_line_count - 1) * 10) + 12);
+
+        if(($xtop - (($buyer_line_count - 1) * 10)) <= 60){
+            $pdf->ezNewPage();
+            $xtop = 505;
+        }
+
+        $pdf->ezPlaceData($xleft,$xtop,$display_docnum,9,"left");
         $pdf->ezPlaceData($xleft+=$col_docnum,$xtop,$display_ordernum,9,"left");
         $pdf->ezPlaceData($xleft+=$col_ordernum,$xtop,$display_trndte,9,"left");
         $pdf->ezPlaceData($xleft+=$col_trndte,$xtop,$display_paydate,9,"left");
-        $pdf->ezPlaceData($xleft+=$col_paydate,$xtop,$display_buyer_name,9,"left");
-        $pdf->ezPlaceData($xleft+=$col_customer,$xtop,$display_cusdsc,9,"left");
+        $xleft += $col_paydate;
+        $customer_col_x = $xleft;
+        $shop_item_col_x = $customer_col_x + $col_customer;
+        $pdf->ezPlaceData($customer_col_x,$xtop,$buyer_lines[0],9,"left");
+        $pdf->ezPlaceData($shop_item_col_x,$xtop,$display_cusdsc,9,"left");
 
-        if($xtop <= 60){
-            $pdf->ezNewPage();
-            $xtop = 505;
+        if ($_POST['txt_output_type']!='tab') {
+            for($buyer_line_idx = 1; $buyer_line_idx < $buyer_line_count; $buyer_line_idx++) {
+                $pdf->ezPlaceData($customer_col_x, $xtop - ($buyer_line_idx * 10), $buyer_lines[$buyer_line_idx], 9, "left");
+            }
         }
 
         $price_tot = 0;
         $cost_tot = 0;
         $profit_tot = 0;
-        $xtop -= 12;
+        $xtop -= $header_row_height;
 
         // Process items for this document
         foreach($doc['items'] as $item) {
             // Get unit cost from cache (NO database query)
             $trndte = (empty($original_trndte)) ? NULL : date("Y-m-d", strtotime($original_trndte));
-            $unit_cost = get_cached_unitcost($item['itmcde'], $trndte, $item['recid'], $cost_cache);
+            $unit_cost = get_cached_unitcost($item['itmcde'], $item['unmcde'], $trndte, $item['recid'], $cost_cache);
             $cost = $unit_cost * $item["itmqty"];
             $profit = $item["extprc"] - $cost;
 
@@ -454,7 +475,11 @@
 
             // Wrap long item names
             $itm_max_width = $col_shop_item - $shop_item_text_padding;
-            $itm_lines = wrap_text($item["itmdsc"], $itm_max_width, 9);
+            if ($_POST['txt_output_type']=='tab') {
+                $itm_lines = array(sanitize_tab_text($item["itmdsc"]));
+            } else {
+                $itm_lines = wrap_text($item["itmdsc"], $itm_max_width, 9);
+            }
             $itm_line_count = count($itm_lines);
 
             // For first line, output item name in column order
@@ -465,16 +490,22 @@
             $pdf->ezPlaceData($xleft+=$col_cost,$xtop,number_format($profit,"2"),9,"right");  // Profit
 
             // For additional wrapped lines (PDF only), place them below
-            for($idx = 1; $idx < $itm_line_count; $idx++) {
-                $xtop -= 10;
-                $pdf->ezPlaceData($shop_col_x, $xtop, $itm_lines[$idx], 9, "left");
+            if ($_POST['txt_output_type']!='tab') {
+                for($idx = 1; $idx < $itm_line_count; $idx++) {
+                    $xtop -= 10;
+                    $pdf->ezPlaceData($shop_col_x, $xtop, $itm_lines[$idx], 9, "left");
+                }
             }
 
             $price_tot += $item["extprc"];
             $cost_tot += $cost;
             $profit_tot += $profit;
 
-            $xtop -= max(15, $itm_line_count * 10 + 5);
+            if ($_POST['txt_output_type']=='tab') {
+                $xtop -= 15;
+            } else {
+                $xtop -= max(15, $itm_line_count * 10 + 5);
+            }
 
             if($xtop <= 60){
                 $pdf->ezNewPage();
@@ -482,7 +513,7 @@
             }
         }
 
-        $pdf->line(25, $xtop, 770, $xtop);
+        $pdf->line(25, $xtop, 790, $xtop);
         $xtop -= 15;
         // TOTAL row - output in column order
         $xleft = 25;
@@ -496,7 +527,7 @@
         $pdf->ezPlaceData($xleft+=$col_qty,$xtop+5,number_format($price_tot,2),9,"right");
         $pdf->ezPlaceData($xleft+=$col_price,$xtop+5,number_format($cost_tot,2),9,"right");
         $pdf->ezPlaceData($xleft+=$col_cost,$xtop+5,number_format($profit_tot,2),9,"right");
-        $pdf->line(25, $xtop-=5, 770, $xtop);
+        $pdf->line(25, $xtop-=5, 790, $xtop);
         $xtop -= 15;
 
         if($xtop <= 60){
@@ -509,7 +540,7 @@
         $profit_gtot += $profit_tot;
     }
 
-    $pdf->line(25, $xtop, 770, $xtop);
+    $pdf->line(25, $xtop, 790, $xtop);
     $xtop -= 15;
     // GRAND TOTAL row - output in column order
     $xleft = 25;
@@ -523,7 +554,7 @@
     $pdf->ezPlaceData($xleft+=$col_qty,$xtop+5,number_format($price_gtot,2),9,"right");
     $pdf->ezPlaceData($xleft+=$col_price,$xtop+5,number_format($cost_gtot,2),9,"right");
     $pdf->ezPlaceData($xleft+=$col_cost,$xtop+5,number_format($profit_gtot,2),9,"right");
-    $pdf->line(25, $xtop-=5, 770, $xtop);
+    $pdf->line(25, $xtop-=5, 790, $xtop);
 
 
 	$pdf->addText(30,15,8,"Date Printed : ".date("F j, Y, g:i A"),$angle=0,$wordspaceadjust=1);
@@ -580,6 +611,14 @@
 
     }
 
+    function sanitize_tab_text($string) {
+        $string = (string)$string;
+        $string = str_replace(array("\r\n", "\r", "\n", "\t"), ' ', $string);
+        $string = preg_replace('/[ ]{2,}/', ' ', $string);
+
+        return trim($string);
+    }
+
     // Wrap text to multiple lines based on max width
     function wrap_text($string, $max_wid, $fsize) {
         global $pdf;
@@ -620,6 +659,52 @@
         }
 
         return $lines;
+    }
+
+    function wrap_text_limited($string, $max_wid, $fsize, $max_lines = 3) {
+        global $pdf;
+
+        if(empty($string)) {
+            return array('');
+        }
+
+        $wrapped_lines = array();
+        $base_lines = wrap_text($string, $max_wid, $fsize);
+
+        foreach($base_lines as $base_line) {
+            if($pdf->getTextWidth($fsize, $base_line) <= $max_wid) {
+                $wrapped_lines[] = $base_line;
+                continue;
+            }
+
+            $remaining = $base_line;
+            while($remaining !== '') {
+                $chunk = '';
+                $chars = str_split($remaining);
+
+                foreach($chars as $char) {
+                    if($chunk !== '' && $pdf->getTextWidth($fsize, $chunk . $char) > $max_wid) {
+                        break;
+                    }
+                    $chunk .= $char;
+                }
+
+                if($chunk === '') {
+                    $chunk = substr($remaining, 0, 1);
+                }
+
+                $wrapped_lines[] = rtrim($chunk);
+                $remaining = ltrim(substr($remaining, strlen($chunk)));
+            }
+        }
+
+        if(count($wrapped_lines) > $max_lines) {
+            $overflow_text = implode(' ', array_slice($wrapped_lines, $max_lines - 1));
+            $wrapped_lines = array_slice($wrapped_lines, 0, $max_lines - 1);
+            $wrapped_lines[] = trim_str($overflow_text, $max_wid, $fsize);
+        }
+
+        return empty($wrapped_lines) ? array('') : $wrapped_lines;
     }
 
 

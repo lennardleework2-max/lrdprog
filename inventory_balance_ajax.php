@@ -17,7 +17,6 @@ $xret["itm_total"] = '';
 
 $xfilter = '';
 $xfilter2 = '';
-$xorder = '';
 
     if(isset($_POST['date_search']) && !empty($_POST['date_search'])){
         $_POST['date_search']  = (empty($_POST['date_search'])) ? NULL :  date("Y-m-d", strtotime($_POST['date_search']));
@@ -25,27 +24,26 @@ $xorder = '';
     }
 
     if(isset($_POST['item']) && !empty($_POST['item'])){
-        $xfilter .= "AND itmcde='".$_POST['item']."'";
+        $xfilter .= " AND itemfile.itmcde='".$_POST['item']."'";
     }
 
-
-    $select_db = "SELECT * FROM itemfile WHERE true ".$xfilter;
+    $select_db = "SELECT itemfile.itmcde,
+            balance_data.xsum
+        FROM itemfile
+        LEFT JOIN (
+            SELECT tranfile2.itmcde,
+                SUM(tranfile2.stkqty) AS xsum
+            FROM tranfile2
+            LEFT JOIN tranfile1 ON tranfile1.docnum = tranfile2.docnum
+            WHERE 1=1 ".$xfilter2."
+            GROUP BY tranfile2.itmcde
+        ) balance_data ON balance_data.itmcde = itemfile.itmcde
+        WHERE true ".$xfilter."
+        LIMIT 1";
     $stmt_main	= $link->prepare($select_db);
     $stmt_main->execute();
-    $grand_total = 0;
     while($rs_main = $stmt_main->fetch()){    
-
-        // $select_db2 = "SELECT SUM(stkqty) as xsum FROM tranfile2 LEFT JOIN tranfile1 ON tranfile1.docnum= tranfile2.docnum WHERE itmcde='".$rs_main['itmcde']."'";
-        $select_db2 = "SELECT SUM(stkqty) as xsum, itemfile.itmdsc as itemfile_itmdsc FROM tranfile2 LEFT JOIN tranfile1 ON tranfile1.docnum= tranfile2.docnum LEFT JOIN itemfile ON tranfile2.itmcde = itemfile.itmcde WHERE itemfile.itmcde='".$rs_main['itmcde']."' ".$xfilter2."";
-        $stmt_main2	= $link->prepare($select_db2);
-        $stmt_main2->execute(array());
-        $rs2 = $stmt_main2->fetch();
-
-        $item_total =  $rs2['xsum'];
-
-        $xret["itm_total"] =  $item_total;
-
-        
+        $xret["itm_total"] = $rs_main['xsum'];
     }
 
 $xerror = array();

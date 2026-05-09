@@ -6,6 +6,79 @@ ini_set('display_startup_errors', '1');
 
 error_reporting(E_ALL);
 
+if(isset($_POST['buyersfile_log_action']) && $_POST['buyersfile_log_action'] !== ''){
+    session_start();
+    require "resources/db_init.php";
+    require "resources/connect4.php";
+    require_once("resources/lx2.pdodb.php");
+    require "resources/stdfunc100.php";
+
+    $xret = array();
+    $xret["status"] = 1;
+    $xret["msg"] = "";
+
+    if($_POST['buyersfile_log_action'] === 'get_buyer_name'){
+        $buyer_name = '';
+        $recid = isset($_POST['recid']) ? trim((string)$_POST['recid']) : '';
+
+        if($recid !== ''){
+            $select_buyer = "SELECT buyer_name FROM mf_buyers WHERE recid = ? LIMIT 1";
+            $stmt_buyer = $link->prepare($select_buyer);
+            $stmt_buyer->execute(array($recid));
+            $rs_buyer = $stmt_buyer->fetch();
+
+            if($rs_buyer){
+                $buyer_name = trim((string)$rs_buyer['buyer_name']);
+            }
+        }
+
+        $xret["buyer_name"] = $buyer_name;
+        header('Content-Type: application/json');
+        echo json_encode($xret);
+        exit;
+    }
+
+    if($_POST['buyersfile_log_action'] === 'update_latest_remark'){
+        $activity = isset($_POST['activity']) ? trim((string)$_POST['activity']) : '';
+        $buyer_name = isset($_POST['buyer_name']) ? trim((string)$_POST['buyer_name']) : '';
+        $username_session = useractivitylog_get_session_username();
+        $remarks = '';
+
+        if($activity === 'add'){
+            $remarks = "Added Record In 'Buyers Profile', : buyer name: '" . useractivitylog_escape_value($buyer_name) . "'";
+        }else if($activity === 'delete'){
+            $remarks = "Deleted Record In 'Buyers Profile', Buyer Name: '" . useractivitylog_escape_value($buyer_name) . "'";
+        }
+
+        if($remarks !== '' && $username_session !== ''){
+            $select_log = "SELECT recid
+                           FROM useractivitylogfile
+                           WHERE module = 'BUYERS PROFILE'
+                           AND activity = ?
+                           AND usrname = ?
+                           ORDER BY recid DESC
+                           LIMIT 1";
+            $stmt_log = $link->prepare($select_log);
+            $stmt_log->execute(array($activity, $username_session));
+            $rs_log = $stmt_log->fetch();
+
+            if($rs_log && !empty($rs_log['recid'])){
+                $update_log = "UPDATE useractivitylogfile SET remarks = ? WHERE recid = ?";
+                $stmt_update_log = $link->prepare($update_log);
+                $stmt_update_log->execute(array($remarks, $rs_log['recid']));
+            }
+        }
+
+        header('Content-Type: application/json');
+        echo json_encode($xret);
+        exit;
+    }
+
+    header('Content-Type: application/json');
+    echo json_encode($xret);
+    exit;
+}
+
 
 
 require "includes/main_header.php";
@@ -449,12 +522,96 @@ require "pager/pager_main.class.php";
 <!-- PAGER JS -->   
 
 <script src="pager/pager_js.class.js"> </script>
+<script>
+(function(){
+    var originalAjaxFunc = window.ajaxFunc;
+    var pendingBuyersLogUpdate = null;
+
+    function queueBuyersLogUpdate(activity, buyerName){
+        pendingBuyersLogUpdate = {
+            activity: activity,
+            buyer_name: $.trim(buyerName || '')
+        };
+    }
+
+    function applyLatestBuyersRemarkOverride(){
+        if(!pendingBuyersLogUpdate){
+            return;
+        }
+
+        $.ajax({
+            data: {
+                buyersfile_log_action: 'update_latest_remark',
+                activity: pendingBuyersLogUpdate.activity,
+                buyer_name: pendingBuyersLogUpdate.buyer_name
+            },
+            dataType: 'json',
+            type: 'post',
+            url: 'mf_buyersfile.php'
+        });
+
+        pendingBuyersLogUpdate = null;
+    }
+
+    window.ajaxFunc = function(event, recid, custom_param){
+        if(event === 'insert'){
+            queueBuyersLogUpdate('add', $('#buyer_name_crudModal').val());
+            return originalAjaxFunc(event, recid, custom_param);
+        }
+
+        if(event === 'delete'){
+            $.ajax({
+                data: {
+                    buyersfile_log_action: 'get_buyer_name',
+                    recid: recid
+                },
+                dataType: 'json',
+                type: 'post',
+                url: 'mf_buyersfile.php',
+                success: function(xdata){
+                    queueBuyersLogUpdate('delete', xdata && xdata.buyer_name ? xdata.buyer_name : '');
+                    originalAjaxFunc(event, recid, custom_param);
+                },
+                error: function(){
+                    queueBuyersLogUpdate('delete', '');
+                    originalAjaxFunc(event, recid, custom_param);
+                }
+            });
+            return false;
+        }
+
+        return originalAjaxFunc(event, recid, custom_param);
+    };
+
+    $(document).ajaxComplete(function(event, xhr, settings){
+        if(!pendingBuyersLogUpdate){
+            return;
+        }
+
+        if(!settings || settings.url !== 'pager/pager_ajax.class.php'){
+            return;
+        }
+
+        var responseText = xhr && xhr.responseText ? xhr.responseText : '';
+        if(responseText === ''){
+            return;
+        }
+
+        try{
+            var xdata = JSON.parse(responseText);
+            if(xdata && String(xdata.status) === '1'){
+                applyLatestBuyersRemarkOverride();
+            }
+        }catch(error){
+        }
+    });
+})();
+</script>
 
 <?php 
 
 require "includes/main_footer.php";
 
 ?>
-
 
 

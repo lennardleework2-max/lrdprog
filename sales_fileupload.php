@@ -119,6 +119,43 @@ else if($userdesc == "admin"){
 
 
 $current_datetime = date("Y-m-d H:i:s");
+
+$warehouse_options = array();
+$stmt_warehouse = $link->prepare("SELECT warcde, warehouse_name FROM warehouse ORDER BY warehouse_name ASC");
+$stmt_warehouse->execute();
+while($rs_warehouse = $stmt_warehouse->fetch()){
+    $warehouse_options[] = array(
+        'warcde' => $rs_warehouse['warcde'],
+        'warehouse_name' => $rs_warehouse['warehouse_name']
+    );
+}
+
+$warehouse_floor_map = array();
+$stmt_floor = $link->prepare("SELECT warehouse_floor_id, warcde, floor_no, floor_name FROM warehouse_floor ORDER BY floor_no ASC, floor_name ASC, warehouse_floor_id ASC");
+$stmt_floor->execute();
+while($rs_floor = $stmt_floor->fetch()){
+    $floor_warcde = isset($rs_floor['warcde']) ? (string)$rs_floor['warcde'] : '';
+    if(!isset($warehouse_floor_map[$floor_warcde])){
+        $warehouse_floor_map[$floor_warcde] = array();
+    }
+    $warehouse_floor_map[$floor_warcde][] = array(
+        'warehouse_floor_id' => $rs_floor['warehouse_floor_id'],
+        'floor_no' => trim((string)($rs_floor['floor_no'] !== '' ? $rs_floor['floor_no'] : $rs_floor['floor_name']))
+    );
+}
+
+$warehouse_staff_options = array();
+$stmt_staff = $link->prepare("SELECT warehouse_staff_id, fname, lname FROM warehouse_staff ORDER BY fname ASC, lname ASC");
+$stmt_staff->execute();
+while($rs_staff = $stmt_staff->fetch()){
+    $warehouse_staff_options[] = array(
+        'warehouse_staff_id' => $rs_staff['warehouse_staff_id'],
+        'staff_name' => trim($rs_staff['fname'].' '.$rs_staff['lname'])
+    );
+}
+
+$default_warcde = 'WHS-0000001';
+$default_warehouse_floor_id = 'WHFID-0000002';
 ?>
 <!doctype html>
 <html lang="en" style="height:100%;">
@@ -276,7 +313,8 @@ $current_datetime = date("Y-m-d H:i:s");
     </script>
 
     <form name='myforms' id="myforms" style='height: calc(100vh - 99px)' enctype="multipart/form-data" method="post" action=''> 
-        <table class='big_table'> 
+        <input type="hidden" name="usercode_hidden" id="usercode_hidden" value="<?php echo htmlspecialchars(isset($_SESSION['usercode']) ? $_SESSION['usercode'] : '', ENT_QUOTES); ?>">
+        <table class='big_table'>
             <tr colspan=1>
 
                 <td colspan=1 class='td_bl'>
@@ -322,6 +360,30 @@ $current_datetime = date("Y-m-d H:i:s");
                                                     <option value="TIKTOK">TIKTOK</option>
                                                     <option value="LAZADA">LAZADA</option>
                                                     <option value="SHOPEE">SHOPEE</option>
+                                                </select>
+                                            </div>
+                                            <div class="m-3">
+                                                <label for="warcde" class="mb-1">Warehouse</label>
+                                                <select name="warcde" id="warcde" class="form-select">
+                                                    <option value="">Select Warehouse</option>
+                                                    <?php foreach($warehouse_options as $warehouse_option): ?>
+                                                        <option value="<?php echo htmlspecialchars($warehouse_option['warcde'], ENT_QUOTES); ?>"><?php echo htmlspecialchars($warehouse_option['warehouse_name'], ENT_QUOTES); ?></option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
+                                            <div class="m-3">
+                                                <label for="warehouse_floor_id" class="mb-1">Warehouse Floor</label>
+                                                <select name="warehouse_floor_id" id="warehouse_floor_id" class="form-select">
+                                                    <option value="">Select Warehouse Floor</option>
+                                                </select>
+                                            </div>
+                                            <div class="m-3">
+                                                <label for="warehouse_staff_id" class="mb-1">Warehouse Staff</label>
+                                                <select name="warehouse_staff_id" id="warehouse_staff_id" class="form-select">
+                                                    <option value="">Select Warehouse Staff</option>
+                                                    <?php foreach($warehouse_staff_options as $staff_option): ?>
+                                                        <option value="<?php echo htmlspecialchars($staff_option['warehouse_staff_id'], ENT_QUOTES); ?>"><?php echo htmlspecialchars($staff_option['staff_name'], ENT_QUOTES); ?></option>
+                                                    <?php endforeach; ?>
                                                 </select>
                                             </div>
                                             <div class="upload-container" id="drop-zone" style="width:95%;height:300px">
@@ -382,6 +444,37 @@ $current_datetime = date("Y-m-d H:i:s");
         <input type="hidden" name="txt_output_type" id="txt_output_type">
     </form>
 <script>
+
+    var warehouseFloorMap = <?php echo json_encode($warehouse_floor_map); ?>;
+    var defaultWarehouseCode = <?php echo json_encode($default_warcde); ?>;
+    var defaultWarehouseFloorId = <?php echo json_encode($default_warehouse_floor_id); ?>;
+
+    function rebuildFloorOptions(selectId, warcde, selectedFloorId, allowNone){
+        var $select = $("#" + selectId);
+        if($select.length === 0){
+            return;
+        }
+
+        var options = allowNone ? "<option value=''>None</option>" : "<option value=''>Select Warehouse Floor</option>";
+        var floors = warehouseFloorMap[warcde] || [];
+
+        for(var i = 0; i < floors.length; i++){
+            var floor = floors[i];
+            var selected = (selectedFloorId && selectedFloorId === floor.warehouse_floor_id) ? " selected" : "";
+            options += "<option value='" + floor.warehouse_floor_id + "'" + selected + ">" + floor.floor_no + "</option>";
+        }
+
+        $select.html(options);
+    }
+
+    $(document).ready(function(){
+        $("#warcde").on("change", function(){
+            rebuildFloorOptions("warehouse_floor_id", $(this).val(), "", false);
+        });
+
+        $("#warcde").val(defaultWarehouseCode);
+        rebuildFloorOptions("warehouse_floor_id", defaultWarehouseCode, defaultWarehouseFloorId, false);
+    });
 
 
 
@@ -478,17 +571,125 @@ $current_datetime = date("Y-m-d H:i:s");
         document.forms.myforms.submit();
     }  
 
+    function escapeUploadSummaryHtml(value) {
+        return (value || '').toString()
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function getOrderedUploadResultRecords(response) {
+        var responseRecords = Array.isArray(response.upload_results)
+            ? response.upload_results
+            : Object.values(response.noMatchFile2 || {});
+        var failedRecords = [];
+        var successfulRecords = [];
+
+        for (var i = 0; i < responseRecords.length; i++) {
+            var record = responseRecords[i];
+            if (!record) {
+                continue;
+            }
+
+            if (record.success === false) {
+                failedRecords.push(record);
+            } else {
+                successfulRecords.push(record);
+            }
+        }
+
+        return failedRecords.concat(successfulRecords);
+    }
+
+    function buildUploadResultModalContent(records) {
+        var failedCount = 0;
+        var rows = [];
+
+        for (var i = 0; i < records.length; i++) {
+            var record = records[i] || {};
+            var isFailed = record.success === false;
+            var ordernum = escapeUploadSummaryHtml(record.ordernum || '');
+            var statusLabel = escapeUploadSummaryHtml(record.status_label || (isFailed ? 'Duplicate Records' : 'Success'));
+
+            if (isFailed) {
+                failedCount++;
+            }
+
+            rows.push(`<tr>
+                <td class="fw-semibold">${ordernum}</td>
+                <td><span class="badge ${isFailed ? 'bg-danger' : 'bg-success'}">${statusLabel}</span></td>
+            </tr>`);
+        }
+
+        var successfulCount = records.length - failedCount;
+        var html = `<div class="mb-3">
+            <div class="fw-bold">Upload Summary</div>
+            <div class="small text-muted">Failed records are listed first.</div>
+            <div class="small text-muted">Failed: ${failedCount} | Success: ${successfulCount} | Total: ${records.length}</div>
+        </div>`;
+
+        if (!records.length) {
+            html += `<div class="alert alert-secondary mb-3">No upload result records found.</div>`;
+        } else {
+            html += `<div class="table-responsive border rounded" style="max-height:55vh; overflow:auto;">
+                <table class="table table-sm table-striped table-hover mb-0 align-middle">
+                    <thead style="position:sticky; top:0; z-index:1; background:#fff;">
+                        <tr>
+                            <th style="width:70%;">Order Number</th>
+                            <th style="width:30%;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows.join('')}</tbody>
+                </table>
+            </div>`;
+        }
+
+        html += `<div class="d-flex justify-content-end mt-3">
+            <button type="button" class="btn btn-primary fw-bold" onclick="printUpload()">
+                Export All to PDF <i class="fas fa-file-pdf"></i>
+            </button>
+        </div>`;
+
+        return html;
+    }
+
+    function hasRequiredWarehouseSelection() {
+        var warcde = ($("#warcde").val() || "").trim();
+        var warehouse_floor_id = ($("#warehouse_floor_id").val() || "").trim();
+
+        if (warcde === "" || warehouse_floor_id === "") {
+            alert("Please select both Warehouse and Warehouse Floor before uploading.");
+            return false;
+        }
+
+        return true;
+    }
+
 
     function upload_waybill(){
 
 
         var platform_name = $("#platform_name").val();
+        var warcde = $("#warcde").val();
+        var warehouse_floor_id = $("#warehouse_floor_id").val();
+        var warehouse_staff_id = $("#warehouse_staff_id").val();
+
+        if (!hasRequiredWarehouseSelection()) {
+            return;
+        }
+
         // var policynum = $("#policynum_hidden_upload").val();
         var xdata = new FormData();
         var files = $('#xfile')[0].files;
         xdata.append('xfile',files[0]);
         xdata.append('event_action', 'process_file');
         xdata.append('platform_name', platform_name);
+        xdata.append('warcde', warcde);
+        xdata.append('warehouse_floor_id', warehouse_floor_id);
+        xdata.append('warehouse_staff_id', warehouse_staff_id);
+        xdata.append('usercode', ($("#usercode_hidden").val() || "").trim());
 
         jQuery.ajax({    
         data:xdata,
@@ -502,83 +703,17 @@ $current_datetime = date("Y-m-d H:i:s");
                 if(xret['status'] == 0){
                     alert(xret["errorMsg"]);
                 }else{
+                    var resultRecords = getOrderedUploadResultRecords(xret);
+                    var alert_data = buildUploadResultModalContent(resultRecords);
 
-                    // Loop through the keys of noMatchFile2
-                    var xcounter = 0;
-                    var alert_data = "";
-
-                    for (var ordernum_data in xret['noMatchFile2']) {
-
-                        // Create HTML dynamically
-                        // Get the value of the current waybillNumber (true or false)
-                        var isMatched = xret['noMatchFile2'][ordernum_data]['success'];
-                        var ordernum_actual = xret['noMatchFile2'][ordernum_data]['ordernum'];
-                        var message = xret['noMatchFile2'][ordernum_data]['message'];         
-                    
-                        if(xcounter ==  100){
-                            alert_data += `<div class='row my-2'>
-                                <div class='d-flex align-items-center justify-content-center' style='flex-direction:row'>
-
-                                    <div class='fw-bold'>
-                                        Export to see remaining data.... 
-                                    </div>
-                                </div>
-                            </div>`;
-
-                            break;
-                        }
-
-                        if (isMatched == false) {
-
-                            alert_data += `<div class='row my-2'>
-                                <div class='d-flex align-items-center justify-content-center' style='flex-direction:row'>
-
-                                    <div class='me-3'>
-                                        <img style='width:25px;height:auto' src='images/red_x.png'>
-                                    </div>
-
-                                    <div>
-                                        ${message}
-                                    </div>
-                                </div>
-                        
-                            </div>`;
-                                
-
-                        } else {
-
-                            alert_data += `<div class='row my-2'>
-                                <div class='d-flex align-items-center justify-content-center' style='flex-direction:row'>
-                                    <div class='me-3'>
-                                        <img style='width:25px;height:auto' src='images/green_check.png'>
-                                    </div>
-                                    <div>
-                                        ${message}
-                                    </div>
-                                </div>
-                            </div>`;
-                        }        
-                
-
-                        xcounter++;
-                    }
-
-                    $(".modal-dialog-alert").addClass('modal-lg');
+                    $(".modal-dialog-alert").addClass('modal-lg modal-dialog-scrollable');
                     $(".alert_modal_body").html(`${alert_data}`);
 
-                    $(".alert_modal_footer").html(`<div class="dropdown">
-                    <button class="btn btn-primary dropdown-toggle fw-bold" type="button" id="dropdownMenuButton1" data-bs-toggle="dropdown" aria-expanded="false">
-                        Save as <i class="fas fa-file-export"></i>
-                    </button>
-                    <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
-                        <li><a class="dropdown-item" onclick="printUpload()">pdf</a></li>
-                        <li><a class="dropdown-item" onclick="xlsxUpload()">xlsx</a></li>
-                    </ul>
-                    </div>`);
+                    $(".alert_modal_footer").html(`<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>`);
 
                     $(".modal_alert").modal("show");
 
-                    const jsonData = JSON.stringify(xret['noMatchFile2']);
+                    const jsonData = JSON.stringify(resultRecords);
                     document.getElementById("hiddenUploadData").value = jsonData;
 
                     

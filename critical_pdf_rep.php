@@ -133,6 +133,7 @@ $critical_only=0;
 
 
         if(isset($_POST['txt_output_type']) && $_POST['txt_output_type'] == 'tab'){
+            $xcount_total_itmheight = 0;
             //$pdf->ezPlaceData($xleft+=140,$xtop,$item_dsc,9,"left");
         }else{
 
@@ -179,7 +180,7 @@ $critical_only=0;
         $rs_main3 = $stmt_main3->fetch();
 
         if(isset($_POST['txt_output_type']) && $_POST['txt_output_type'] == 'tab'){
-            $pdf->ezPlaceData($xleft,$xtop,$item_dsc,9,"left");
+            $pdf->ezPlaceData($xleft,$xtop,xls_safe_text($item_dsc),9,"left");
         }
 
         $pdf->ezPlaceData($xleft+=300,$xtop+$xcount_total_itmheight,$item_total,9,"right");
@@ -304,7 +305,37 @@ $critical_only=0;
         return $lines;
     }
 
-    
+    // XLS-safe text encoding: sanitizes text for tab-separated XLS output
+    function xls_safe_text($string)
+    {
+        global $pdf;
+
+        $string = (string)$string;
+        if(get_class($pdf) != 'tab_ezpdf'){
+            return $string;
+        }
+
+        if(function_exists('mb_check_encoding') && !mb_check_encoding($string, 'UTF-8')){
+            $string = mb_convert_encoding($string, 'UTF-8', 'UTF-8, Windows-1252, ISO-8859-1');
+        }
+
+        if(function_exists('iconv')){
+            $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $string);
+            if($converted !== false && $converted !== ''){
+                $string = $converted;
+            } else {
+                $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+            }
+        } else {
+            $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+        }
+
+        $string = str_replace(array("\t", "\r", "\n", "\0"), ' ', $string);
+        $string = preg_replace('/[\x00-\x1F\x7F]/', ' ', $string);
+        $string = preg_replace('/\s{2,}/', ' ', $string);
+
+        return trim($string);
+    }
 
 
 ?>

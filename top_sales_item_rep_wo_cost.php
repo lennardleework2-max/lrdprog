@@ -26,7 +26,7 @@ $trncde = "SAL";
                             <table style='height:80%;background-color:white;width:40%' id='docnum_table'>
                                 <tr>
                                     <td colspan="2" class="text-center">
-                                        <h3>Top Sales Report</h3>
+                                        <h3>Top Sales Report</br>Without Cost</h3>
                                     </td>
                                 </tr>
 
@@ -105,11 +105,11 @@ $trncde = "SAL";
                                         </div>
 
                                         <!-- TEMPORARY DEBUG: Preview with SQL Debug button - Remove after fixing rolling sales -->
-                                        <div class="row d-flex justify-content-center align-items-top mt-3" id="debug_btn_wrap">
+                                        <!-- <div class="row d-flex justify-content-center align-items-top mt-3" id="debug_btn_wrap">
                                             <div class="col-12 d-flex justify-content-center">
                                                 <input type="button" id="btn_sql_debug" class="btn btn-warning" value="Preview with SQL Debug (Top 50 Items)" onclick="preview_sql_debug()">
                                             </div>
-                                        </div>
+                                        </div> -->
 
 
                                     </td>
@@ -165,7 +165,7 @@ $trncde = "SAL";
                 const choice = $('#sel_rep_type').val();
 
                 if (choice === 'item'){
-                    document.forms.myforms.action = 'top_sales_item_pdf.php';
+                    document.forms.myforms.action = 'top_sales_item_wo_cost_pdf.php';
                 }
                 else if (choice === 'salesman'){
                     document.forms.myforms.action = 'top_sales_salesman_pdf.php';
