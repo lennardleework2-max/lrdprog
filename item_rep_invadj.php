@@ -100,33 +100,43 @@
     $pdf->closeObject();
     $pdf->addObject($xheader, 'all');
 
-    $select_db = "SELECT * FROM itemfile WHERE true ".str_replace('itemfile.', '', $xfilter);
-    $stmt_main = $link->prepare($select_db);
-    $stmt_main->execute();
+    // Optimized: Single query with joins instead of nested queries per item
+    $combined_sql = "SELECT tranfile2.*, tranfile1.trndte, tranfile1.ordernum,
+        itemunitmeasurefile.unmdsc AS uom_description,
+        warehouse.warehouse_name,
+        warehouse_floor.floor_no,
+        itemfile.itmcde, itemfile.itmdsc
+        FROM tranfile2
+        LEFT JOIN tranfile1 ON tranfile2.docnum = tranfile1.docnum
+        LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
+        LEFT JOIN warehouse ON tranfile2.warcde = warehouse.warcde
+        LEFT JOIN warehouse_floor ON tranfile2.warehouse_floor_id = warehouse_floor.warehouse_floor_id
+        LEFT JOIN itemfile ON tranfile2.itmcde = itemfile.itmcde
+        WHERE tranfile1.trncde = ? ".$xfilter2." ".str_replace('itemfile.', 'tranfile2.', $xfilter)."
+        ORDER BY itemfile.itmdsc ASC, tranfile1.trndte ASC, tranfile2.recid ASC";
+    $stmt_combined = $link->prepare($combined_sql);
+    $stmt_combined->execute(array($_POST['trncde_hidden']));
+    $all_rows = $stmt_combined->fetchAll(PDO::FETCH_ASSOC);
+
+    // Group rows by item code
+    $grouped_data = array();
+    foreach($all_rows as $row){
+        $itmcde = $row['itmcde'];
+        if(!isset($grouped_data[$itmcde])){
+            $grouped_data[$itmcde] = array(
+                'itmdsc' => $row['itmdsc'],
+                'rows' => array()
+            );
+        }
+        $grouped_data[$itmcde]['rows'][] = $row;
+    }
+
     $grand_total = 0;
 
-    while($rs_main = $stmt_main->fetch(PDO::FETCH_ASSOC)){
-        $detail_sql = "SELECT tranfile2.*, tranfile1.trndte, tranfile1.ordernum,
-            itemunitmeasurefile.unmdsc AS uom_description,
-            warehouse.warehouse_name,
-            warehouse_floor.floor_no
-            FROM tranfile2
-            LEFT JOIN tranfile1 ON tranfile2.docnum = tranfile1.docnum
-            LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
-            LEFT JOIN warehouse ON tranfile2.warcde = warehouse.warcde
-            LEFT JOIN warehouse_floor ON tranfile2.warehouse_floor_id = warehouse_floor.warehouse_floor_id
-            WHERE tranfile2.itmcde = ? ".$xfilter2."
-            AND tranfile1.trncde = ?
-            ORDER BY tranfile1.trndte ASC, tranfile2.recid ASC";
-        $stmt_main2 = $link->prepare($detail_sql);
-        $stmt_main2->execute(array($rs_main['itmcde'], $_POST['trncde_hidden']));
-        $detail_rows = $stmt_main2->fetchAll(PDO::FETCH_ASSOC);
+    foreach($grouped_data as $itmcde => $item_data){
+        $detail_rows = $item_data['rows'];
 
-        if(empty($detail_rows)){
-            continue;
-        }
-
-        $item_desc_header = normalize_item_text($rs_main['itmdsc']);
+        $item_desc_header = normalize_item_text($item_data['itmdsc']);
         render_item_section_header($pdf, $xtop, $item_desc_header, $layout);
         render_detail_header($pdf, $xtop, $layout);
 
@@ -234,33 +244,42 @@
         );
         $report_trncde = 'ADJ';
 
-        $select_db = "SELECT * FROM itemfile WHERE true ".str_replace('itemfile.', '', $xfilter)." ORDER BY itmdsc ASC";
-        $stmt_main = $link->prepare($select_db);
-        $stmt_main->execute();
+        // Optimized: Single query with joins instead of nested queries per item
+        $combined_sql = "SELECT tranfile2.*, tranfile1.trndte, tranfile1.ordernum,
+            itemunitmeasurefile.unmdsc AS uom_description,
+            warehouse.warehouse_name,
+            warehouse_floor.floor_no,
+            itemfile.itmcde, itemfile.itmdsc
+            FROM tranfile2
+            LEFT JOIN tranfile1 ON tranfile2.docnum = tranfile1.docnum
+            LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
+            LEFT JOIN warehouse ON tranfile2.warcde = warehouse.warcde
+            LEFT JOIN warehouse_floor ON tranfile2.warehouse_floor_id = warehouse_floor.warehouse_floor_id
+            LEFT JOIN itemfile ON tranfile2.itmcde = itemfile.itmcde
+            WHERE tranfile1.trncde = ? ".$xfilter2." ".str_replace('itemfile.', 'tranfile2.', $xfilter)."
+            ORDER BY itemfile.itmdsc ASC, tranfile1.trndte ASC, tranfile2.recid ASC";
+        $stmt_combined = $link->prepare($combined_sql);
+        $stmt_combined->execute(array($report_trncde));
+        $all_rows = $stmt_combined->fetchAll(PDO::FETCH_ASSOC);
 
-        while($rs_main = $stmt_main->fetch(PDO::FETCH_ASSOC)){
-            $detail_sql = "SELECT tranfile2.*, tranfile1.trndte, tranfile1.ordernum,
-                itemunitmeasurefile.unmdsc AS uom_description,
-                warehouse.warehouse_name,
-                warehouse_floor.floor_no
-                FROM tranfile2
-                LEFT JOIN tranfile1 ON tranfile2.docnum = tranfile1.docnum
-                LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
-                LEFT JOIN warehouse ON tranfile2.warcde = warehouse.warcde
-                LEFT JOIN warehouse_floor ON tranfile2.warehouse_floor_id = warehouse_floor.warehouse_floor_id
-                WHERE tranfile2.itmcde = ? ".$xfilter2."
-                AND tranfile1.trncde = ?
-                ORDER BY tranfile1.trndte ASC, tranfile2.recid ASC";
-            $stmt_main2 = $link->prepare($detail_sql);
-            $stmt_main2->execute(array($rs_main['itmcde'], $report_trncde));
-            $detail_rows = $stmt_main2->fetchAll(PDO::FETCH_ASSOC);
-
-            if(empty($detail_rows)){
-                continue;
+        // Group rows by item code
+        $grouped_data = array();
+        foreach($all_rows as $row){
+            $itmcde = $row['itmcde'];
+            if(!isset($grouped_data[$itmcde])){
+                $grouped_data[$itmcde] = array(
+                    'itmdsc' => $row['itmdsc'],
+                    'rows' => array()
+                );
             }
+            $grouped_data[$itmcde]['rows'][] = $row;
+        }
+
+        foreach($grouped_data as $itmcde => $item_data){
+            $detail_rows = $item_data['rows'];
 
             $sheet->mergeCells('A' . $row_num . ':G' . $row_num);
-            $sheet->setCellValue('A' . $row_num, 'Item: ' . xls_safe_text(normalize_item_text($rs_main['itmdsc'])));
+            $sheet->setCellValue('A' . $row_num, 'Item: ' . xls_safe_text(normalize_item_text($item_data['itmdsc'])));
             $sheet->getStyle('A' . $row_num)->getFont()->setBold(true);
             $sheet->getStyle('A' . $row_num)->getAlignment()->setWrapText(true);
             $row_num++;

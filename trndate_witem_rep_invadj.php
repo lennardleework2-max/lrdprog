@@ -37,8 +37,11 @@
 	$xtop = 580;
     $xleft = 25;
 
-    // Column positions for item detail rows (UOM and Warehouse added)
-    $col_item = 205;
+    // Column positions for PDF layout (Tran. Date and Item as separate columns)
+    $col_docnum = 25;
+    $col_ordernum = 80;
+    $col_trndte = 150;
+    $col_item = 215;
     $item_max_width = 125; // Max width for item text wrapping
     $col_qty = 345;
     $col_uom = 360;
@@ -72,10 +75,9 @@
 
         $xfields_heaeder_counter = 0;
 
-        $pdf->ezPlaceData($xleft,$xtop,"<b>Doc. Num.</b>",10,'left');
-        $pdf->ezPlaceData($xleft+=70,$xtop,"<b>Order Num.</b>",10,'left');
-        $pdf->ezPlaceData($xleft+=110,$xtop,"<b>Tran. Date</b>",10,'left');
-        // Item header at start of item detail columns
+        $pdf->ezPlaceData($col_docnum,$xtop,"<b>Doc. Num.</b>",10,'left');
+        $pdf->ezPlaceData($col_ordernum,$xtop,"<b>Order Num.</b>",10,'left');
+        $pdf->ezPlaceData($col_trndte,$xtop,"<b>Tran. Date</b>",10,'left');
         $pdf->ezPlaceData($col_item,$xtop,"<b>Item</b>",10,'left');
         $pdf->ezPlaceData($col_qty,$xtop,"<b>Qty</b>",10,'right');
         $pdf->ezPlaceData($col_uom,$xtop,"<b>UOM</b>",10,'left');
@@ -147,90 +149,81 @@
 
 
     
-    $select_db="SELECT tranfile1.shipto as tranfile1_shipto,tranfile1.cuscde as tranfile1_cuscde,tranfile1.docnum as tranfile1_docnum,
-    tranfile1.trndte as tranfile1_trndte,tranfile1.trntot as tranfile1_trntot,tranfile1.orderby as tranfile1_orderby,tranfile1.recid as tranfile1_recid, tranfile1.ordernum as tranfile1_ordernum,
-    customerfile.recid as customerfile1_recid, customerfile.cusdsc as customerfile_cusdsc, tranfile1.paydate as tranfile1_paydate, tranfile1.paydetails as tranfile1_paydetails,
-    customerfile.cusdsc, customerfile.cuscde FROM tranfile1 LEFT JOIN customerfile ON 
-    tranfile1.cuscde = customerfile.cuscde WHERE true AND trncde='".$_POST['trncde_hidden']."' ".$xfilter." ORDER BY tranfile1.docnum ASC, tranfile1.trndte ASC";
+    // Optimized: Single query with joins instead of nested queries per document
+    $combined_sql = "SELECT tranfile2.*, itemfile.itmdsc,
+        itemunitmeasurefile.unmdsc AS uom_description,
+        warehouse.warehouse_name,
+        warehouse_floor.floor_no,
+        tranfile1.docnum as tranfile1_docnum, tranfile1.trndte as tranfile1_trndte,
+        tranfile1.ordernum as tranfile1_ordernum, tranfile1.trntot as tranfile1_trntot
+        FROM tranfile2
+        LEFT JOIN itemfile ON tranfile2.itmcde = itemfile.itmcde
+        LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
+        LEFT JOIN warehouse ON tranfile2.warcde = warehouse.warcde
+        LEFT JOIN warehouse_floor ON tranfile2.warehouse_floor_id = warehouse_floor.warehouse_floor_id
+        LEFT JOIN tranfile1 ON tranfile2.docnum = tranfile1.docnum
+        WHERE tranfile1.trncde = ? ".$xfilter."
+        ORDER BY tranfile1.docnum ASC, tranfile1.trndte ASC, tranfile2.recid ASC";
+    $stmt_combined = $link->prepare($combined_sql);
+    $stmt_combined->execute(array($_POST['trncde_hidden']));
+    $all_rows = $stmt_combined->fetchAll(PDO::FETCH_ASSOC);
 
-    $stmt_main	= $link->prepare($select_db);
-    $stmt_main->execute();
+    // Group rows by document number
+    $grouped_data = array();
+    foreach($all_rows as $row){
+        $docnum = $row['tranfile1_docnum'];
+        if(!isset($grouped_data[$docnum])){
+            $grouped_data[$docnum] = array(
+                'docnum' => $row['tranfile1_docnum'],
+                'trndte' => $row['tranfile1_trndte'],
+                'ordernum' => $row['tranfile1_ordernum'],
+                'trntot' => $row['tranfile1_trntot'],
+                'items' => array()
+            );
+        }
+        $grouped_data[$docnum]['items'][] = $row;
+    }
+
     $grand_total = 0;
     $price_gtot = 0;
     $cost_gtot = 0;
     $profit_gtot = 0;
-    while($rs_main = $stmt_main->fetch()){    
+
+    foreach($grouped_data as $docnum => $doc_data){    
 
         $xleft = 25;
 
-        $grand_total += $rs_main["tranfile1_trntot"];
+        $grand_total += $doc_data["trntot"];
 
-        if(isset($rs_main["tranfile1_trndte"]) && !empty($rs_main["tranfile1_trndte"])){
-            $rs_main["tranfile1_trndte"] = date("m-d-Y",strtotime($rs_main["tranfile1_trndte"]));
-            $rs_main["tranfile1_trndte"] = str_replace('-','/',$rs_main["tranfile1_trndte"]);
+        $trndte_display = '';
+        if(isset($doc_data["trndte"]) && !empty($doc_data["trndte"])){
+            $trndte_display = date("m/d/Y", strtotime($doc_data["trndte"]));
         }
 
-        if(isset($rs_main["tranfile1_paydate"]) && !empty($rs_main["tranfile1_paydate"])){
-            $rs_main["tranfile1_paydate"] = date("m-d-Y",strtotime($rs_main["tranfile1_paydate"]));
-            $rs_main["tranfile1_paydate"] = str_replace('-','/',$rs_main["tranfile1_paydate"]);
-        }
+        $ordernum_display = trim_str($doc_data["ordernum"], 100, 9);
 
 
-        if ($_POST['txt_output_type']=='tab')
-		{
-            // $rs_main["customerfile_cusdsc"] = $rs_main["customerfile_cusdsc"];
-            $rs_main["tranfile1_shipto"] = $rs_main["tranfile1_shipto"];
-            $rs_main["tranfile1_paydetails"] = $rs_main["tranfile1_paydetails"];
-            $rs_main["tranfile1_ordernum"] = $rs_main["tranfile1_ordernum"];
-		}else{
-            // $rs_main["customerfile_cusdsc"] = trim_str($rs_main["customerfile_cusdsc"],100,9);
-            $rs_main["tranfile1_shipto"] = trim_str($rs_main["tranfile1_shipto"],120,9);
-            $rs_main["tranfile1_paydetails"] = trim_str($rs_main["tranfile1_paydetails"],140,9);
-            $rs_main["tranfile1_ordernum"] = trim_str($rs_main["tranfile1_ordernum"],100,9);
-        }
-
-        $pdf->ezPlaceData($xleft,$xtop,$rs_main["tranfile1_docnum"],9,"left");
-        $pdf->ezPlaceData($xleft+=70,$xtop,$rs_main["tranfile1_ordernum"],9,"left");
-        $pdf->ezPlaceData($xleft+=110,$xtop,$rs_main["tranfile1_trndte"],9,"left");
-        // $pdf->ezPlaceData($xleft+=70,$xtop,$rs_main["customerfile_cusdsc"],9,"left");
-        // $pdf->ezPlaceData($xleft+=75,$xtop,$rs_main["tranfile1_shipto"],9,"left");
-        // $pdf->ezPlaceData($xleft+=135,$xtop,$rs_main["tranfile1_paydate"],9,"left");
-        // $pdf->ezPlaceData($xleft+=85,$xtop,$rs_main["tranfile1_paydetails"],9,"left");
-        // $pdf->ezPlaceData($xleft+215,$xtop,number_format($rs_main["tranfile1_trntot"],"2"),9,"right");
+        $pdf->ezPlaceData($col_docnum, $xtop, $doc_data["docnum"], 9, "left");
+        $pdf->ezPlaceData($col_ordernum, $xtop, $ordernum_display, 9, "left");
+        $pdf->ezPlaceData($col_trndte, $xtop, $trndte_display, 9, "left");
 
         
 
 
         
 
-        if($xtop <= 60)
-        {
+        if($xtop <= 60){
             $pdf->ezNewPage();
             $xtop = 515;
         }
 
-
-
-        // Query with joins for UOM and Warehouse
-        $select_db2="SELECT tranfile2.*, itemfile.itmdsc,
-            itemunitmeasurefile.unmdsc AS uom_description,
-            warehouse.warehouse_name,
-            warehouse_floor.floor_no
-            FROM tranfile2
-            LEFT JOIN itemfile ON tranfile2.itmcde = itemfile.itmcde
-            LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
-            LEFT JOIN warehouse ON tranfile2.warcde = warehouse.warcde
-            LEFT JOIN warehouse_floor ON tranfile2.warehouse_floor_id = warehouse_floor.warehouse_floor_id
-            WHERE tranfile2.docnum='".$rs_main['tranfile1_docnum']."'";
-        $stmt_main2	= $link->prepare($select_db2);
-        $stmt_main2->execute();
         $price_tot = 0;
         $cost_tot = 0;
         $profit_tot = 0;
-        if (!$is_tab_export) {
-            $xtop-=12;
-        }
-        while($rs_main2 = $stmt_main2->fetch()){
+        $xtop -= 12;
+
+        // Iterate through pre-fetched items for this document
+        foreach($doc_data['items'] as $rs_main2){
 
             // Build warehouse display: "warehouse_name floor_no floor"
             $warehouse_display = '';
@@ -497,45 +490,56 @@
             'Total'
         ), null, 'A' . $header_row);
 
-        // Main query
-        $select_db="SELECT tranfile1.docnum as tranfile1_docnum,
-            tranfile1.trndte as tranfile1_trndte, tranfile1.ordernum as tranfile1_ordernum
-            FROM tranfile1
-            WHERE true AND trncde='".$trncde."' ".$xfilter." ORDER BY tranfile1.docnum ASC, tranfile1.trndte ASC";
+        // Optimized: Single query with joins instead of nested queries per document
+        $combined_sql = "SELECT tranfile2.*, itemfile.itmdsc,
+            itemunitmeasurefile.unmdsc AS uom_description,
+            warehouse.warehouse_name,
+            warehouse_floor.floor_no,
+            tranfile1.docnum as tranfile1_docnum, tranfile1.trndte as tranfile1_trndte,
+            tranfile1.ordernum as tranfile1_ordernum
+            FROM tranfile2
+            LEFT JOIN itemfile ON tranfile2.itmcde = itemfile.itmcde
+            LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
+            LEFT JOIN warehouse ON tranfile2.warcde = warehouse.warcde
+            LEFT JOIN warehouse_floor ON tranfile2.warehouse_floor_id = warehouse_floor.warehouse_floor_id
+            LEFT JOIN tranfile1 ON tranfile2.docnum = tranfile1.docnum
+            WHERE tranfile1.trncde = ? ".$xfilter."
+            ORDER BY tranfile1.docnum ASC, tranfile1.trndte ASC, tranfile2.recid ASC";
+        $stmt_combined = $link->prepare($combined_sql);
+        $stmt_combined->execute(array($trncde));
+        $all_rows = $stmt_combined->fetchAll(PDO::FETCH_ASSOC);
 
-        $stmt_main = $link->prepare($select_db);
-        $stmt_main->execute();
+        // Group rows by document number
+        $grouped_data = array();
+        foreach($all_rows as $row){
+            $docnum = $row['tranfile1_docnum'];
+            if(!isset($grouped_data[$docnum])){
+                $grouped_data[$docnum] = array(
+                    'docnum' => $row['tranfile1_docnum'],
+                    'trndte' => $row['tranfile1_trndte'],
+                    'ordernum' => $row['tranfile1_ordernum'],
+                    'items' => array()
+                );
+            }
+            $grouped_data[$docnum]['items'][] = $row;
+        }
 
         $row_num = $header_row + 1;
         $price_gtot = 0;
         $cost_gtot = 0;
 
-        while($rs_main = $stmt_main->fetch()){
+        foreach($grouped_data as $docnum => $doc_data){
             $trndte_display = '';
-            if(!empty($rs_main["tranfile1_trndte"])){
-                $trndte_display = date("m/d/Y", strtotime($rs_main["tranfile1_trndte"]));
+            if(!empty($doc_data["trndte"])){
+                $trndte_display = date("m/d/Y", strtotime($doc_data["trndte"]));
             }
-
-            // Detail query with joins
-            $select_db2="SELECT tranfile2.*, itemfile.itmdsc,
-                itemunitmeasurefile.unmdsc AS uom_description,
-                warehouse.warehouse_name,
-                warehouse_floor.floor_no
-                FROM tranfile2
-                LEFT JOIN itemfile ON tranfile2.itmcde = itemfile.itmcde
-                LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
-                LEFT JOIN warehouse ON tranfile2.warcde = warehouse.warcde
-                LEFT JOIN warehouse_floor ON tranfile2.warehouse_floor_id = warehouse_floor.warehouse_floor_id
-                WHERE tranfile2.docnum='".$rs_main['tranfile1_docnum']."'";
-
-            $stmt_main2 = $link->prepare($select_db2);
-            $stmt_main2->execute();
 
             $price_tot = 0;
             $cost_tot = 0;
             $first_item = true;
 
-            while($rs_main2 = $stmt_main2->fetch()){
+            // Iterate through pre-fetched items for this document
+            foreach($doc_data['items'] as $rs_main2){
                 // Build warehouse display
                 $warehouse_display = '';
                 if (!empty($rs_main2['warehouse_name'])) {
@@ -549,8 +553,8 @@
 
                 // Only show doc/order/date on first item row
                 if($first_item){
-                    $sheet->setCellValue('A' . $row_num, $rs_main['tranfile1_docnum']);
-                    $sheet->setCellValue('B' . $row_num, $rs_main['tranfile1_ordernum']);
+                    $sheet->setCellValue('A' . $row_num, $doc_data['docnum']);
+                    $sheet->setCellValue('B' . $row_num, $doc_data['ordernum']);
                     $sheet->setCellValue('C' . $row_num, $trndte_display);
                     $first_item = false;
                 }
