@@ -121,7 +121,7 @@
         }
 
         if(isset($_POST['item']) && !empty($_POST['item'])){
-            $xfilter .= " AND itmcde='".$_POST['item']."'";
+            $xfilter .= " AND itemfile.itmcde='".$_POST['item']."'";
         }
 
     $select_db = "SELECT * FROM itemfile WHERE true ".$xfilter. " ORDER BY itmdsc ASC";
