@@ -204,8 +204,15 @@
 
        
     $pdf->line(25, $xtop-10, 770, $xtop-10);
-    $pdf->ezPlaceData(550,$xtop-18,"<b>Grand total:</b>",9,'left');
-    $pdf->ezPlaceData(765,$xtop-18,"<b>".number_format($grand_total,2)."</b>",9,'right');
+    $xleft = 25;
+    $pdf->ezPlaceData($xleft,$xtop-18,"",9,"left");
+    $pdf->ezPlaceData($xleft+=70,$xtop-18,"",9,"left");
+    $pdf->ezPlaceData($xleft+=110,$xtop-18,"",9,"left");
+    $pdf->ezPlaceData($xleft+=60,$xtop-18,"",9,"left");
+    $pdf->ezPlaceData($xleft+=75,$xtop-18,"",9,"left");
+    $pdf->ezPlaceData($xleft+=135,$xtop-18,"",9,"left");
+    $pdf->ezPlaceData($xleft+=75,$xtop-18,"<b>Grand total:</b>",9,"left");
+    $pdf->ezPlaceData($xleft+215,$xtop-18,"<b>".number_format($grand_total,2)."</b>",9,"right");
 
    
     $pdf->line(25, $xtop-10, 770, $xtop-10); 
