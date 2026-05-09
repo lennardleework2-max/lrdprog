@@ -88,9 +88,9 @@
         $xfilter .= " AND itmcde='".$_POST['item']."'";
     }
 
-    $select_db = "SELECT * FROM itemfile WHERE true ".$xfilter;
+    $select_db = "SELECT itmcde, itmdsc FROM itemfile WHERE true ".$xfilter;
     $stmt_main	= $link->prepare($select_db);
-    $stmt_main->execute(array($_POST['item']));
+    $stmt_main->execute();
     $item_rows = $stmt_main->fetchAll(PDO::FETCH_ASSOC);
 
     $cost_cache = array();
@@ -108,9 +108,9 @@
             FROM tranfile2 t2
             INNER JOIN tranfile1 t1 ON t1.docnum = t2.docnum
             WHERE t2.itmcde IN ($placeholders)
-            AND (t1.trncde='ADJ' OR t1.trncde='PUR')
+            AND t1.trncde='PUR'
             AND t2.stkqty > 0
-            ORDER BY t2.itmcde, t2.recid DESC";
+            ORDER BY t1.trndte DESC , t2.recid DESC";
         $stmt_cost = $link->prepare($cost_query);
         $stmt_cost->execute($item_list);
 
@@ -123,22 +123,65 @@
         }
     }
 
+    // Batch-fetch all detail rows once and collect the exact cost lookup keys needed by the report.
+    $detail_cache = array();
+    $sales_cost_needs = array();
+    if(!empty($unique_items)){
+        $item_list = array_keys($unique_items);
+        $placeholders = implode(',', array_fill(0, count($item_list), '?'));
+        $params = $item_list;
+        $params[] = $_POST['trncde_hidden'];
+        $detail_query = "SELECT tranfile2.itmcde, tranfile2.docnum, tranfile2.recid, tranfile2.unmcde,
+                tranfile2.itmqty, tranfile2.untprc, tranfile2.extprc,
+                tranfile1.trndte, customerfile.cusdsc, itemunitmeasurefile.unmdsc AS unmdsc
+            FROM tranfile2
+            LEFT JOIN tranfile1 ON tranfile2.docnum = tranfile1.docnum
+            LEFT JOIN customerfile ON tranfile1.cuscde = customerfile.cuscde
+            LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
+            WHERE tranfile2.itmcde IN ($placeholders) ".$xfilter2." AND tranfile1.trncde=?
+            ORDER BY tranfile2.itmcde ASC, tranfile1.trndte ASC, tranfile2.recid ASC";
+        $stmt_detail = $link->prepare($detail_query);
+        $stmt_detail->execute($params);
+
+        while($detail_row = $stmt_detail->fetch(PDO::FETCH_ASSOC)){
+            $lookup_trndte = '';
+            if(!empty($detail_row['trndte'])){
+                $lookup_trndte = date("Y-m-d", strtotime($detail_row['trndte']));
+            }
+            $detail_row['_lookup_trndte'] = $lookup_trndte;
+
+            $itmcde = $detail_row['itmcde'];
+            if(!isset($detail_cache[$itmcde])){
+                $detail_cache[$itmcde] = array();
+            }
+            $detail_cache[$itmcde][] = $detail_row;
+
+            $cost_key = item_sales_cost_cache_key($detail_row['itmcde'], isset($detail_row['unmcde']) ? $detail_row['unmcde'] : NULL);
+            if(!isset($sales_cost_needs[$cost_key])){
+                $sales_cost_needs[$cost_key] = array(
+                    'dates' => array(),
+                    'recids' => array()
+                );
+            }
+
+            if($lookup_trndte !== ''){
+                $sales_cost_needs[$cost_key]['dates'][$lookup_trndte] = true;
+            }
+
+            if(isset($detail_row['recid']) && $detail_row['recid'] !== ''){
+                $sales_cost_needs[$cost_key]['recids'][(string)$detail_row['recid']] = (int)$detail_row['recid'];
+            }
+        }
+    }
+    $cost_lookup_cache = item_sales_cost_build_lookup_cache($cost_cache, $sales_cost_needs);
+
     $grand_total_extprc = 0;
     $grand_total_profit = 0;
     $grand_total_cost = 0;
     foreach($item_rows as $rs_main){
 
-        // Skip items with no matching detail rows so empty item sections are not rendered.
-        $select_db2 = "SELECT tranfile2.*, tranfile1.trndte, tranfile1.ordernum, customerfile.cusdsc, itemunitmeasurefile.unmdsc as unmdsc
-            FROM tranfile2
-            LEFT JOIN tranfile1 ON tranfile2.docnum = tranfile1.docnum
-            LEFT JOIN customerfile ON tranfile1.cuscde = customerfile.cuscde
-            LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
-            WHERE tranfile2.itmcde=? ".$xfilter2." AND tranfile1.trncde=?
-            ORDER BY tranfile1.trndte ASC";
-        $stmt_main2	= $link->prepare($select_db2);
-        $stmt_main2->execute(array($rs_main['itmcde'], $_POST['trncde_hidden']));
-        $detail_rows = $stmt_main2->fetchAll(PDO::FETCH_ASSOC);
+        // Get detail rows from pre-fetched cache (no database query needed)
+        $detail_rows = isset($detail_cache[$rs_main['itmcde']]) ? $detail_cache[$rs_main['itmcde']] : array();
         if(empty($detail_rows)){
             continue;
         }
@@ -194,8 +237,7 @@
             $pdf->ezPlaceData($xleft+=75,$xtop,number_format($rs_main2["untprc"],2),9,"right");
 
             $pdf->ezPlaceData($xleft+=95,$xtop,number_format($rs_main2["extprc"],2),9,"right");
-            $trndte  = (empty($rs_main2['trndte'])) ? NULL :  date("Y-m-d", strtotime($rs_main2['trndte']));
-            $unit_cost = item_sales_cost_get_cached_unitcost($rs_main['itmcde'], isset($rs_main2['unmcde']) ? $rs_main2['unmcde'] : NULL, $trndte, $rs_main2['recid'], $cost_cache);
+            $unit_cost = item_sales_cost_get_cached_unitcost($rs_main['itmcde'], isset($rs_main2['unmcde']) ? $rs_main2['unmcde'] : NULL, $rs_main2['_lookup_trndte'], $rs_main2['recid'], $cost_lookup_cache);
             $cost = $unit_cost * $rs_main2["itmqty"];
 
             $pdf->ezPlaceData($xleft+=95,$xtop,number_format($cost,2),9,"right");
@@ -379,32 +421,80 @@
         return (string)$itmcde . '|' . ($unmcde === NULL ? '__NULL__' : (string)$unmcde);
     }
 
-    function item_sales_cost_get_cached_unitcost($itmcde, $unmcde, $trndte, $sal_recid, $cost_cache)
+    function item_sales_cost_build_lookup_cache($cost_cache, $sales_cost_needs)
+    {
+        $lookup_cache = array();
+
+        foreach($sales_cost_needs as $cost_key => $needs){
+            if(!isset($cost_cache[$cost_key]) || empty($cost_cache[$cost_key])){
+                continue;
+            }
+
+            $costs = $cost_cache[$cost_key];
+            $lookup_cache[$cost_key] = array(
+                'latest' => $costs[0]['untprc'],
+                'date_map' => array(),
+                'recid_map' => array()
+            );
+
+            $cost_count = count($costs);
+            if(!empty($needs['dates'])){
+                $sale_dates = array_keys($needs['dates']);
+                rsort($sale_dates, SORT_STRING);
+                $cost_index = 0;
+
+                foreach($sale_dates as $sale_date){
+                    while($cost_index < $cost_count){
+                        if(!empty($costs[$cost_index]['trndte']) && $costs[$cost_index]['trndte'] <= $sale_date){
+                            $lookup_cache[$cost_key]['date_map'][$sale_date] = $costs[$cost_index]['untprc'];
+                            break;
+                        }
+                        $cost_index++;
+                    }
+                }
+            }
+
+            if(!empty($needs['recids'])){
+                $sale_recids = array_values($needs['recids']);
+                rsort($sale_recids, SORT_NUMERIC);
+                $cost_index = 0;
+
+                foreach($sale_recids as $sale_recid){
+                    while($cost_index < $cost_count){
+                        if($costs[$cost_index]['recid'] < $sale_recid){
+                            $lookup_cache[$cost_key]['recid_map'][(string)$sale_recid] = $costs[$cost_index]['untprc'];
+                            break;
+                        }
+                        $cost_index++;
+                    }
+                }
+            }
+        }
+
+        return $lookup_cache;
+    }
+
+    function item_sales_cost_get_cached_unitcost($itmcde, $unmcde, $trndte, $sal_recid, $cost_lookup_cache)
     {
         $cost_key = item_sales_cost_cache_key($itmcde, $unmcde);
-        if(!isset($cost_cache[$cost_key]) || empty($cost_cache[$cost_key])){
+        if(!isset($cost_lookup_cache[$cost_key])){
             return 0;
         }
 
-        $costs = $cost_cache[$cost_key];
+        $lookup = $cost_lookup_cache[$cost_key];
 
-        if(!empty($trndte)){
-            foreach($costs as $cost_row){
-                if(!empty($cost_row['trndte']) && $cost_row['trndte'] <= $trndte){
-                    return $cost_row['untprc'];
-                }
-            }
+        if(!empty($trndte) && isset($lookup['date_map'][$trndte])){
+            return $lookup['date_map'][$trndte];
         }
 
         if(!empty($sal_recid)){
-            foreach($costs as $cost_row){
-                if($cost_row['recid'] < $sal_recid){
-                    return $cost_row['untprc'];
-                }
+            $sal_recid_key = (string)$sal_recid;
+            if(isset($lookup['recid_map'][$sal_recid_key])){
+                return $lookup['recid_map'][$sal_recid_key];
             }
         }
 
-        return $costs[0]['untprc'];
+        return $lookup['latest'];
     }
 
     //returns dynamic width
