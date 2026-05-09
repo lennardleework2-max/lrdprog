@@ -203,9 +203,9 @@
     }
 
        
-    $pdf->line(25, $xtop-10, 770, $xtop-10); 
-    $pdf->ezPlaceData(700,$xtop-18,"<b>Grand total:</b>",9 ,'right');
-    $pdf->ezPlaceData(765,$xtop-18,"<b>".number_format($grand_total,2)."</b>",9 ,'right');
+    $pdf->line(25, $xtop-10, 770, $xtop-10);
+    $pdf->ezPlaceData(550,$xtop-18,"<b>Grand total:</b>",9,'left');
+    $pdf->ezPlaceData(765,$xtop-18,"<b>".number_format($grand_total,2)."</b>",9,'right');
 
    
     $pdf->line(25, $xtop-10, 770, $xtop-10); 
