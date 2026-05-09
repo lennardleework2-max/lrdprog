@@ -153,8 +153,7 @@ $DEBUG_ROLLING_SALES = false;
     $col_sales_60 = 380;
     $col_sales_90 = 445;
     $col_current_stock = 520;
-    $col_cost = 580;
-    $col_current_stock_qty = 675;
+    $col_current_stock_qty = 620;
 
 
 
@@ -199,7 +198,6 @@ if (!$is_tab_export) {
         $pdf->ezPlaceData($col_sales_90,$xheader_base_y,"<b>Sales Qty</b>",8,'right');
         $pdf->ezPlaceData($col_sales_90,$xheader_base_y-9,"<b>90 days</b>",8,'right');
         $pdf->ezPlaceData($col_current_stock,$xheader_base_y,"<b>Current Stock</b>",9,'right');
-        $pdf->ezPlaceData($col_cost,$xheader_base_y,"<b>Cost</b>",9,'right');
         $pdf->ezPlaceData($col_current_stock_qty,$xheader_base_y,"<b>Current Stock/</b>",7,'right');
         $pdf->ezPlaceData($col_current_stock_qty,$xheader_base_y-9,"<b>Qty</b>",7,'right');
 
@@ -369,7 +367,6 @@ $select_db = "SELECT base.itmdsc,
     foreach($report_rows as $rs_main){
         $xleft = 20;
         $current_stock = (float)$rs_main["current_stock"];
-        $latest_cost = (float)$rs_main["latest_cost"];
         $current_stock_qty = (float)$rs_main["current_stock_qty"];
 
         $item_desc = normalize_item_text($rs_main["itmdsc"]);
@@ -395,7 +392,6 @@ $select_db = "SELECT base.itmdsc,
         $pdf->ezPlaceData($col_sales_60,$row_y,number_format($rs_main["sales_past_60"],"0"),9,"right");
         $pdf->ezPlaceData($col_sales_90,$row_y,number_format($rs_main["sales_past_90"],"0"),9,"right");
         $pdf->ezPlaceData($col_current_stock,$row_y,number_format($current_stock,"0"),9,"right");
-        $pdf->ezPlaceData($col_cost,$row_y,number_format($latest_cost,"2"),9,"right");
         $pdf->ezPlaceData($col_current_stock_qty,$row_y,number_format($current_stock_qty,"2"),9,"right");
 
         if($xtop <= 60)
@@ -574,7 +570,7 @@ $select_db = "SELECT base.itmdsc,
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Top Sales Items');
 
-        $sheet->mergeCells('A1:I1');
+        $sheet->mergeCells('A1:H1');
         $sheet->setCellValue('A1', 'Top Sales Report (by Items)');
         $sheet->setCellValue('A2', 'Pdf Report by: ' . $report_user);
         $sheet->setCellValue('A3', 'Sales Date Range : ' . $head_date_from . ' to ' . $head_date_to);
@@ -590,7 +586,6 @@ $select_db = "SELECT base.itmdsc,
             'Sales Qty 60D',
             'Sales Qty 90D',
             'Current Stock',
-            'Cost',
             'Current Stock/Qty'
         ), null, 'A' . $header_row);
 
@@ -603,8 +598,7 @@ $select_db = "SELECT base.itmdsc,
             $sheet->setCellValue('E' . $row_num, (float) $row['sales_past_60']);
             $sheet->setCellValue('F' . $row_num, (float) $row['sales_past_90']);
             $sheet->setCellValue('G' . $row_num, (float) $row['current_stock']);
-            $sheet->setCellValue('H' . $row_num, (float) $row['latest_cost']);
-            $sheet->setCellValue('I' . $row_num, (float) $row['current_stock_qty']);
+            $sheet->setCellValue('H' . $row_num, (float) $row['current_stock_qty']);
             $row_num++;
         }
 
@@ -612,16 +606,15 @@ $select_db = "SELECT base.itmdsc,
         $sheet->setCellValue('B' . $row_num, $grand_total);
 
         $sheet->getStyle('A1:A5')->getFont()->setBold(true);
-        $sheet->getStyle('A' . $header_row . ':I' . $header_row)->getFont()->setBold(true);
-        $sheet->getStyle('A' . $header_row . ':I' . $header_row)->getAlignment()->setWrapText(true);
-        $sheet->getStyle('A' . $header_row . ':I' . $row_num)->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
+        $sheet->getStyle('A' . $header_row . ':H' . $header_row)->getFont()->setBold(true);
+        $sheet->getStyle('A' . $header_row . ':H' . $header_row)->getAlignment()->setWrapText(true);
+        $sheet->getStyle('A' . $header_row . ':H' . $row_num)->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
         $sheet->getStyle('B' . ($header_row + 1) . ':B' . $row_num)->getNumberFormat()->setFormatCode('#,##0.00');
         $sheet->getStyle('C' . ($header_row + 1) . ':G' . ($row_num - 1))->getNumberFormat()->setFormatCode('#,##0');
-        $sheet->getStyle('H' . ($header_row + 1) . ':H' . ($row_num - 1))->getNumberFormat()->setFormatCode('#,##0.00');
-        $sheet->getStyle('I' . ($header_row + 1) . ':I' . ($row_num - 1))->getNumberFormat()->setFormatCode('0.00');
-        $sheet->getStyle('B' . ($header_row + 1) . ':I' . $row_num)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle('H' . ($header_row + 1) . ':H' . ($row_num - 1))->getNumberFormat()->setFormatCode('0.00');
+        $sheet->getStyle('B' . ($header_row + 1) . ':H' . $row_num)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
         $sheet->getStyle('A' . ($header_row + 1) . ':A' . $row_num)->getAlignment()->setWrapText(true);
-        $sheet->getStyle('A' . $row_num . ':I' . $row_num)->getFont()->setBold(true);
+        $sheet->getStyle('A' . $row_num . ':H' . $row_num)->getFont()->setBold(true);
 
         $sheet->getColumnDimension('A')->setWidth(48);
         $sheet->getColumnDimension('B')->setWidth(14);
@@ -630,8 +623,7 @@ $select_db = "SELECT base.itmdsc,
         $sheet->getColumnDimension('E')->setWidth(12);
         $sheet->getColumnDimension('F')->setWidth(12);
         $sheet->getColumnDimension('G')->setWidth(14);
-        $sheet->getColumnDimension('H')->setWidth(12);
-        $sheet->getColumnDimension('I')->setWidth(16);
+        $sheet->getColumnDimension('H')->setWidth(16);
         $sheet->freezePane('A8');
 
         while (ob_get_level() > 0) {
@@ -657,6 +649,5 @@ $select_db = "SELECT base.itmdsc,
 
 
 ?>
-
 
 
