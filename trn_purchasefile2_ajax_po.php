@@ -19,6 +19,21 @@
     $xret["retEdit"] = array();
     $xret["purchasesDefault"] = array();
 
+    // Date normalization function for purchase order matching
+    function purchase_po_lookup_normalize_date($date_value){
+        $date_value = trim((string)$date_value);
+        if($date_value === ''){
+            return '';
+        }
+
+        $parsed_timestamp = strtotime($date_value);
+        if($parsed_timestamp === false){
+            return '';
+        }
+
+        return date('Y-m-d', $parsed_timestamp);
+    }
+
     if($_POST['event_action'] =='getData_add' || $_POST['event_action'] =='getData_edit' || $_POST['event_action'] == 'selectData_add'){
 
         $xret['html'] .= "<tr>
@@ -38,6 +53,10 @@
                         Item
                     </td>
 
+                    <td>
+                        UOM
+                    </td>
+
                     <td style='text-align:right'>
                         Total
                     </td>
@@ -48,10 +67,15 @@
                 </tr>";
 
         if($_POST['event_action'] =='getData_add' || $_POST['event_action'] =='selectData_add'){
-            $itmcde_search = $_POST['itmcde_add_hidden']; 
+            $itmcde_search = $_POST['itmcde_add_hidden'];
+            $unmcde_search = isset($_POST['unmcde_add']) ? trim((string)$_POST['unmcde_add']) : '';
         } else if($_POST['event_action'] =='getData_edit'){
-            $itmcde_search = $_POST['itmcde_edit_hidden']; 
+            $itmcde_search = $_POST['itmcde_edit_hidden'];
+            $unmcde_search = isset($_POST['unmcde_edit']) ? trim((string)$_POST['unmcde_edit']) : '';
         }
+
+        // Get purchase transaction date for filtering (only show PO with trndte <= purchase trndte)
+        $purchase_trndte_filter = purchase_po_lookup_normalize_date(isset($_POST['trndte_1']) ? $_POST['trndte_1'] : '');
 
         $select_db_por = "SELECT *, purchasesorderfile2.docnum as 'po2_docnum',
             itemfile.itmdsc as 'po2_itmdsc',
@@ -59,19 +83,30 @@
             supplierfile.suppdsc as 'po2_suppdsc',
             purchasesorderfile2.itmqty as 'po2_itmqty',
             purchasesorderfile1.trndte as 'po1_trndte',
-            purchasesorderfile2.recid as 'po2_recid'
-            FROM purchasesorderfile1 LEFT JOIN 
-                purchasesorderfile2 ON 
-                purchasesorderfile1.docnum = purchasesorderfile2.docnum 
+            purchasesorderfile2.recid as 'po2_recid',
+            itemunitmeasurefile.unmdsc as 'po2_unmdsc'
+            FROM purchasesorderfile1 LEFT JOIN
+                purchasesorderfile2 ON
+                purchasesorderfile1.docnum = purchasesorderfile2.docnum
             LEFT JOIN itemfile ON
                 purchasesorderfile2.itmcde = itemfile.itmcde
-            LEFT JOIN supplierfile ON 
+            LEFT JOIN itemunitmeasurefile ON
+                purchasesorderfile2.unmcde = itemunitmeasurefile.unmcde
+            LEFT JOIN supplierfile ON
                 purchasesorderfile1.suppcde = supplierfile.suppcde
-                WHERE purchasesorderfile2.itmcde='".$itmcde_search."'
-                AND purchasesorderfile1.suppcde = '".$_POST['suppcde']."'
-            ORDER BY purchasesorderfile1.trndte ASC, purchasesorderfile2.docnum ASC";
+                WHERE purchasesorderfile2.itmcde = ?
+                AND purchasesorderfile2.unmcde = ?
+                AND purchasesorderfile1.suppcde = ?";
+        $select_db_por_params = array($itmcde_search, $unmcde_search, $_POST['suppcde']);
+
+        if($purchase_trndte_filter !== ''){
+            $select_db_por .= " AND purchasesorderfile1.trndte <= ?";
+            $select_db_por_params[] = $purchase_trndte_filter;
+        }
+
+        $select_db_por .= " ORDER BY purchasesorderfile1.trndte ASC, purchasesorderfile2.docnum ASC";
         $stmt_por	= $link->prepare($select_db_por);
-        $stmt_por->execute();
+        $stmt_por->execute($select_db_por_params);
         $xcount_por = 0;
         $xtotal_multi_itm_chk = 0;
         $xret["multi_chk_recid"] = array();
@@ -141,19 +176,30 @@
             supplierfile.suppdsc as 'po2_suppdsc',
             purchasesorderfile2.itmqty as 'po2_itmqty',
             purchasesorderfile1.trndte as 'po1_trndte',
-            purchasesorderfile2.recid as 'po2_recid'
-            FROM purchasesorderfile1 LEFT JOIN 
-                purchasesorderfile2 ON 
-                purchasesorderfile1.docnum = purchasesorderfile2.docnum 
+            purchasesorderfile2.recid as 'po2_recid',
+            itemunitmeasurefile.unmdsc as 'po2_unmdsc'
+            FROM purchasesorderfile1 LEFT JOIN
+                purchasesorderfile2 ON
+                purchasesorderfile1.docnum = purchasesorderfile2.docnum
             LEFT JOIN itemfile ON
                 purchasesorderfile2.itmcde = itemfile.itmcde
-            LEFT JOIN supplierfile ON 
+            LEFT JOIN itemunitmeasurefile ON
+                purchasesorderfile2.unmcde = itemunitmeasurefile.unmcde
+            LEFT JOIN supplierfile ON
                 purchasesorderfile1.suppcde = supplierfile.suppcde
-                WHERE purchasesorderfile2.itmcde='".$itmcde_search."'
-                AND purchasesorderfile1.suppcde = '".$_POST['suppcde']."'
-            ORDER BY purchasesorderfile1.trndte ASC, purchasesorderfile2.docnum ASC";
+                WHERE purchasesorderfile2.itmcde = ?
+                AND purchasesorderfile2.unmcde = ?
+                AND purchasesorderfile1.suppcde = ?";
+        $select_db_por2_params = array($itmcde_search, $unmcde_search, $_POST['suppcde']);
+
+        if($purchase_trndte_filter !== ''){
+            $select_db_por2 .= " AND purchasesorderfile1.trndte <= ?";
+            $select_db_por2_params[] = $purchase_trndte_filter;
+        }
+
+        $select_db_por2 .= " ORDER BY purchasesorderfile1.trndte ASC, purchasesorderfile2.docnum ASC";
         $stmt_por2	= $link->prepare($select_db_por2);
-        $stmt_por2->execute();
+        $stmt_por2->execute($select_db_por2_params);
         $xcount_por2 = 0;
         $xtotal_multi_itm_chk2 = 0;
         while($rs_por2 = $stmt_por2->fetch()){
@@ -272,6 +318,10 @@
                     ".htmlspecialchars($rs_por2['po2_itmdsc'],ENT_QUOTES)."
                 </td>
 
+                <td>
+                    ".htmlspecialchars(!empty($rs_por2['po2_unmdsc']) ? $rs_por2['po2_unmdsc'] : $unmcde_search,ENT_QUOTES)."
+                </td>
+
                 <td style='text-align:right'>
                     ".$rs_por2['po2_itmqty']."
                 </td>";
@@ -335,6 +385,15 @@
                     </td>
                     <td>
                         ".$rs_por2['po1_trndte']."
+                    </td>    
+                </tr>
+
+                <tr>
+                    <td>
+                        UOM
+                    </td>
+                    <td>
+                        ".htmlspecialchars(!empty($rs_por2['po2_unmdsc']) ? $rs_por2['po2_unmdsc'] : $unmcde_search,ENT_QUOTES)."
                     </td>    
                 </tr>
 

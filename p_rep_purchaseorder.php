@@ -180,6 +180,51 @@
 	/***header**/
 
     #region DO YOU LOOP HERE
+
+    // Performance optimization: Pre-fetch docnum item counts to eliminate N+1 queries
+    $select_counts = "SELECT tranfile2.docnum, COUNT(*) as xcount
+        FROM tranfile1
+        LEFT JOIN tranfile2 ON tranfile2.docnum = tranfile1.docnum
+        LEFT JOIN supplierfile ON tranfile1.suppcde = supplierfile.suppcde
+        WHERE true ".$xfilter." AND tranfile2.trncde='PUR'
+        GROUP BY tranfile2.docnum";
+    $stmt_counts = $link->prepare($select_counts);
+    $stmt_counts->execute();
+    $docnum_item_counts = array();
+    while($row = $stmt_counts->fetch(PDO::FETCH_ASSOC)){
+        $docnum_item_counts[$row['docnum']] = (int)$row['xcount'];
+    }
+
+    // Performance optimization: Pre-fetch all tranfile2 recids to get PO matches
+    $select_recids = "SELECT DISTINCT tranfile2.recid
+        FROM tranfile1
+        LEFT JOIN tranfile2 ON tranfile2.docnum = tranfile1.docnum
+        LEFT JOIN supplierfile ON tranfile1.suppcde = supplierfile.suppcde
+        WHERE true ".$xfilter." AND tranfile2.trncde='PUR' AND tranfile2.recid IS NOT NULL";
+    $stmt_recids = $link->prepare($select_recids);
+    $stmt_recids->execute();
+    $tranfile2_recids = array();
+    while($row = $stmt_recids->fetch(PDO::FETCH_ASSOC)){
+        if(!empty($row['recid'])){
+            $tranfile2_recids[] = $row['recid'];
+        }
+    }
+
+    // Pre-fetch purchasesorderfile2 records grouped by tranfile2_recid
+    $po2_by_tranfile2_recid = array();
+    if(!empty($tranfile2_recids)){
+        $placeholders = implode(',', array_fill(0, count($tranfile2_recids), '?'));
+        $stmt_po2 = $link->prepare("SELECT * FROM purchasesorderfile2 WHERE tranfile2_recid IN ($placeholders)");
+        $stmt_po2->execute($tranfile2_recids);
+        while($row = $stmt_po2->fetch(PDO::FETCH_ASSOC)){
+            $tf2_recid = $row['tranfile2_recid'];
+            if(!isset($po2_by_tranfile2_recid[$tf2_recid])){
+                $po2_by_tranfile2_recid[$tf2_recid] = array();
+            }
+            $po2_by_tranfile2_recid[$tf2_recid][] = $row;
+        }
+    }
+
     $select_db="SELECT *, tranfile1.trndte as 'trndte', tranfile2.recid as 'tranfile2_recid', COALESCE(itemunitmeasurefile.unmdsc, '') as uom_description FROM tranfile1
                     LEFT JOIN tranfile2
                     ON tranfile2.docnum = tranfile1.docnum
@@ -210,12 +255,11 @@
             $rs_main["trndte"] = str_replace('-','/',$rs_main["trndte"]);
         }
 
-        $select_db3="SELECT count(*) as 'xcount' from tranfile2 WHERE docnum='".$rs_main['docnum']."'";
-        $stmt_main3	= $link->prepare($select_db3);
-        $stmt_main3->execute();
-        $rs_main3 = $stmt_main3->fetch();
+        // Use pre-fetched item count instead of querying
+        $xcount = isset($docnum_item_counts[$rs_main['docnum']])
+            ? $docnum_item_counts[$rs_main['docnum']]
+            : 0;
 
- 
         if ($_POST['txt_output_type']=='tab')
 		{
             //$rs_main["itmdsc"] = $rs_main["itmdsc"];
@@ -226,7 +270,7 @@
         $docnum = $rs_main["docnum"];
         $trndte = $rs_main["trndte"];
         $suppdsc = $rs_main["suppdsc"];
-        if($xmain_count <= $rs_main3['xcount'] && $xmain_count != 1){
+        if($xmain_count <= $xcount && $xmain_count != 1){
             $docnum = '';
             $trndte = '';
             $suppdsc =  '';
@@ -288,21 +332,15 @@
         $balance = '';
         $matched_ponum = '';
 
-        // $select_db_mtch="SELECT * FROM purchasesorderfile1
-        // LEFT JOIN purchasesorderfile2 ON
-        // purchasesorderfile1.docnum = purchasesorderfile2.docnum
-        // LEFT JOIN supplierfile ON 
-        // purchasesorderfile1.suppcde = supplierfile.suppcde
-        //             WHERE true ".$xfilter2." AND tranfile2_recid='".$rs_main['tranfile2_recid']."'";
-
-        $select_db_mtch="SELECT * FROM purchasesorderfile2 WHERE tranfile2_recid='".$rs_main['tranfile2_recid']."'";
-        $stmt_main_mtch	= $link->prepare($select_db_mtch);
-        $stmt_main_mtch->execute();
+        // Use pre-fetched PO match data instead of querying
+        $po_matches = isset($po2_by_tranfile2_recid[$rs_main['tranfile2_recid']])
+            ? $po2_by_tranfile2_recid[$rs_main['tranfile2_recid']]
+            : array();
         $ordered_arr = array();
         $match_counter = 0;
         $ordered_arr['ordered']='';
         $ordered_arr['po_num']= '';
-        while($rs_main_mtch = $stmt_main_mtch->fetch()){   
+        foreach($po_matches as $rs_main_mtch){   
    
             if($match_counter == 0){
                 $ordered_arr['po_num'] = $rs_main_mtch['docnum'];
@@ -387,8 +425,8 @@
 
 
             // $pdf->ezPlaceData($xleft+=23,$xtop+$xcount_total_itmheight,$ordered_arr['po_num'],8,"left");
-            if($xmain_count == $rs_main3['xcount']){
-                $pdf->line(25, $xtop-10, 770, $xtop-10); 
+            if($xmain_count == $xcount){
+                $pdf->line(25, $xtop-10, 770, $xtop-10);
                 $xtop -= 5;
             }
         }

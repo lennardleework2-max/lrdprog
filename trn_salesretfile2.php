@@ -12,8 +12,11 @@ require "includes/main_header.php";
 //     // loop here
 // }
 
+ $header_usercode = '';
+ $is_edit_mode = false;
 
 if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
+    $is_edit_mode = true;
     $select_db_docnum1='SELECT * FROM tranfile1 WHERE recid=?';
     $stmt_docnum1	= $link->prepare($select_db_docnum1);
     $stmt_docnum1->execute(array($_POST["recid_hidden"]));
@@ -50,6 +53,7 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
         $ordernum  = $rs_docnum1['ordernum'];
         $buyer_id  = $rs_docnum1['buyer_id'];
         $salesman_id  = $rs_docnum1['salesman_id'];
+        $header_usercode = isset($rs_docnum1['usercode']) ? trim((string)$rs_docnum1['usercode']) : '';
 
     }
 }else{
@@ -75,6 +79,90 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
     $salesman_id = '';
 }
 
+$session_usercode = '';
+if(isset($_SESSION['usercode']) && trim((string)$_SESSION['usercode']) !== ''){
+    $session_usercode = trim((string)$_SESSION['usercode']);
+}else if(isset($_POST["usercode_hidden"]) && trim((string)$_POST["usercode_hidden"]) !== ''){
+    $session_usercode = trim((string)$_POST["usercode_hidden"]);
+}
+
+$display_usercode = $is_edit_mode ? $header_usercode : $session_usercode;
+$display_userdesc = '';
+if($display_usercode !== ''){
+    $select_user = "SELECT userdesc FROM users WHERE usercode = ? LIMIT 1";
+    $stmt_user = $link->prepare($select_user);
+    $stmt_user->execute(array($display_usercode));
+    $rs_user = $stmt_user->fetch();
+    if(!empty($rs_user) && isset($rs_user['userdesc'])){
+        $display_userdesc = $rs_user['userdesc'];
+    }
+}
+
+$warehouse_options = array();
+$stmt_warehouse = $link->prepare("SELECT warcde, warehouse_name FROM warehouse ORDER BY warehouse_name ASC");
+$stmt_warehouse->execute();
+while($rs_warehouse = $stmt_warehouse->fetch()){
+    $warehouse_options[] = array(
+        'warcde' => $rs_warehouse['warcde'],
+        'warehouse_name' => $rs_warehouse['warehouse_name']
+    );
+}
+
+$warehouse_floor_map = array();
+$stmt_floor = $link->prepare("SELECT warehouse_floor_id, warcde, floor_no, floor_name FROM warehouse_floor ORDER BY floor_no ASC, floor_name ASC, warehouse_floor_id ASC");
+$stmt_floor->execute();
+while($rs_floor = $stmt_floor->fetch()){
+    $floor_warcde = isset($rs_floor['warcde']) ? (string)$rs_floor['warcde'] : '';
+    if(!isset($warehouse_floor_map[$floor_warcde])){
+        $warehouse_floor_map[$floor_warcde] = array();
+    }
+    $warehouse_floor_map[$floor_warcde][] = array(
+        'warehouse_floor_id' => $rs_floor['warehouse_floor_id'],
+        'floor_no' => trim((string)($rs_floor['floor_no'] !== '' ? $rs_floor['floor_no'] : $rs_floor['floor_name']))
+    );
+}
+
+$warehouse_staff_options = array();
+$stmt_staff = $link->prepare("SELECT warehouse_staff_id, fname, lname FROM warehouse_staff ORDER BY fname ASC, lname ASC");
+$stmt_staff->execute();
+while($rs_staff = $stmt_staff->fetch()){
+    $warehouse_staff_options[] = array(
+        'warehouse_staff_id' => $rs_staff['warehouse_staff_id'],
+        'staff_name' => trim($rs_staff['fname'].' '.$rs_staff['lname'])
+    );
+}
+
+// Fetch all Unit of Measure options
+$uom_options = array();
+$stmt_uom = $link->prepare("SELECT unmcde, unmdsc FROM itemunitmeasurefile ORDER BY unmdsc ASC");
+$stmt_uom->execute();
+while($rs_uom = $stmt_uom->fetch()){
+    $uom_options[] = array(
+        'unmcde' => $rs_uom['unmcde'],
+        'unmdsc' => $rs_uom['unmdsc']
+    );
+}
+$default_uom_code = '';
+$default_uom_desc = '';
+$ordered_uom_options = array();
+foreach($uom_options as $uom_option){
+    $uom_code = trim((string)$uom_option['unmcde']);
+    $uom_desc = strtolower(trim((string)$uom_option['unmdsc']));
+    if($default_uom_code === '' && ($uom_desc === 'pcs' || strtolower($uom_code) === 'pcs')){
+        $default_uom_code = $uom_code;
+        $default_uom_desc = trim((string)$uom_option['unmdsc']);
+        array_unshift($ordered_uom_options, $uom_option);
+        continue;
+    }
+
+    $ordered_uom_options[] = $uom_option;
+}
+
+if($default_uom_desc === '' && !empty($ordered_uom_options)){
+    $default_uom_desc = trim((string)$ordered_uom_options[0]['unmdsc']);
+}
+
+$base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uom_desc;
 
 ?>
         <style>
@@ -326,6 +414,18 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                                         </td>                                  
                                     </tr>
 
+                                    <tr class="m-1 edit_row salesfile1" style="border-bottom:3px solid #cccccc ">
+                                        <td colspan="3">
+                                            <div class="m-3" style="max-width:33.333333%;min-width:260px;">
+                                                <div>
+                                                    <label for="userdesc_display" style="font-weight:bold">User:</label>
+                                                    <input type="text" class="form-control" name="userdesc_display" id="userdesc_display" value="<?php echo htmlspecialchars($display_userdesc, ENT_QUOTES); ?>" readonly>
+                                                    <input type="hidden" name="usercode_1" id="usercode_1" value="<?php echo htmlspecialchars($display_usercode, ENT_QUOTES); ?>">
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+
                                     <tr class="m-1 salesfile1" id="tr_access_data">
                                         <td id="main_chk_div" colspan="3">
                                         </td>
@@ -392,7 +492,21 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
 
                             <div class="row m-3">
                                 <div class="col-12">
-                                    <label for="">Price</label>
+                                    <label for="">Unit of Measure</label>
+                                    <select name="unmcde_add" id="unmcde_add" class="form-select" disabled>
+                                        <?php if($default_uom_code === ''): ?>
+                                            <option value="">Select Unit of Measure</option>
+                                        <?php endif; ?>
+                                        <?php foreach($ordered_uom_options as $uom_option): ?>
+                                            <option value="<?php echo htmlspecialchars($uom_option['unmcde'], ENT_QUOTES); ?>" data-default-label="<?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?>" <?php echo ($default_uom_code !== '' && $uom_option['unmcde'] === $default_uom_code) ? 'selected' : ''; ?>><?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="">Price per unit</label>
                                     <input type="text" name="price_add" id="price_add" class="form-control" autocomplete="off" oninput="calcTotal('add')">
                                 </div>
                             </div>
@@ -401,6 +515,39 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                                 <div class="col-12">
                                     <label for="">Amount</label>
                                     <input type="text" name="amount_add" id="amount_add" class="form-control" autocomplete="off" readonly>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="warcde_add">Warehouse</label>
+                                    <select name="warcde_add" id="warcde_add" class="form-select">
+                                        <option value="">Select Warehouse</option>
+                                        <?php foreach($warehouse_options as $warehouse_option): ?>
+                                            <option value="<?php echo htmlspecialchars($warehouse_option['warcde'], ENT_QUOTES); ?>"><?php echo htmlspecialchars($warehouse_option['warehouse_name'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="warehouse_floor_id_add">Warehouse Floor</label>
+                                    <select name="warehouse_floor_id_add" id="warehouse_floor_id_add" class="form-select">
+                                        <option value="">Select Warehouse Floor</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="warehouse_staff_id_add">Warehouse Staff</label>
+                                    <select name="warehouse_staff_id_add" id="warehouse_staff_id_add" class="form-select">
+                                        <option value="">Select Warehouse Staff</option>
+                                        <?php foreach($warehouse_staff_options as $staff_option): ?>
+                                            <option value="<?php echo htmlspecialchars($staff_option['warehouse_staff_id'], ENT_QUOTES); ?>"><?php echo htmlspecialchars($staff_option['staff_name'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
                                 </div>
                             </div>
 
@@ -449,7 +596,21 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
 
                             <div class="row m-3">
                                 <div class="col-12">
-                                    <label for="">Price</label>
+                                    <label for="">Unit of Measure</label>
+                                    <select name="unmcde_edit" id="unmcde_edit" class="form-select" disabled>
+                                        <?php if($default_uom_code === ''): ?>
+                                            <option value="">Select Unit of Measure</option>
+                                        <?php endif; ?>
+                                        <?php foreach($ordered_uom_options as $uom_option): ?>
+                                            <option value="<?php echo htmlspecialchars($uom_option['unmcde'], ENT_QUOTES); ?>" data-default-label="<?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?>" <?php echo ($default_uom_code !== '' && $uom_option['unmcde'] === $default_uom_code) ? 'selected' : ''; ?>><?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="">Price per unit</label>
                                     <input type="text" name="price_edit" id="price_edit" class="form-control" autocomplete="off" oninput="calcTotal('edit')">
                                 </div>
                             </div>
@@ -461,9 +622,43 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                                 </div>
                             </div>
 
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="warcde_edit">Warehouse</label>
+                                    <select name="warcde_edit" id="warcde_edit" class="form-select">
+                                        <option value="">Select Warehouse</option>
+                                        <?php foreach($warehouse_options as $warehouse_option): ?>
+                                            <option value="<?php echo htmlspecialchars($warehouse_option['warcde'], ENT_QUOTES); ?>"><?php echo htmlspecialchars($warehouse_option['warehouse_name'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="warehouse_floor_id_edit">Warehouse Floor</label>
+                                    <select name="warehouse_floor_id_edit" id="warehouse_floor_id_edit" class="form-select">
+                                        <option value="">Select Warehouse Floor</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="warehouse_staff_id_edit">Warehouse Staff</label>
+                                    <select name="warehouse_staff_id_edit" id="warehouse_staff_id_edit" class="form-select">
+                                        <option value="">Select Warehouse Staff</option>
+                                        <?php foreach($warehouse_staff_options as $staff_option): ?>
+                                            <option value="<?php echo htmlspecialchars($staff_option['warehouse_staff_id'], ENT_QUOTES); ?>"><?php echo htmlspecialchars($staff_option['staff_name'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
 
                             <div class="row m-2">
                                 <input type="hidden" name="itmcde_edit_hidden" id="itmcde_edit_hidden">
+                                <input type="hidden" name="allow_empty_location_edit" id="allow_empty_location_edit" value="0">
                                 <div class="row m-2">
                                     <div class="error_msg_edit_modal"></div>
                                 </div>
@@ -538,6 +733,210 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
         <script>
 
         var trncde = $("#trncde_hidden").val();
+        var warehouseFloorMap = <?php echo json_encode($warehouse_floor_map); ?>;
+        var defaultUomCode = <?php echo json_encode($default_uom_code); ?>;
+        var baseUomDisplay = <?php echo json_encode($base_uom_display); ?>;
+
+        function rebuildFloorOptions(selectId, warcde, selectedFloorId, allowNone){
+            var $select = $("#" + selectId);
+            if($select.length === 0){
+                return;
+            }
+
+            var options = allowNone ? "<option value=''>None</option>" : "<option value=''>Select Warehouse Floor</option>";
+            var floors = warehouseFloorMap[warcde] || [];
+
+            for(var i = 0; i < floors.length; i++){
+                var floor = floors[i];
+                var selected = (selectedFloorId && selectedFloorId === floor.warehouse_floor_id) ? " selected" : "";
+                options += "<option value='" + floor.warehouse_floor_id + "'" + selected + ">" + floor.floor_no + "</option>";
+            }
+
+            $select.html(options);
+        }
+
+        function setEditNoneOption(selectId, placeholderText, selectedValue, allowNone){
+            var $select = $("#" + selectId);
+            if($select.length === 0){
+                return;
+            }
+
+            $select.find("option[value='']").remove();
+
+            if(allowNone && selectedValue === ""){
+                $select.prepend("<option value=''>None</option>");
+            }else{
+                $select.prepend("<option value=''>" + placeholderText + "</option>");
+            }
+
+            $select.val(selectedValue);
+        }
+
+        function formatUomConversionValue(conversion){
+            var numericConversion = Number(conversion);
+
+            if(!isFinite(numericConversion)){
+                return "";
+            }
+
+            return numericConversion.toString();
+        }
+
+        function buildItemUomMap(uoms){
+            var uomMap = {};
+
+            if(!uoms || !uoms.length){
+                return uomMap;
+            }
+
+            for(var i = 0; i < uoms.length; i++){
+                if(uoms[i] && uoms[i].unmcde){
+                    uomMap[uoms[i].unmcde] = {
+                        conversion: uoms[i].conversion !== null && uoms[i].conversion !== "" ? Number(uoms[i].conversion) : null,
+                        unmdsc: uoms[i].unmdsc || uoms[i].unmcde
+                    };
+                }
+            }
+
+            return uomMap;
+        }
+
+        function resetUomOptionLabels(selectSelector){
+            $(selectSelector).find("option").each(function(){
+                var defaultLabel = $(this).data("default-label");
+                if(typeof defaultLabel !== "undefined"){
+                    $(this).text(defaultLabel);
+                }
+                $(this).show();
+            });
+        }
+
+        function applyItemUomLabels(selectSelector, uoms, filterByItem){
+            resetUomOptionLabels(selectSelector);
+
+            var uomMap = {};
+            if(uoms && uoms.length){
+                for(var i = 0; i < uoms.length; i++){
+                    if(uoms[i] && uoms[i].unmcde){
+                        uomMap[uoms[i].unmcde] = uoms[i];
+                    }
+                }
+            }
+
+            $(selectSelector).find("option").each(function(){
+                var optionValue = $(this).val();
+                var defaultLabel = $(this).data("default-label");
+
+                if(typeof defaultLabel === "undefined" || optionValue === ""){
+                    return;
+                }
+
+                // If filtering by item, hide options not in uomMap (but always show pcs)
+                if(filterByItem){
+                    if(optionValue === defaultUomCode){
+                        $(this).show();
+                    } else if(!uomMap[optionValue]){
+                        $(this).hide();
+                        return;
+                    } else {
+                        $(this).show();
+                    }
+                }
+
+                if(
+                    uomMap[optionValue] &&
+                    uomMap[optionValue].conversion !== null &&
+                    uomMap[optionValue].conversion !== ""
+                ){
+                    var formattedConversion = formatUomConversionValue(uomMap[optionValue].conversion);
+                    if(formattedConversion !== ""){
+                        $(this).text(defaultLabel + " (" + formattedConversion + " " + baseUomDisplay + ")");
+                    }
+                }
+            });
+        }
+
+        function updateItemUomDropdown(selectSelector, itmcde, selectedUomCode, preserveSelectedUom){
+            var $select = $(selectSelector);
+            var strictEditSelection = preserveSelectedUom === true;
+            var normalizedSelectedUomCode = $.trim(selectedUomCode || "");
+
+            $select.data("current-itmcde", itmcde || "");
+            $select.data("uom-map", {});
+            resetUomOptionLabels(selectSelector);
+            $select.find("option").show();
+
+            if(typeof selectedUomCode !== "undefined"){
+                $select.val(strictEditSelection ? normalizedSelectedUomCode : (normalizedSelectedUomCode || defaultUomCode || ""));
+            }else{
+                $select.val(defaultUomCode || "");
+            }
+
+            $select.prop("disabled", !itmcde);
+
+            if(!itmcde){
+                return;
+            }
+
+            $.ajax({
+                data: {
+                    event_action: "get_item_uoms",
+                    itmcde: itmcde
+                },
+                dataType: "json",
+                type: "post",
+                url: "trn_salesretfile2_ajax.php",
+                success: function(xdata){
+                    if($select.data("current-itmcde") !== itmcde){
+                        return;
+                    }
+
+                    var uoms = xdata["uoms"] || [];
+                    $select.data("uom-map", buildItemUomMap(uoms));
+                    applyItemUomLabels(selectSelector, uoms, true);
+
+                    var nextUomCode = "";
+                    if(strictEditSelection){
+                        $select.find("option").each(function(){
+                            if($.trim($(this).val()) === normalizedSelectedUomCode){
+                                nextUomCode = normalizedSelectedUomCode;
+                                return false;
+                            }
+                        });
+                    }else{
+                        $select.find("option:visible").each(function(){
+                            if($(this).val() !== ""){
+                                nextUomCode = $(this).val();
+                                return false;
+                            }
+                        });
+                    }
+                    var finalUomCode = strictEditSelection ? nextUomCode : (nextUomCode || defaultUomCode || "");
+                    $select.find("option").prop("selected", false);
+                    (strictEditSelection ? $select.find("option") : $select.find("option:visible")).each(function(){
+                        if($.trim($(this).val()) === $.trim(finalUomCode)){
+                            $(this).prop("selected", true);
+                            return false;
+                        }
+                    });
+                    if(finalUomCode !== ""){
+                        $select.val(finalUomCode).trigger("change");
+                    }
+                    $select.prop("disabled", false);
+                }
+            });
+        }
+
+        function setInitialUomDropdownState(selectSelector){
+            var $select = $(selectSelector);
+
+            $select.data("current-itmcde", "");
+            $select.data("uom-map", {});
+            resetUomOptionLabels(selectSelector);
+            $select.find("option").show();
+            $select.val(defaultUomCode || "");
+            $select.prop("disabled", true);
+        }
 
         $(document).ready(function(){
             var docnum = $("#docnum_hidden").val();
@@ -551,7 +950,15 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                         $("#main_chk_div").html(xdata["html"]);
                     }
 
-            })
+            });
+
+            $("#warcde_add").on("change", function(){
+                rebuildFloorOptions("warehouse_floor_id_add", $(this).val(), "", false);
+            });
+
+            $("#warcde_edit").on("change", function(){
+                rebuildFloorOptions("warehouse_floor_id_edit", $(this).val(), "", $(this).find("option:selected").text() === "None");
+            });
         });
 
         $('#itmcde_edit').on('change', function() {
@@ -648,7 +1055,12 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                     $("#itmqty_add").val('');
                     $("#itmcde_add").val('');
                     $("#itmcde_add").prop("readonly", false);
+                    setInitialUomDropdownState("#unmcde_add");
+                    $("#warcde_add").val('');
+                    rebuildFloorOptions("warehouse_floor_id_add", "", "", false);
+                    $("#warehouse_staff_id_add").val('');
                     $("#itmcde_add_hidden").val('');
+                    $(".error_msg_add_modal").html('');
                     //$("#itmcde_add").val('');
                     //$("#itmcde_add").val($("#itmcde_add option:first").val());
                     $("#insert_modal_sales").modal("show");
@@ -656,11 +1068,17 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                 break;
                 case "insert":
                     var xdata  = $("#insert_modal_sales *").serialize()+"&event_action="+event+"&docnum="+docnum+"&"+$(".salesfile1 *").serialize();
+                    xdata = xdata + "&warcde_add=" + encodeURIComponent($("#warcde_add").val() || "");
+                    xdata = xdata + "&warehouse_floor_id_add=" + encodeURIComponent($("#warehouse_floor_id_add").val() || "");
+                    xdata = xdata + "&warehouse_staff_id_add=" + encodeURIComponent($("#warehouse_staff_id_add").val() || "");
                 break;
                 case "submitEdit":
                     var recid = $("#salesfile2_recid_hidden").val();
                     var trndte_1_val = $("#trndte_1").val();
                     var xdata  = $("#edit_modal_sales *").serialize()+"&event_action="+event+"&docnum="+docnum+"&recid="+recid+"&xtrndte_1="+trndte_1_val;
+                    xdata = xdata + "&warcde_edit=" + encodeURIComponent($("#warcde_edit").val() || "");
+                    xdata = xdata + "&warehouse_floor_id_edit=" + encodeURIComponent($("#warehouse_floor_id_edit").val() || "");
+                    xdata = xdata + "&warehouse_staff_id_edit=" + encodeURIComponent($("#warehouse_staff_id_edit").val() || "");
                 break;
                 case "getEdit": 
                     var xdata = "event_action=getEdit&recid="+recid+"&docnum="+docnum;
@@ -799,6 +1217,12 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                             $("#price_edit").val(xdata["retEdit"]["untprc"]);
                             $("#amount_edit").val(xdata["retEdit"]["extprc"]);
                             $("#itmqty_edit").val(xdata["retEdit"]["itmqty"]);
+                            updateItemUomDropdown("#unmcde_edit", xdata["retEdit"]["itmcde"], xdata["retEdit"]["unmcde"], true);
+                            $("#allow_empty_location_edit").val(xdata["retEdit"]["allow_empty_location"] || "0");
+                            var allowEmptyLocation = (xdata["retEdit"]["allow_empty_location"] || "0") === "1";
+                            setEditNoneOption("warcde_edit", "Select Warehouse", xdata["retEdit"]["warcde"] || "", allowEmptyLocation);
+                            rebuildFloorOptions("warehouse_floor_id_edit", xdata["retEdit"]["warcde"] || "", xdata["retEdit"]["warehouse_floor_id"] || "", allowEmptyLocation);
+                            $("#warehouse_staff_id_edit").val(xdata["retEdit"]["warehouse_staff_id"] || "");
                             // $("#itmcde_edit option[text=" + xdata["retEdit"]["itmdsc"] +"]").prop("selected", true);
                             // $("#itmcde_edit option:contains("+xdata["retEdit"]["itmdsc"]+")").prop("selected", true);
                             // var optionsThatContainValue = $("#itmcde_edit").find('option').filter(function() {
@@ -964,6 +1388,7 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                 $("#view_itm_search").modal("hide");
                 $("#itmcde_add").prop("readonly", true);
                 $("#insert_modal_sales").modal("show");
+                updateItemUomDropdown("#unmcde_add", xitmcde, $("#unmcde_add").val() || defaultUomCode);
             }else if(xevent_action == 'edit'){
 
                 $(".error_msg_edit_modal").html("");
@@ -977,12 +1402,13 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                 //$("#amount_edit").val(xtotal);
 
                 $("#view_itm_search").modal("hide");
-                $("#edit_modal_sales").modal("show");   
+                $("#edit_modal_sales").modal("show");
+                updateItemUomDropdown("#unmcde_edit", xitmcde, $("#unmcde_edit").val() || defaultUomCode);
             }
 
             $(".error_msg_itm_view").html("");
 
-    
+
         }        
 
         function orderby_change()
@@ -1016,4 +1442,3 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
 <?php
     require "includes/main_footer.php";
 ?>
-

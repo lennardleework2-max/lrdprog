@@ -212,10 +212,33 @@
 
     
     
+    // Performance optimization: Pre-fetch all salesorderfile2 items to eliminate N+1 queries
+    $select_items = "SELECT salesorderfile2.*, salesorderfile2.docnum as so2_docnum,
+        itemfile.itmdsc as itmdsc, itemunitmeasurefile.unmdsc as unmdsc
+        FROM salesorderfile2
+        LEFT JOIN itemfile ON salesorderfile2.itmcde = itemfile.itmcde
+        LEFT JOIN itemunitmeasurefile ON salesorderfile2.unmcde = itemunitmeasurefile.unmcde
+        WHERE salesorderfile2.docnum IN (
+            SELECT salesorderfile1.docnum FROM salesorderfile1
+            LEFT JOIN customerfile ON salesorderfile1.cuscde = customerfile.cuscde
+            WHERE true ".$xfilter."
+        )
+        ORDER BY salesorderfile2.docnum ASC, salesorderfile2.recid ASC";
+    $stmt_items = $link->prepare($select_items);
+    $stmt_items->execute();
+    $items_by_docnum = array();
+    while($item_row = $stmt_items->fetch(PDO::FETCH_ASSOC)){
+        $docnum = $item_row['so2_docnum'];
+        if(!isset($items_by_docnum[$docnum])){
+            $items_by_docnum[$docnum] = array();
+        }
+        $items_by_docnum[$docnum][] = $item_row;
+    }
+
     $select_db="SELECT salesorderfile1.file_created_date as 'ordered_date', salesorderfile1.shipto as salesorderfile1_shipto,salesorderfile1.cuscde as salesorderfile1_cuscde,salesorderfile1.docnum as salesorderfile1_docnum,
     salesorderfile1.trndte as salesorderfile1_trndte,salesorderfile1.trntot as salesorderfile1_trntot,salesorderfile1.orderby as salesorderfile1_orderby,salesorderfile1.recid as salesorderfile1_recid,
     customerfile.recid as customerfile1_recid, customerfile.cusdsc as customerfile_cusdsc,
-    customerfile.cusdsc, customerfile.cuscde FROM salesorderfile1 LEFT JOIN customerfile ON 
+    customerfile.cusdsc, customerfile.cuscde FROM salesorderfile1 LEFT JOIN customerfile ON
     salesorderfile1.cuscde = customerfile.cuscde WHERE true ".$xfilter." ORDER BY salesorderfile1.docnum ASC, salesorderfile1.trndte ASC";
 
     $stmt_main	= $link->prepare($select_db);
@@ -225,7 +248,6 @@
     $cost_gtot = 0;
     $profit_gtot = 0;
     $old_docnum = '';
-    // $pdf->ezPlaceData($xleft,$xtop-100,$select_db,2,"left");
     while($rs_main = $stmt_main->fetch()){ 
         
         
@@ -323,20 +345,16 @@
 
 
 
-        $select_db2="SELECT salesorderfile2.*, itemfile.itmdsc as itmdsc, itemunitmeasurefile.unmdsc as unmdsc
-        FROM salesorderfile2
-        LEFT JOIN itemfile ON salesorderfile2.itmcde = itemfile.itmcde
-        LEFT JOIN itemunitmeasurefile ON salesorderfile2.unmcde = itemunitmeasurefile.unmcde
-        WHERE salesorderfile2.docnum='".$rs_main['salesorderfile1_docnum']."'";
-        $stmt_main2	= $link->prepare($select_db2);
-        $stmt_main2->execute();
-        // $pdf->ezPlaceData(15,$xtop-100,$select_db3,8,"left");
+        // Use pre-fetched items from lookup array instead of querying
+        $detail_items = isset($items_by_docnum[$rs_main['salesorderfile1_docnum']])
+            ? $items_by_docnum[$rs_main['salesorderfile1_docnum']]
+            : array();
         $price_tot = 0;
         $cost_tot = 0;
         $profit_tot = 0;
         $xtop-=12;
 
-        while($rs_main2 = $stmt_main2->fetch()){  
+        foreach($detail_items as $rs_main2){  
     
 
             $xleft = 300;

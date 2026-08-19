@@ -36,6 +36,43 @@ if(isset($_POST['expensefile1_delete_ajax']) && $_POST['expensefile1_delete_ajax
 require "includes/main_header.php";
 $trncde = "EXP";
 $prog_name = "Purchases";
+
+// Handle date filter parameters from dashboard (POST) or direct access (GET)
+function expensefile1_validate_date($value){
+    $value = trim((string)$value);
+    if($value === ''){
+        return '';
+    }
+    // Accept mm/dd/yyyy format
+    if(preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $value)){
+        $date = DateTime::createFromFormat('m/d/Y', $value);
+        if($date && $date->format('m/d/Y') === $value){
+            return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+        }
+    }
+    return '';
+}
+
+$dashboard_from_date = '';
+$dashboard_to_date = '';
+$dashboard_filter_active = false;
+
+// Check for POST data from dashboard navigation first
+if(isset($_POST['from_dashboard']) && $_POST['from_dashboard'] === '1'){
+    $dashboard_from_date = isset($_POST['dashboard_from_date']) ? expensefile1_validate_date($_POST['dashboard_from_date']) : '';
+    $dashboard_to_date = isset($_POST['dashboard_to_date']) ? expensefile1_validate_date($_POST['dashboard_to_date']) : '';
+    if($dashboard_from_date !== '' || $dashboard_to_date !== ''){
+        $dashboard_filter_active = true;
+    }
+}
+// Fallback to GET parameters for backward compatibility
+elseif(isset($_GET['from_date']) || isset($_GET['to_date'])){
+    $dashboard_from_date = isset($_GET['from_date']) ? expensefile1_validate_date($_GET['from_date']) : '';
+    $dashboard_to_date = isset($_GET['to_date']) ? expensefile1_validate_date($_GET['to_date']) : '';
+    if($dashboard_from_date !== '' || $dashboard_to_date !== ''){
+        $dashboard_filter_active = true;
+    }
+}
 ?>         
     <style>
     /* #trn_sales_table tr td{
@@ -179,8 +216,8 @@ $prog_name = "Purchases";
                 <input type="hidden" name="expense_type_search_h" id="expense_type_search_h" value="<?php if(isset($_POST['expense_type_search_h'])){echo $_POST['expense_type_search_h'];}?>">
                 <input type="hidden" name="vat_type_search_h" id="vat_type_search_h" value="<?php if(isset($_POST['vat_type_search_h'])){echo $_POST['vat_type_search_h'];}?>">
                 <input type="hidden" name="docnum_search_h" id="docnum_search_h" value="<?php if(isset($_POST['docnum_search_h'])){echo $_POST['docnum_search_h'];}?>">
-                <input type="hidden" name="from_search_h" id="from_search_h" value="<?php if(isset($_POST['from_search_h'])){echo $_POST['from_search_h'];}?>">
-                <input type="hidden" name="to_search_h" id="to_search_h" value="<?php if(isset($_POST['to_search_h'])){echo $_POST['to_search_h'];}?>">
+                <input type="hidden" name="from_search_h" id="from_search_h" value="<?php if($dashboard_from_date !== ''){ echo $dashboard_from_date; }elseif(isset($_POST['from_search_h'])){echo htmlspecialchars($_POST['from_search_h'], ENT_QUOTES, 'UTF-8');}?>">
+                <input type="hidden" name="to_search_h" id="to_search_h" value="<?php if($dashboard_to_date !== ''){ echo $dashboard_to_date; }elseif(isset($_POST['to_search_h'])){echo htmlspecialchars($_POST['to_search_h'], ENT_QUOTES, 'UTF-8');}?>">
                 <input type="hidden" name="cusname_search_h" id="cusname_search_h" value="<?php if(isset($_POST['cusname_search_h'])){echo $_POST['cusname_search_h'];}?>">
                 <input type="hidden" name="unpaid_search_h" id="unpaid_search_h" value="<?php if(isset($_POST['unpaid_search_h'])){echo $_POST['unpaid_search_h'];}?>">
                 <input type="hidden" name="sortby_1_order_h" id="sortby_1_order_h" value="<?php if(isset($_POST['sortby_1_order_h'])){echo $_POST['sortby_1_order_h'];}?>">
@@ -452,6 +489,9 @@ $prog_name = "Purchases";
         var trncde = $("#trncde_hidden").val();
         var first_load_scroll = false;
 
+        // Flag to check if dashboard filter was applied
+        var dashboardFilterActive = <?php echo $dashboard_filter_active ? 'true' : 'false'; ?>;
+
         $(document).ready(function(){
 
             var scroll_check = localStorage.getItem("scroll_check");
@@ -459,24 +499,31 @@ $prog_name = "Purchases";
             var pageno_start = $("#txt_pager_pageno").val();
             var crud_msg_h = $("#crud_msg_h").val();
 
-            
+
             first_load_scroll = true;
-            
+
+            // If dashboard filter is active, trigger search with the pre-populated dates
+            if(dashboardFilterActive){
+                $("#txt_pager_pageno").val("1");
+                page_click_sales("first_p", "first_load");
+                return;
+            }
+
             if(scroll_check == "N"){
-                page_click_sales("same");  
+                page_click_sales("same");
             }
             else if(crud_msg_h == "save_exit"){
-                page_click_sales("last_p");  
+                page_click_sales("last_p");
             }
             else if(crud_msg_h == "same_page" || crud_msg_h == "edit_exit"){
-                page_click_sales("same", "file2");  
+                page_click_sales("same", "file2");
             }
             else if(pageno_h_start !== ""){
-                page_click_sales("same");  
+                page_click_sales("same");
             }
             else{
                 $("#txt_pager_pageno").val("1");
-                page_click_sales("first_p", "first_load");  
+                page_click_sales("first_p", "first_load");
             }
 
         })
@@ -675,6 +722,24 @@ $prog_name = "Purchases";
         }
 
         function erase(){
+            // Pre-populate search modal with current active filters from hidden fields
+            $("#expense_type_search").val($("#expense_type_search_h").val() || $("#expense_type_search option:first").val());
+            $("#docnum_search").val($("#docnum_search_h").val() || '');
+            $("#from_search").val($("#from_search_h").val() || '');
+            $("#to_search").val($("#to_search_h").val() || '');
+            $("#cusname_search").val($("#cusname_search_h").val() || '');
+            $("#vat_type_search").val($("#vat_type_search_h").val() || $("#vat_type_search option:first").val());
+            $("#itmdsc_search").val($("#itmdsc_search_h").val() || '');
+            var unpaid_h = $("#unpaid_search_h").val();
+            $("#unpaid_search").prop("checked", unpaid_h === "1");
+            $("#sortby_1_order").val($("#sortby_1_order_h").val() || $("#sortby_1_order option:first").val());
+            $("#sortby_1_field").val($("#sortby_1_field_h").val() || $("#sortby_1_field option:first").val());
+            $("#sortby_2_order").val($("#sortby_2_order_h").val() || $("#sortby_2_order option:first").val());
+            $("#sortby_2_field").val($("#sortby_2_field_h").val() || $("#sortby_2_field option:first").val());
+        }
+
+        function clearSearch(){
+            // Clear all search fields completely
             $("#expense_type_search").val($("#expense_type_search option:first").val());
             $("#docnum_search").val('');
             $("#from_search").val('');
@@ -682,12 +747,11 @@ $prog_name = "Purchases";
             $("#cusname_search").val('');
             $("#vat_type_search").val($("#vat_type_search option:first").val());
             $("#itmdsc_search").val('');
-            $("#unpaid_search").prop("checked" ,false);
+            $("#unpaid_search").prop("checked", false);
             $("#sortby_1_order").val($("#sortby_1_order option:first").val());
             $("#sortby_1_field").val($("#sortby_1_field option:first").val());
             $("#sortby_2_order").val($("#sortby_2_order option:first").val());
             $("#sortby_2_field").val($("#sortby_2_field option:first").val());
-
         }
 
         function userAccess(username_access,usercode_access){

@@ -39,18 +39,31 @@ $_SESSION["logo_width"]     = $logo_width;
 
 
 $filename = basename($_SERVER['REQUEST_URI'], '?' . $_SERVER['QUERY_STRING']); 
+$permission_filename = $filename;
 
 if($filename == "trn_purchasefile2.php"){
-    $filename = "trn_purchasefile1.php";
+    $permission_filename = "trn_purchasefile1.php";
 }
 
 if($filename == "trn_salesretfile2.php"){
-    $filename = "trn_salesretfile1.php";
+    $permission_filename = "trn_salesretfile1.php";
 }
+
+if($filename == "mf_item_uom.php"){
+    $permission_filename = "mf_itemfile.php";
+}
+
+if($filename == "mf_warehouse_floor.php"){
+    $permission_filename = "mf_warehouse.php";
+}
+
+// if($filename == "unpaid_route_customer_pdf_all.php"){
+//     $permission_filename = "unpaid_route_customer_pdf.php";
+// }
 
 $select_db_crud="SELECT * FROM user_menus WHERE usercode=? AND menprogram=?";
 $stmt_crud	= $link->prepare($select_db_crud);
-$stmt_crud->execute(array($_SESSION['usercode'], $filename));
+$stmt_crud->execute(array($_SESSION['usercode'], $permission_filename));
 $rs_crud = $stmt_crud->fetch();
 
 

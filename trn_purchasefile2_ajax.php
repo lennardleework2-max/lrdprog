@@ -169,6 +169,276 @@
         return;
     }
 
+    // Search valid purchase orders for creating purchase from PO
+    if(isset($_POST["event_action"]) && $_POST["event_action"] == "search_valid_po"){
+        $search_ordernum = isset($_POST['search_ordernum']) ? trim((string)$_POST['search_ordernum']) : '';
+
+        // Build the query to find POs where ALL related purchasesorderfile2 rows have NULL/empty tranfile2_recid
+        $select_po = "SELECT DISTINCT pof1.docnum, pof1.ordernum, pof1.suppcde, pof1.trndte, pof1.trntot, sf.suppdsc
+                      FROM purchasesorderfile1 pof1
+                      LEFT JOIN supplierfile sf ON pof1.suppcde = sf.suppcde
+                      WHERE NOT EXISTS (
+                          SELECT 1 FROM purchasesorderfile2 pof2
+                          WHERE pof2.docnum = pof1.docnum
+                          AND pof2.tranfile2_recid IS NOT NULL
+                          AND TRIM(COALESCE(pof2.tranfile2_recid, '')) != ''
+                          AND pof2.tranfile2_recid != '0'
+                      )
+                      AND EXISTS (
+                          SELECT 1 FROM purchasesorderfile2 pof2_check
+                          WHERE pof2_check.docnum = pof1.docnum
+                      )";
+
+        $params = array();
+
+        if($search_ordernum !== ''){
+            $select_po .= " AND pof1.ordernum LIKE ?";
+            $params[] = '%' . $search_ordernum . '%';
+        }
+
+        $select_po .= " ORDER BY pof1.trndte DESC, pof1.docnum DESC LIMIT 100";
+
+        $stmt_po = $link->prepare($select_po);
+        $stmt_po->execute($params);
+
+        $xret["valid_pos"] = array();
+        while($rs_po = $stmt_po->fetch()){
+            $formatted_date = '';
+            if(!empty($rs_po['trndte'])){
+                $formatted_date = date("m/d/Y", strtotime($rs_po['trndte']));
+            }
+            $xret["valid_pos"][] = array(
+                'docnum' => htmlspecialchars($rs_po['docnum'], ENT_QUOTES),
+                'ordernum' => htmlspecialchars($rs_po['ordernum'], ENT_QUOTES),
+                'suppcde' => htmlspecialchars($rs_po['suppcde'], ENT_QUOTES),
+                'suppdsc' => htmlspecialchars($rs_po['suppdsc'], ENT_QUOTES),
+                'trndte' => $formatted_date,
+                'trntot' => $rs_po['trntot']
+            );
+        }
+
+        echo json_encode($xret);
+        return;
+    }
+
+    // Create purchase from selected purchase order
+    if(isset($_POST["event_action"]) && $_POST["event_action"] == "create_purchase_from_po"){
+        $debugStep = "START";
+
+        $po_docnum = isset($_POST['po_docnum']) ? trim((string)$_POST['po_docnum']) : '';
+        $warcde = isset($_POST['warcde']) ? trim((string)$_POST['warcde']) : '';
+        $warehouse_floor_id = isset($_POST['warehouse_floor_id']) ? trim((string)$_POST['warehouse_floor_id']) : '';
+        $warehouse_staff_id = isset($_POST['warehouse_staff_id']) ? trim((string)$_POST['warehouse_staff_id']) : '';
+        $trndte = isset($_POST['trndte']) ? trim((string)$_POST['trndte']) : '';
+        $remarks = isset($_POST['remarks']) ? trim((string)$_POST['remarks']) : '';
+
+        $debugStep = "VALIDATE";
+
+        // Validation
+        if($po_docnum === ''){
+            $xret["status"] = 0;
+            $xret["msg"] = "Purchase Order is required";
+            echo json_encode($xret);
+            return;
+        }
+
+        if($warcde === ''){
+            $xret["status"] = 0;
+            $xret["msg"] = "<b>Warehouse</b> is required";
+            echo json_encode($xret);
+            return;
+        }
+
+        if($warehouse_floor_id === ''){
+            $xret["status"] = 0;
+            $xret["msg"] = "<b>Warehouse Floor</b> is required";
+            echo json_encode($xret);
+            return;
+        }
+
+        if($trndte === ''){
+            $xret["status"] = 0;
+            $xret["msg"] = "<b>Tran. Date</b> is required";
+            echo json_encode($xret);
+            return;
+        }
+
+        // Format trndte
+        $trndte_formatted = date("Y-m-d", strtotime($trndte));
+
+        $debugStep = "CHECK_PO_AVAILABLE";
+
+        // Recheck PO availability (prevent race condition / duplicate usage)
+        $select_check_po = "SELECT pof2.recid
+                            FROM purchasesorderfile2 pof2
+                            WHERE pof2.docnum = ?
+                            AND pof2.tranfile2_recid IS NOT NULL
+                            AND TRIM(COALESCE(pof2.tranfile2_recid, '')) != ''
+                            AND pof2.tranfile2_recid != '0'
+                            LIMIT 1";
+        $stmt_check_po = $link->prepare($select_check_po);
+        $stmt_check_po->execute(array($po_docnum));
+        $rs_check_po = $stmt_check_po->fetch();
+
+        if($rs_check_po){
+            $xret["status"] = 0;
+            $xret["msg"] = "This Purchase Order has already been matched to a purchase. Please select a different one.";
+            echo json_encode($xret);
+            return;
+        }
+
+        $debugStep = "FETCH_PO_HEADER";
+
+        // Get PO header data
+        $select_po_header = "SELECT * FROM purchasesorderfile1 WHERE docnum = ? LIMIT 1";
+        $stmt_po_header = $link->prepare($select_po_header);
+        $stmt_po_header->execute(array($po_docnum));
+        $rs_po_header = $stmt_po_header->fetch();
+
+        if(!$rs_po_header){
+            $xret["status"] = 0;
+            $xret["msg"] = "Purchase Order not found";
+            echo json_encode($xret);
+            return;
+        }
+
+        $debugStep = "FETCH_PO_DETAILS";
+
+        // Get PO detail rows
+        $select_po_details = "SELECT * FROM purchasesorderfile2 WHERE docnum = ? ORDER BY recid ASC";
+        $stmt_po_details = $link->prepare($select_po_details);
+        $stmt_po_details->execute(array($po_docnum));
+        $po_details = $stmt_po_details->fetchAll();
+
+        if(empty($po_details)){
+            $xret["status"] = 0;
+            $xret["msg"] = "Purchase Order has no items";
+            echo json_encode($xret);
+            return;
+        }
+
+        $debugStep = "GENERATE_DOCNUM";
+
+        // Generate new PUR docnum using same logic as trn_purchasesorderfile2.php
+        $select_latest_pur = "SELECT docnum FROM tranfile1 WHERE trncde = 'PUR' ORDER BY docnum DESC LIMIT 1";
+        $stmt_latest_pur = $link->prepare($select_latest_pur);
+        $stmt_latest_pur->execute();
+        $rs_latest_pur = $stmt_latest_pur->fetch();
+
+        if(empty($rs_latest_pur)){
+            $new_docnum = "PUR-00001";
+        }else{
+            $new_docnum = Lnexts($rs_latest_pur['docnum']);
+        }
+
+        // Get current usercode
+        $current_usercode = '';
+        if(isset($_SESSION['usercode']) && trim((string)$_SESSION['usercode']) !== ''){
+            $current_usercode = trim((string)$_SESSION['usercode']);
+        }
+
+        $debugStep = "BEGIN_TRANSACTION";
+
+        // Start transaction
+        try{
+            $link->beginTransaction();
+
+            $debugStep = "INSERT_HEADER";
+
+            // Insert tranfile1 header (match existing insert pattern)
+            $arr_file1 = array();
+            $arr_file1['docnum'] = $new_docnum;
+            $arr_file1['orderby'] = '';
+            $arr_file1['shipto'] = '';
+            $arr_file1['suppcde'] = $rs_po_header['suppcde'];
+            $arr_file1['cuscde'] = NULL;
+            $arr_file1['trntot'] = $rs_po_header['trntot'];
+            $arr_file1['trndte'] = $trndte_formatted;
+            $arr_file1['paydate'] = NULL;
+            $arr_file1['paydetails'] = '';
+            $arr_file1['remarks'] = $remarks;
+            $arr_file1['ordernum'] = $rs_po_header['ordernum'];
+            $arr_file1['trncde'] = 'PUR';
+            $arr_file1['usercode'] = $current_usercode;
+
+            PDO_InsertRecord($link, 'tranfile1', $arr_file1, false);
+
+            $debugStep = "LOG_HEADER";
+
+            // Log activity: add header
+            $log_remarks = useractivitylog_build_insert_docnum_remark($new_docnum);
+            PDO_UserActivityLog($link, $log_username, '', $log_trndte, $log_module, 'add', $log_fullname, $log_remarks, 0, '', 'PUR', '', '', $log_username, $new_docnum, '');
+
+            $debugStep = "INSERT_DETAILS";
+            $detailIndex = 0;
+
+            // Insert tranfile2 rows and update purchasesorderfile2
+            foreach($po_details as $po_detail){
+                $detailIndex++;
+                $debugStep = "INSERT_DETAIL_" . $detailIndex;
+
+                // Calculate stkqty based on conversion
+                $conversion_value = purchase_get_item_conversion_value($link, $po_detail['itmcde'], isset($po_detail['unmcde']) ? $po_detail['unmcde'] : '');
+                $stkqty = (float)$po_detail['itmqty'];
+                if($conversion_value > 0){
+                    $stkqty = (float)$po_detail['itmqty'] * $conversion_value;
+                }
+
+                $arr_file2 = array();
+                $arr_file2['docnum'] = $new_docnum;
+                $arr_file2['itmcde'] = $po_detail['itmcde'];
+                $arr_file2['itmqty'] = $po_detail['itmqty'];
+                $arr_file2['stkqty'] = $stkqty;
+                $arr_file2['unmcde'] = isset($po_detail['unmcde']) ? $po_detail['unmcde'] : '';
+                $arr_file2['untprc'] = $po_detail['untprc'];
+                $arr_file2['extprc'] = $po_detail['extprc'];
+                $arr_file2['warcde'] = $warcde;
+                $arr_file2['warehouse_floor_id'] = $warehouse_floor_id;
+                $arr_file2['warehouse_staff_id'] = ($warehouse_staff_id !== '') ? $warehouse_staff_id : null;
+                $arr_file2['trncde'] = 'PUR';
+                $arr_file2['purnum_recid'] = $po_detail['recid'];
+
+                PDO_InsertRecord($link, 'tranfile2', $arr_file2, false);
+
+                // Get tranfile2 recid immediately after insert
+                $tranfile2_recid = $link->lastInsertId();
+
+                $debugStep = "LOG_DETAIL_" . $detailIndex;
+
+                // Log activity: add line item
+                $log_itmdsc_add = purchase_get_item_desc($link, $po_detail['itmcde']);
+                $log_uomdsc_add = purchase_get_uom_desc($link, isset($po_detail['unmcde']) ? $po_detail['unmcde'] : '');
+                $log_remarks_item = $log_username . " added item '" . $log_itmdsc_add . "' qty='" . $po_detail['itmqty'] . "' uom='" . $log_uomdsc_add . "' price='" . $po_detail['untprc'] . "' in docnum='" . $new_docnum . "' (from PO " . $po_docnum . ")";
+                PDO_UserActivityLog($link, $log_username, '', $log_trndte, $log_module, 'add', $log_fullname, $log_remarks_item, 0, '', 'PUR', '', '', $log_username, $new_docnum, '');
+
+                $debugStep = "UPDATE_PO_" . $detailIndex;
+
+                // Update purchasesorderfile2 with tranfile2_recid
+                $arr_update_po2 = array();
+                $arr_update_po2['tranfile2_recid'] = $tranfile2_recid;
+                PDO_UpdateRecord($link, 'purchasesorderfile2', $arr_update_po2, "recid = ?", array($po_detail['recid']), false);
+            }
+
+            $debugStep = "COMMIT";
+            $link->commit();
+
+            $xret["status"] = 1;
+            $xret["msg"] = "success";
+            $xret["new_docnum"] = $new_docnum;
+
+        }catch(Exception $e){
+            $link->rollBack();
+            // Log error server-side only (do not expose to user)
+            error_log("create_purchase_from_po error at [" . $debugStep . "]: " . $e->getMessage());
+
+            $xret["status"] = 0;
+            $xret["msg"] = "An error occurred while creating the purchase. Please try again.";
+        }
+
+        echo json_encode($xret);
+        return;
+    }
+
     if(isset($_POST["event_action"]) && ($_POST["event_action"] == "select_itmprice" || $_POST["event_action"] == "change_itmprice")){
 
         $select_itemfile="SELECT * FROM itemfile ORDER BY itmdsc ASC LIMIT 1";

@@ -560,6 +560,8 @@ function page_click(xbtn , xcheck ,xfieldnum){
         field_num-=1;
     }
 
+    var view_crud = $("#view_crud_hidden").val();
+
     //order by
     var table_order_field = $("#table_order_field").val();
     var table_order_type  = $("#table_order_type").val();
@@ -592,6 +594,9 @@ function page_click(xbtn , xcheck ,xfieldnum){
 
               //check if delete is custom bom
               custom_delete_bom_hidden: custom_delete_bom_hidden,
+
+              //view permission fallback for ajax row rendering
+              view_crud:view_crud,
 
               //no of fields
               field_num:field_num,
@@ -668,4 +673,3 @@ function print_pdf(){
 function alert_delete_bom(xmsg){
     alert(xmsg);
 }
-

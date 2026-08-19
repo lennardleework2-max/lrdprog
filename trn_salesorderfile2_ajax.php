@@ -73,6 +73,13 @@
         $current_usercode = trim((string)$_SESSION['usercode']);
     }
 
+    $current_userdesc = '';
+    if(isset($_POST['userdesc_display']) && trim((string)$_POST['userdesc_display']) !== ''){
+        $current_userdesc = trim((string)$_POST['userdesc_display']);
+    }else if(isset($_SESSION['userdesc']) && trim((string)$_SESSION['userdesc']) !== ''){
+        $current_userdesc = trim((string)$_SESSION['userdesc']);
+    }
+
     function salesorder_get_item_conversion($link, $itmcde, $unmcde){
         $itmcde = trim((string)$itmcde);
         $unmcde = trim((string)$unmcde);
@@ -244,6 +251,8 @@
                 $arr_record['order_status'] 	= $_POST['order_status1'];
                 $arr_record['file_created_date'] = $date_time_today;
                 $arr_record['usercode'] = $current_usercode;
+                $arr_record['usrcde'] = $current_usercode;
+                $arr_record['usrnam'] = $current_userdesc;
                 PDO_InsertRecord($link,'salesorderfile1',$arr_record, false);
 
                 // Log activity: add header
@@ -382,6 +391,9 @@
                 $arr_record_file1['trncde']     = $trncde;
                 $arr_record_file1['order_status'] 	= $_POST['order_status1'];
                 $arr_record_file1['file_created_date'] = $date_time_today;
+                $arr_record_file1['usercode'] = $current_usercode;
+                $arr_record_file1['usrcde'] = $current_usercode;
+                $arr_record_file1['usrnam'] = $current_userdesc;
 
                 PDO_InsertRecord($link,'salesorderfile1',$arr_record_file1, false);
     
@@ -698,6 +710,10 @@
 	                $log_change_parts[] = "price per unit from '" . $log_format_number(isset($log_old_record['untprc']) ? $log_old_record['untprc'] : '') . "' to '" . $log_format_number($_POST['price_edit']) . "'";
 	            }
 
+	            if($log_format_number(isset($log_old_record['wholesaleprc']) ? $log_old_record['wholesaleprc'] : '') !== $log_format_number(isset($_POST['wholesaleprc_edit']) ? $_POST['wholesaleprc_edit'] : '')){
+	                $log_change_parts[] = "wholesale price from '" . $log_format_number(isset($log_old_record['wholesaleprc']) ? $log_old_record['wholesaleprc'] : '') . "' to '" . $log_format_number(isset($_POST['wholesaleprc_edit']) ? $_POST['wholesaleprc_edit'] : '') . "'";
+	            }
+
 	            if($log_old_item_code !== $log_new_item_code){
 	                $log_remarks = $log_username . " edited item from '" . $log_old_item_desc . "' to '" . $log_new_item_desc . "' in docnum='" . $_POST['docnum'] . "'";
 	            }else{
@@ -706,6 +722,8 @@
 
 	            if(!empty($log_change_parts)){
 	                $log_remarks .= ": " . implode(', ', $log_change_parts);
+	            }else{
+	                $log_remarks .= ": no field changes detected";
 	            }
 	            PDO_UserActivityLog($link, $log_username, '', $log_trndte, $log_module, 'edit', $log_fullname, $log_remarks, 0, '', 'SOR', '', '', $log_username, $_POST['docnum'], '');
 

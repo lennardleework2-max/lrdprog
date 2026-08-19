@@ -1,10 +1,34 @@
-<?php 
+<?php
 ini_set('display_errors', '1');
 ini_set('display_startup_errors', '1');
 error_reporting(E_ALL);
 
 require "includes/main_header.php";
 require "pager/pager_main.class.php";
+
+// Preload all used suppcde from tranfile1 and purchasesorderfile1
+$supplier_in_use_recids = array();
+
+$select_used_suppcde = "SELECT DISTINCT suppcde FROM tranfile1 WHERE suppcde IS NOT NULL AND suppcde <> ''
+                        UNION
+                        SELECT DISTINCT suppcde FROM purchasesorderfile1 WHERE suppcde IS NOT NULL AND suppcde <> ''";
+$stmt_used_suppcde = $link->prepare($select_used_suppcde);
+$stmt_used_suppcde->execute();
+$used_suppcde_list = array();
+while($row_used = $stmt_used_suppcde->fetch(PDO::FETCH_ASSOC)){
+    $used_suppcde_list[] = trim((string)$row_used['suppcde']);
+}
+
+// Get recids of suppliers that are in use
+if(!empty($used_suppcde_list)){
+    $placeholders = implode(',', array_fill(0, count($used_suppcde_list), '?'));
+    $select_supplier_recids = "SELECT recid, suppcde FROM supplierfile WHERE suppcde IN ($placeholders)";
+    $stmt_supplier_recids = $link->prepare($select_supplier_recids);
+    $stmt_supplier_recids->execute($used_suppcde_list);
+    while($row_supplier = $stmt_supplier_recids->fetch(PDO::FETCH_ASSOC)){
+        $supplier_in_use_recids[] = (string)$row_supplier['recid'];
+    }
+}
 
 ?>
 
@@ -48,7 +72,7 @@ require "pager/pager_main.class.php";
                             $table1->view_crud = $view_crud;
                             $table1->export_crud = $export_crud;
 
-                            //$table1->customize_function_name = 'sample_func';
+                            $table1->customize_function_name = 'supplierAction';
                             //$table1->display_only = "Y";
 
                             $table1->field_code = "suppcde";
@@ -84,7 +108,7 @@ require "pager/pager_main.class.php";
                             $table1->show_search = "Y";
 
                             //alert
-                            $table1->alert_del = "N";
+                            $table1->alert_del = "Y";
                             $table1->alert_del_logo_dir = $logo_dir;
                             
                             $table1->alert_del_logo_w = $logo_width;
@@ -116,9 +140,57 @@ require "pager/pager_main.class.php";
 
    
 
-<!-- PAGER JS -->   
-<script src="pager/pager_js.class.js"> </script>
-<?php 
+<!-- PAGER JS -->
+<script src="pager/pager_js.class.js"></script>
+<script>
+var supplierInUseRecids = <?php echo json_encode($supplier_in_use_recids); ?>;
+
+function supplierAction(event, recid, custom_param){
+    if(event === "delete" && supplierInUseRecids.indexOf(String(recid)) !== -1){
+        alert("Cannot be deleted, supplier in use");
+        return;
+    }
+    ajaxFunc(event, recid, custom_param);
+}
+
+function applySupplierDeleteState(scopeSelector){
+    var scope = document.querySelector(scopeSelector);
+    if(!scope){
+        return;
+    }
+
+    supplierInUseRecids.forEach(function(recid){
+        var deleteMenus = scope.querySelectorAll("[aria-labelledby='dropdownMenuButton1-" + recid + "']");
+        deleteMenus.forEach(function(menu){
+            menu.querySelectorAll("li").forEach(function(item){
+                var itemText = item.textContent || "";
+                if(itemText.indexOf("Delete") !== -1){
+                    item.style.opacity = "0.5";
+                }
+            });
+        });
+    });
+}
+
+document.addEventListener("DOMContentLoaded", function(){
+    applySupplierDeleteState("#tbody_main");
+    applySupplierDeleteState("#tbody_main_mobile");
+
+    ["tbody_main", "tbody_main_mobile"].forEach(function(targetId){
+        var target = document.getElementById(targetId);
+        if(!target){
+            return;
+        }
+
+        var observer = new MutationObserver(function(){
+            applySupplierDeleteState("#" + targetId);
+        });
+
+        observer.observe(target, { childList: true, subtree: true });
+    });
+});
+</script>
+<?php
 require "includes/main_footer.php";
 ?>
 

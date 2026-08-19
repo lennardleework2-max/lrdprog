@@ -225,25 +225,45 @@
 	/***header**/
 
     #region DO YOU LOOP HERE
-    $select_db="SELECT *, salesorderfile1.trndte as 'trndte',
-                          salesorderfile1.file_created_date as 'file_created_date',
-                          salesorderfile1.docnum as 'docnum',
-                          salesorderfile2.itmqty as 'itmqty',
-                          salesorderfile2.recid as 'sonum_recid',
-                          customerfile.cusdsc as 'cusdsc',
-                          itemfile.itmdsc as 'itmdsc',
-                          COALESCE(itemunitmeasurefile.unmdsc, '') as 'unmdsc'
-     FROM salesorderfile1 LEFT JOIN salesorderfile2 ON
-    salesorderfile1.docnum = salesorderfile2.docnum LEFT JOIN customerfile ON
-    salesorderfile1.cuscde = customerfile.cuscde LEFT JOIN itemfile ON
-    salesorderfile2.itmcde = itemfile.itmcde LEFT JOIN itemunitmeasurefile ON
-    salesorderfile2.unmcde = itemunitmeasurefile.unmcde WHERE true ".$xfilter." AND salesorderfile1.docnum NOT LIKE '%-BOM%' ORDER BY salesorderfile2.docnum";
-    $stmt_main	= $link->prepare($select_db);
+    // PERFORMANCE OPTIMIZATION: Single query with JOINs replaces 2 queries per row
+    // - t2_match: pre-fetches matched tranfile2 data (was query inside loop)
+    // - doc_count: pre-calculates line count per docnum (was query inside loop)
+    $select_db = "SELECT
+        salesorderfile1.trndte,
+        salesorderfile1.file_created_date,
+        salesorderfile1.docnum,
+        salesorderfile2.itmqty,
+        salesorderfile2.recid AS sonum_recid,
+        customerfile.cusdsc,
+        itemfile.itmdsc,
+        COALESCE(itemunitmeasurefile.unmdsc, '') AS unmdsc,
+        t2_match.itmqty AS matched_itmqty,
+        t2_match.docnum AS matched_docnum,
+        doc_count.line_count
+    FROM salesorderfile1
+    LEFT JOIN salesorderfile2 ON salesorderfile1.docnum = salesorderfile2.docnum
+    LEFT JOIN customerfile ON salesorderfile1.cuscde = customerfile.cuscde
+    LEFT JOIN itemfile ON salesorderfile2.itmcde = itemfile.itmcde
+    LEFT JOIN itemunitmeasurefile ON salesorderfile2.unmcde = itemunitmeasurefile.unmcde
+    LEFT JOIN (
+        SELECT so_recid, itmqty, docnum
+        FROM tranfile2
+        WHERE so_recid IS NOT NULL
+        GROUP BY so_recid
+    ) t2_match ON t2_match.so_recid = salesorderfile2.recid
+    LEFT JOIN (
+        SELECT docnum, COUNT(*) AS line_count
+        FROM salesorderfile2
+        GROUP BY docnum
+    ) doc_count ON doc_count.docnum = salesorderfile1.docnum
+    WHERE true " . $xfilter . "
+    AND salesorderfile1.docnum NOT LIKE '%-BOM%'
+    ORDER BY salesorderfile2.docnum";
+    $stmt_main = $link->prepare($select_db);
     $stmt_main->execute();
     $xmain_count = 1;
     $previous_docnum = '';
-    while($rs_main = $stmt_main->fetch()){   
-
+    while($rs_main = $stmt_main->fetch()){
 
         $file_created_date = $rs_main['file_created_date'];
         $date_file_created = new DateTime($file_created_date);
@@ -260,30 +280,24 @@
             $rs_main["trndte"] = str_replace('-','/',$rs_main["trndte"]);
         }
 
-        $select_db2="SELECT *, tranfile2.itmqty as 'itmqty', tranfile2.docnum as 'docnum' FROM tranfile2 WHERE tranfile2.so_recid='".$rs_main['sonum_recid']."' LIMIT 1";
-        $stmt_main2	= $link->prepare($select_db2);
-        $stmt_main2->execute();
-        $rs_main2 = $stmt_main2->fetch();
-
-        if(!empty($rs_main2)){
-            $received = $rs_main2['itmqty'];
-            $matched_ponum = $rs_main2['docnum']; 
+        // Use pre-joined tranfile2 data instead of query per row
+        if(!empty($rs_main['matched_itmqty'])){
+            $received = $rs_main['matched_itmqty'];
+            $matched_ponum = $rs_main['matched_docnum'];
             $balance = $rs_main["itmqty"] - $received;
         }else{
             $received = '';
-            $matched_ponum = ''; 
+            $matched_ponum = '';
             $balance = $rs_main["itmqty"];
         }
 
-        $select_db3="SELECT count(*) as 'xcount' from salesorderfile2 WHERE docnum='".$rs_main['docnum']."'";
-        $stmt_main3	= $link->prepare($select_db3);
-        $stmt_main3->execute();
-        $rs_main3 = $stmt_main3->fetch();
+        // Use pre-joined line count instead of query per row
+        $line_count = $rs_main['line_count'];
 
         $docnum = $rs_main["docnum"];
         $trndte = $rs_main["trndte"];
         $cusdsc = $rs_main["cusdsc"];
-        if($xmain_count <= $rs_main3['xcount'] && $xmain_count != 1){
+        if($xmain_count <= $line_count && $xmain_count != 1){
             $docnum = '';
             $trndte = '';
             $cusdsc =  '';
@@ -333,7 +347,7 @@
         $pdf->ezPlaceData($xleft+=70,$xtop+$xcount_total_itmheight,$received,9,"right");
         $pdf->ezPlaceData($xleft+=60,$xtop+$xcount_total_itmheight,$balance,9,"right");
         $pdf->ezPlaceData($xleft+=20,$xtop+$xcount_total_itmheight,$matched_ponum,9,"left");
-        if($xmain_count == $rs_main3['xcount']){
+        if($xmain_count == $line_count){
             $pdf->line(25, $xtop-10, 770, $xtop-10); 
             $xtop -= 5;
         }

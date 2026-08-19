@@ -13,7 +13,8 @@
     ob_start();
 
 $critical_only=0;
-   if ($_POST['chk_critical_only']=='on')
+   $chk_critical_value = isset($_POST['chk_critical_only']) ? $_POST['chk_critical_only'] : (isset($_GET['chk_critical_only']) ? $_GET['chk_critical_only'] : '');
+   if ($chk_critical_value=='on')
    {
     $critical_only=1;
    }

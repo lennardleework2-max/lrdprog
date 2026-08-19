@@ -228,7 +228,7 @@
     $pdf->line($line_left, $xtop, $line_right, $xtop);
     $xtop -= 10;
     pad_tab_columns(array($col_trndate, $col_ordernum, $col_supplier, $col_orderedby, $col_qty, $col_uom), $xtop, 9);
-    $pdf->ezPlaceData($col_unitprice, $xtop, xls_safe_text("<b>Grand Total:</b>"), 9, 'left');
+    $pdf->ezPlaceData($col_unitprice-100, $xtop, xls_safe_text("<b>Grand Total:</b>"), 9, 'left');
     $pdf->ezPlaceData($col_total, $xtop, "<b>".number_format($grand_total, 2)."</b>", 9, 'right');
     $xtop -= 10;
     $pdf->line($line_left, $xtop, $line_right, $xtop);
@@ -282,7 +282,7 @@
         $xtop -= 29;
     }
 
-    function normalize_report_text($string)
+function normalize_report_text($string)
     {
         $string = trim((string)$string);
         if($string === ''){

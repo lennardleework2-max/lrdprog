@@ -174,85 +174,90 @@
 
     //$xfilter2 = '';
 
-    $select_db = "SELECT * FROM itemfile WHERE true ".$xfilter. "ORDER BY itmdsc";
+    $report_items = array();
+    $select_db = "SELECT itmcde, itmdsc FROM itemfile WHERE true ".$xfilter." ORDER BY itmdsc";
     $stmt_main	= $link->prepare($select_db);
     $stmt_main->execute();
-    $report_items = array();
-    while($rs_main = $stmt_main->fetch()){
+    $item_rows = $stmt_main->fetchAll(PDO::FETCH_ASSOC);
 
-        $xfilter_balance = '';
-
-        if(!empty($date_from_sql)){
-             $xfilter_balance .= " AND tranfile1.trndte<'".$date_from_sql."'";
-         }
- 
-         if(isset($_POST['item']) && !empty($_POST['item'])){
-             $xfilter_balance .= " AND tranfile2.itmcde='".$_POST['item']."'";
-         }
-
-        //  $xfilter_balance .= " AND tranfile2.itmcde='".$rs_main["itmcde"]."'";
- 
-         $select_db_balance = "SELECT SUM(stkqty) as  xsum FROM tranfile2 LEFT JOIN tranfile1 ON tranfile1.docnum = tranfile2.docnum  WHERE true ".$xfilter_balance." AND tranfile2.itmcde='".$rs_main["itmcde"]."'";
-         $stmt_balance	= $link->prepare($select_db_balance);
-         $stmt_balance->execute();
-        // $pdf->ezPlaceData(20,$xtop,$select_db_balance,2,"left");
-        // $xtop-=10;
-         $rs_balance = $stmt_balance->fetch();
-
-        if(empty($date_from_sql)){
-            $rs_balance['xsum'] = 0;
+    if(!empty($item_rows)){
+        $item_codes = array();
+        foreach($item_rows as $item_row){
+            $item_codes[] = $item_row['itmcde'];
         }
 
-        // $xfilter2.= " AND tranfile2.itmcde='".$rs_main["itmcde"]."'";
+        $opening_balances = array();
+        if(!empty($date_from_sql)){
+            $balance_placeholders = implode(',', array_fill(0, count($item_codes), '?'));
+            $select_db_balance = "SELECT tranfile2.itmcde, SUM(tranfile2.stkqty) AS xsum
+                FROM tranfile2
+                LEFT JOIN tranfile1 ON tranfile1.docnum = tranfile2.docnum
+                WHERE tranfile1.trndte < ?
+                  AND tranfile2.itmcde IN (".$balance_placeholders.")
+                GROUP BY tranfile2.itmcde";
+            $stmt_balance = $link->prepare($select_db_balance);
+            $stmt_balance->execute(array_merge(array($date_from_sql), $item_codes));
+            while($rs_balance = $stmt_balance->fetch(PDO::FETCH_ASSOC)){
+                $opening_balances[$rs_balance['itmcde']] = (float)$rs_balance['xsum'];
+            }
+        }
 
-        $select_db2 = "SELECT tranfile1.trndte as tranfile1_trndte, 
-                              tranfile1.trncde as  tranfile1_trncde, 
-                              tranfile2.docnum as tranfile2_docnum,
-                              tranfile2.untprc as tranfile2_untprc,
-                              tranfile1.ordernum as tranfile1_ordernum,
-                              customerfile.cusdsc as customerfile_cusdsc,
-                              supplierfile.suppdsc as supplierfile_suppdsc,
-                              tranfile1.orderby as tranfile1_orderby,
-                              tranfile2.stkqty as tranfile2_stkqty,
-                              mf_buyers.buyer_name as buyer_name   
-                              FROM tranfile2 LEFT JOIN tranfile1 ON
-                               tranfile2.docnum = tranfile1.docnum 
-                               LEFT JOIN itemfile ON itemfile.itmcde =  tranfile2.itmcde 
-                               LEFT JOIN supplierfile ON tranfile1.suppcde = supplierfile.suppcde 
-                               LEFT JOIN customerfile ON tranfile1.cuscde = customerfile.cuscde 
-                               LEFT JOIN mf_buyers ON mf_buyers.buyer_id = tranfile1.buyer_id
-                               WHERE true ".$xfilter2." AND tranfile2.itmcde='".$rs_main['itmcde']."' ORDER BY tranfile1.trndte ASC, tranfile2.recid ASC";
-        $stmt_main2	= $link->prepare($select_db2);
-        $stmt_main2->execute();
-        $transactions = array();
-        $in_total = 0;
-        $out_total = 0;
-        // $pdf->ezPlaceData(20,$xtop,$select_db2,2,"left");
-        // $xtop-=10;
-        while($rs_main2 = $stmt_main2->fetch()){ 
-            $supp_or_cus =  "";
-    
+        $txn_placeholders = implode(',', array_fill(0, count($item_codes), '?'));
+        $select_db2 = "SELECT tranfile2.itmcde AS item_code,
+                tranfile1.trndte as tranfile1_trndte,
+                tranfile1.trncde as tranfile1_trncde,
+                tranfile2.docnum as tranfile2_docnum,
+                tranfile2.untprc as tranfile2_untprc,
+                tranfile1.ordernum as tranfile1_ordernum,
+                customerfile.cusdsc as customerfile_cusdsc,
+                supplierfile.suppdsc as supplierfile_suppdsc,
+                tranfile1.orderby as tranfile1_orderby,
+                tranfile2.stkqty as tranfile2_stkqty,
+                mf_buyers.buyer_name as buyer_name
+            FROM tranfile2
+            LEFT JOIN tranfile1 ON tranfile2.docnum = tranfile1.docnum
+            LEFT JOIN itemfile ON itemfile.itmcde = tranfile2.itmcde
+            LEFT JOIN supplierfile ON tranfile1.suppcde = supplierfile.suppcde
+            LEFT JOIN customerfile ON tranfile1.cuscde = customerfile.cuscde
+            LEFT JOIN mf_buyers ON mf_buyers.buyer_id = tranfile1.buyer_id
+            WHERE tranfile2.itmcde IN (".$txn_placeholders.") ".$xfilter2."
+            ORDER BY tranfile2.itmcde ASC, tranfile1.trndte ASC, tranfile2.recid ASC";
+        $stmt_main2 = $link->prepare($select_db2);
+        $stmt_main2->execute($item_codes);
+
+        $transactions_by_item = array();
+        $in_totals = array();
+        $out_totals = array();
+        while($rs_main2 = $stmt_main2->fetch(PDO::FETCH_ASSOC)){
+            $supp_or_cus = "";
             if(isset($rs_main2["supplierfile_suppdsc"]) && !empty($rs_main2["supplierfile_suppdsc"])){
                 $supp_or_cus = $rs_main2["supplierfile_suppdsc"];
             }else{
                 $supp_or_cus = $rs_main2["customerfile_cusdsc"];
             }
-    
-            if(!empty($rs_main2["tranfile1_trndte"]) && $rs_main2["tranfile1_trndte"] !== NULL &&  $rs_main2["tranfile1_trndte"]!=="1970-01-01"){
+
+            if(!empty($rs_main2["tranfile1_trndte"]) && $rs_main2["tranfile1_trndte"] !== NULL && $rs_main2["tranfile1_trndte"] !== "1970-01-01"){
                 $rs_main2["tranfile1_trndte"] = date("m-d-Y",strtotime($rs_main2["tranfile1_trndte"]));
                 $rs_main2["tranfile1_trndte"] = str_replace('-','/',$rs_main2["tranfile1_trndte"]);
             }else{
                 $rs_main2["tranfile1_trndte"] = '';
             }
 
+            $item_code = $rs_main2['item_code'];
             $qty_value = (float)$rs_main2["tranfile2_stkqty"];
-            if($qty_value > 0){
-                $in_total += $qty_value;
-            }else if($qty_value < 0){
-                $out_total += ($qty_value * -1);
+            if(!isset($transactions_by_item[$item_code])){
+                $transactions_by_item[$item_code] = array();
+                $in_totals[$item_code] = 0;
+                $out_totals[$item_code] = 0;
             }
 
-            $transactions[] = array(
+            if($qty_value > 0){
+                $in_totals[$item_code] += $qty_value;
+            }else if($qty_value < 0){
+                $out_totals[$item_code] += ($qty_value * -1);
+            }
+
+            $transactions_by_item[$item_code][] = array(
                 'tranfile1_trndte' => (string)$rs_main2["tranfile1_trndte"],
                 'tranfile1_trncde' => (string)$rs_main2["tranfile1_trncde"],
                 'tranfile2_docnum' => (string)$rs_main2["tranfile2_docnum"],
@@ -264,19 +269,24 @@
             );
         }
 
-        if(empty($transactions)){
-            continue;
-        }
+        foreach($item_rows as $item_row){
+            $item_code = $item_row['itmcde'];
+            if(empty($transactions_by_item[$item_code])){
+                continue;
+            }
 
-        $opening_balance = isset($rs_balance['xsum']) ? (float)$rs_balance['xsum'] : 0;
-        $report_items[] = array(
-            'itmdsc' => $rs_main['itmdsc'],
-            'balance' => $opening_balance,
-            'transactions' => $transactions,
-            'in_total' => $in_total,
-            'out_total' => $out_total,
-            'ending_balance' => ($opening_balance + $in_total) - $out_total
-        );
+            $opening_balance = !empty($date_from_sql) && isset($opening_balances[$item_code]) ? (float)$opening_balances[$item_code] : 0;
+            $in_total = isset($in_totals[$item_code]) ? (float)$in_totals[$item_code] : 0;
+            $out_total = isset($out_totals[$item_code]) ? (float)$out_totals[$item_code] : 0;
+            $report_items[] = array(
+                'itmdsc' => $item_row['itmdsc'],
+                'balance' => $opening_balance,
+                'transactions' => $transactions_by_item[$item_code],
+                'in_total' => $in_total,
+                'out_total' => $out_total,
+                'ending_balance' => ($opening_balance + $in_total) - $out_total
+            );
+        }
     }
 
     $is_first_item = true;

@@ -38,6 +38,202 @@ if(isset($_POST['main_header']) && !empty($_POST['main_header'])){
     $xprog_module = strtoupper($_POST['main_header']);
 }
 
+function pager_current_db_name()
+{
+    if(isset($_SESSION['db_dbname']) && $_SESSION['db_dbname'] !== ''){
+        return $_SESSION['db_dbname'];
+    }
+
+    if(isset(db_init::$dbholder_db_name) && db_init::$dbholder_db_name !== ''){
+        return db_init::$dbholder_db_name;
+    }
+
+    return '';
+}
+
+function itemunitmeasurefile_in_use($link, $unmcde)
+{
+    $unmcde = trim((string)$unmcde);
+    if($unmcde === ''){
+        return false;
+    }
+
+    $select_reference_record = "SELECT 1 FROM itemunitfile WHERE unmcde = ? LIMIT 1";
+    $stmt_reference_record = $link->prepare($select_reference_record);
+    $stmt_reference_record->execute(array($unmcde));
+
+    return (bool)$stmt_reference_record->fetch();
+}
+
+function pager_item_uom_description($link, $unmcde)
+{
+    $unmcde = trim((string)$unmcde);
+    if($unmcde === ''){
+        return '';
+    }
+
+    $select_uom_description = "SELECT unmdsc FROM itemunitmeasurefile WHERE unmcde = ? LIMIT 1";
+    $stmt_uom_description = $link->prepare($select_uom_description);
+    $stmt_uom_description->execute(array($unmcde));
+    $rs_uom_description = $stmt_uom_description->fetch();
+
+    return !empty($rs_uom_description["unmdsc"]) ? $rs_uom_description["unmdsc"] : '';
+}
+
+function pager_item_description_from_itmcde($link, $itmcde)
+{
+    $itmcde = trim((string)$itmcde);
+    if($itmcde === ''){
+        return '';
+    }
+
+    $select_item_description = "SELECT itmdsc FROM itemfile WHERE itmcde = ? LIMIT 1";
+    $stmt_item_description = $link->prepare($select_item_description);
+    $stmt_item_description->execute(array($itmcde));
+    $rs_item_description = $stmt_item_description->fetch();
+
+    return !empty($rs_item_description["itmdsc"]) ? $rs_item_description["itmdsc"] : '';
+}
+
+function pager_warehouse_name_from_warcde($link, $warcde)
+{
+    $warcde = trim((string)$warcde);
+    if($warcde === ''){
+        return '';
+    }
+
+    $select_warehouse_name = "SELECT warehouse_name FROM warehouse WHERE warcde = ? LIMIT 1";
+    $stmt_warehouse_name = $link->prepare($select_warehouse_name);
+    $stmt_warehouse_name->execute(array($warcde));
+    $rs_warehouse_name = $stmt_warehouse_name->fetch();
+
+    return !empty($rs_warehouse_name["warehouse_name"]) ? $rs_warehouse_name["warehouse_name"] : '';
+}
+
+function pager_log_display_value($value)
+{
+    if($value === null){
+        return '(blank)';
+    }
+
+    $value = trim((string)$value);
+    return ($value === '') ? '(blank)' : $value;
+}
+
+function pager_log_context_label($tablename, $main_header = '')
+{
+    switch((string)$tablename){
+        case 'itemfile':
+            return 'item';
+        case 'mf_salesman':
+            return 'salesman';
+        case 'mf_routes':
+            return 'route';
+        case 'supplierfile':
+            return 'supplier';
+        case 'customerfile':
+            return 'shop name';
+        case 'expensetypefile':
+            return 'expense type';
+        case 'warehouse_staff':
+            return 'warehouse staff';
+        case 'warehouse':
+            return 'warehouse';
+        case 'itemunitmeasurefile':
+            return 'unit of measure';
+    }
+
+    $main_header = trim((string)$main_header);
+    if($main_header !== ''){
+        return strtolower($main_header);
+    }
+
+    return strtolower((string)$tablename);
+}
+
+function pager_is_masterfile_table($tablename)
+{
+    return in_array((string)$tablename, array(
+        'itemfile',
+        'mf_salesman',
+        'mf_routes',
+        'supplierfile',
+        'customerfile',
+        'itemunitmeasurefile',
+        'expensetypefile',
+        'warehouse_staff'
+    ), true);
+}
+
+function pager_log_field_label($tablename, $fieldname, $field_label = '')
+{
+    switch((string)$tablename){
+        case 'itemfile':
+            if($fieldname === 'itmdsc'){
+                return 'description';
+            }
+            if($fieldname === 'wholesaleprc'){
+                return 'wholesale price';
+            }
+            break;
+        case 'mf_salesman':
+            if($fieldname === 'salesman_name'){
+                return 'name';
+            }
+            if($fieldname === 'commission'){
+                return 'commission percentage';
+            }
+            break;
+        case 'itemunitmeasurefile':
+            if($fieldname === 'unmdsc'){
+                return 'unit of measure';
+            }
+            break;
+    }
+
+    $field_label = str_replace('_crudModal', '', (string)$field_label);
+    $field_label = trim($field_label);
+    if($field_label !== ''){
+        return strtolower($field_label);
+    }
+
+    return strtolower(str_replace('_', ' ', (string)$fieldname));
+}
+
+function pager_log_format_value($value, $field_type)
+{
+    if($field_type === 'checkbox'){
+        if($value === 1 || $value === '1'){
+            return 'checked';
+        }
+        if($value === 0 || $value === '0'){
+            return 'unchecked';
+        }
+    }
+
+    if($field_type === 'date' && $value !== null && $value !== ''){
+        return date("m/d/Y", strtotime((string)$value));
+    }
+
+    if($field_type === 'number' && $value !== null && $value !== ''){
+        $normalized = rtrim(rtrim(number_format((float)$value, 4, '.', ''), '0'), '.');
+        return ($normalized === '') ? '0' : $normalized;
+    }
+
+    return (string)$value;
+}
+
+function pager_log_values_match($old_value, $new_value, $field_type)
+{
+    if($field_type === 'number'){
+        $old_compare = ($old_value === null || $old_value === '') ? '' : number_format((float)$old_value, 4, '.', '');
+        $new_compare = ($new_value === null || $new_value === '') ? '' : number_format((float)$new_value, 4, '.', '');
+        return $old_compare === $new_compare;
+    }
+
+    return (string)$old_value === (string)$new_value;
+}
+
 if($_POST["event_action"] == "delete"){
 	$delete_id=$_POST['recid'];
 
@@ -66,6 +262,18 @@ if($_POST["event_action"] == "delete"){
     if(!empty($_POST["fieldcode"]) && isset($rs_delete[$_POST['fieldcode']]) && !empty($rs_delete[$_POST['fieldcode']])){
         $xdocnum = $rs_delete[$_POST['fieldcode']];
     }
+
+	    if($_POST['tablename'] == "itemunitmeasurefile"){
+	        $unmcde = isset($rs_delete["unmcde"]) ? $rs_delete["unmcde"] : "";
+
+	        if(itemunitmeasurefile_in_use($link, $unmcde)){
+	            $xret["status"] = 0;
+	            $xret["msg"] = "Unit of measure in use, cannot modify";
+	            header('Content-Type: application/json');
+	            echo json_encode($xret);
+	            return;
+	        }
+	    }
 
     try{
         if($_POST['tablename'] == "warehouse"){
@@ -114,23 +322,55 @@ if($_POST["event_action"] == "delete"){
         return;
     }
 
-    $xactivity = "delete";
-    if(isset($_POST['ua_field1_header_hidden'])){
-        $_POST['ua_field1_header_hidden'] = $_POST['ua_field1_header_hidden'];
-    }else{
-        $_POST['ua_field1_header_hidden'] = '';
-    }
-    $xremarks = "Deleted Record In '".$_POST["main_header"]."', ".$_POST['ua_field1_header_hidden'].": '".$ua_field1."' , Record ID: ".$ua_field2;
+	    $xactivity = "delete";
+	    if(isset($_POST['ua_field1_header_hidden'])){
+	        $_POST['ua_field1_header_hidden'] = $_POST['ua_field1_header_hidden'];
+	    }else{
+	        $_POST['ua_field1_header_hidden'] = '';
+	    }
+	    if($_POST['tablename'] == "itemunitmeasurefile"){
+	        $xremarks = $username_session . " deleted unit of measure '" . pager_log_display_value(isset($rs_delete['unmdsc']) ? $rs_delete['unmdsc'] : '') . "'";
+	    }else if($_POST['tablename'] == "itemunitfile"){
+	        $del_uom_desc = pager_item_uom_description($link, isset($rs_delete['unmcde']) ? $rs_delete['unmcde'] : '');
+	        $del_item_desc = pager_item_description_from_itmcde($link, isset($rs_delete['itmcde']) ? $rs_delete['itmcde'] : '');
+	        $xremarks = $username_session . " deleted uom '" . pager_log_display_value($del_uom_desc) . "' in item - '" . pager_log_display_value($del_item_desc) . "'";
+	    }else if($_POST['tablename'] == "warehouse"){
+	        $xremarks = "Deleted Record In 'Warehouse', Warehouse Name: '" . pager_log_display_value(isset($rs_delete['warehouse_name']) ? $rs_delete['warehouse_name'] : '') . "'";
+	    }else if($_POST['tablename'] == "warehouse_floor"){
+	        $del_wh_name = pager_warehouse_name_from_warcde($link, isset($rs_delete['warcde']) ? $rs_delete['warcde'] : '');
+	        $del_floor_name = isset($rs_delete['floor_name']) ? $rs_delete['floor_name'] : '';
+	        $del_floor_no = isset($rs_delete['floor_no']) ? $rs_delete['floor_no'] : '';
+	        $xremarks = "Deleted Record In 'Warehouse Floor', warehouse: '" . pager_log_display_value($del_wh_name) . "', floor name: '" . pager_log_display_value($del_floor_name) . "', floor number: '" . pager_log_display_value($del_floor_no) . "'";
+	    }else if(pager_is_masterfile_table($_POST['tablename'])){
+	        $xremarks = $username_session . " deleted " . pager_log_context_label($_POST['tablename'], $_POST["main_header"]) . " '" . pager_log_display_value($ua_field1) . "'";
+	    }else{
+	        $xremarks = "Deleted Record In '".$_POST["main_header"]."', ".$_POST['ua_field1_header_hidden'].": '".$ua_field1."' , Record ID: ".$ua_field2;
+	    }
 
-    //PDO_UserActivityLog($link, $xusrcde, $xusrname, $xtrndte, $xprog_module, $xactivity, $xfullname, $xremarks , $linenum, $parameter, $trncde, $trndsc, $compname, $xusrnme, $docnum, $upload_filename);
-    PDO_UserActivityLog($link, $username_session, '', $xtrndte, $xprog_module, $xactivity, $username_full_name, $xremarks , 0, '', '', '','',$username_session, $xdocnum, '');
+	    //PDO_UserActivityLog($link, $xusrcde, $xusrname, $xtrndte, $xprog_module, $xactivity, $xfullname, $xremarks , $linenum, $parameter, $trncde, $trndsc, $compname, $xusrnme, $docnum, $upload_filename);
+	    PDO_UserActivityLog($link, $username_session, '', $xtrndte, $xprog_module, $xactivity, $username_full_name, $xremarks , 0, '', ($_POST['tablename'] == "itemunitmeasurefile" ? 'UOM' : ''), '','',$username_session, $xdocnum, '');
 
 }
 
 else if($_POST["event_action"] == "getEdit"){
 
-    $xret["retEdit"] = array();
-    $xret["status"] = "retEdit";
+    if($_POST['tablename'] == "itemunitmeasurefile"){
+        $select_uom_edit = "SELECT unmcde FROM ".$_POST['tablename']." WHERE recid=?";
+        $stmt_uom_edit = $link->prepare($select_uom_edit);
+        $stmt_uom_edit->execute(array($_POST["recid"]));
+        $rs_uom_edit = $stmt_uom_edit->fetch();
+
+        if($rs_uom_edit && itemunitmeasurefile_in_use($link, $rs_uom_edit["unmcde"])){
+            $xret["status"] = 0;
+            $xret["msg"] = "Unit of measure in use, cannot modify";
+            header('Content-Type: application/json');
+            echo json_encode($xret);
+            return;
+        }
+    }
+	
+	    $xret["retEdit"] = array();
+	    $xret["status"] = "retEdit";
     $xcounter_select = 0;
     $fields_select = '';
 
@@ -406,22 +646,64 @@ else if($_POST["event_action"] == "insert")
             }
         }
 
-        $xactivity = "add";
-        $xremarks = "Added Record In '".$_POST["main_header"]."', ".$ua_field_header.": '".$ua_field1."' , Record ID: ".$ua_field2;
+	        $xactivity = "add";
+	        if($_POST['tablename'] == "itemunitmeasurefile"){
+	            $xremarks = $username_session . " added unit of measure '" . pager_log_display_value(isset($arr_record_data['unmdsc']) ? $arr_record_data['unmdsc'] : '') . "'";
+	        }else if($_POST['tablename'] == "itemunitfile"){
+	            $add_uom_desc = pager_item_uom_description($link, isset($arr_record_data['unmcde']) ? $arr_record_data['unmcde'] : '');
+	            $add_item_desc = pager_item_description_from_itmcde($link, isset($arr_record_data['itmcde']) ? $arr_record_data['itmcde'] : '');
+	            $xremarks = $username_session . " added uom '" . pager_log_display_value($add_uom_desc) . "' in item - '" . pager_log_display_value($add_item_desc) . "'";
+	        }else if($_POST['tablename'] == "warehouse"){
+	            $xremarks = "Added Record In 'Warehouse', : warehouse name: '" . pager_log_display_value(isset($arr_record_data['warehouse_name']) ? $arr_record_data['warehouse_name'] : '') . "', location: '" . pager_log_display_value(isset($arr_record_data['location']) ? $arr_record_data['location'] : '') . "'";
+	        }else if($_POST['tablename'] == "warehouse_floor"){
+	            $add_wh_name = pager_warehouse_name_from_warcde($link, isset($arr_record_data['warcde']) ? $arr_record_data['warcde'] : '');
+	            $add_floor_name = isset($arr_record_data['floor_name']) ? $arr_record_data['floor_name'] : '';
+	            $add_floor_no = isset($arr_record_data['floor_no']) ? $arr_record_data['floor_no'] : '';
+	            $xremarks = "Added Record In 'Warehouse Floor', : warehouse: '" . pager_log_display_value($add_wh_name) . "', floor name: '" . pager_log_display_value($add_floor_name) . "', floor number: '" . pager_log_display_value($add_floor_no) . "'";
+	        }else if(pager_is_masterfile_table($_POST['tablename'])){
+	            $xremarks = $username_session . " added " . pager_log_context_label($_POST['tablename'], $_POST["main_header"]) . " '" . pager_log_display_value($ua_field1) . "'";
+	        }else{
+	            $xremarks = "Added Record In '".$_POST["main_header"]."', ".$ua_field_header.": '".$ua_field1."' , Record ID: ".$ua_field2;
+	        }
 
-        //PDO_UserActivityLog($link, $xusrcde, $xusrname, $xtrndte, $xprog_module, $xactivity, $xfullname, $xremarks , $linenum, $parameter, $trncde, $trndsc, $compname, $xusrnme, $docnum, $upload_filename);
-        PDO_UserActivityLog($link, $username_session, '', $xtrndte, $xprog_module, $xactivity, $username_full_name, $xremarks , 0, '', '', '','',$username_session, $xdocnum, '');
-    }
+	        //PDO_UserActivityLog($link, $xusrcde, $xusrname, $xtrndte, $xprog_module, $xactivity, $xfullname, $xremarks , $linenum, $parameter, $trncde, $trndsc, $compname, $xusrnme, $docnum, $upload_filename);
+	        PDO_UserActivityLog($link, $username_session, '', $xtrndte, $xprog_module, $xactivity, $username_full_name, $xremarks , 0, '', ($_POST['tablename'] == "itemunitmeasurefile" ? 'UOM' : ''), '','',$username_session, $xdocnum, '');
+	    }
 }
 
 else if($_POST["event_action"] == "submitEdit")
 {
 
-    $arr_record_data = array();
-    if(isset($_POST["unique_key"])){
-        $unique_key_array = array();
-        parse_str($_POST["unique_key"] , $unique_key_array);
+	    $arr_record_data = array();
+	    $rs_editcode_before = null;
+        $edit_field_changes = array();
+
+    if($_POST['tablename'] == "itemunitmeasurefile"){
+        $select_uom_submit = "SELECT unmcde FROM ".$_POST['tablename']." WHERE recid=?";
+        $stmt_uom_submit = $link->prepare($select_uom_submit);
+        $stmt_uom_submit->execute(array($_POST["recid_edit"]));
+        $rs_uom_submit = $stmt_uom_submit->fetch();
+
+        if($rs_uom_submit && itemunitmeasurefile_in_use($link, $rs_uom_submit["unmcde"])){
+            $xret["status"] = 0;
+            $xret["msg"] = "Unit of measure in use, cannot modify";
+            header('Content-Type: application/json');
+            echo json_encode($xret);
+            return;
+        }
     }
+
+	    if(isset($_POST["unique_key"])){
+	        $unique_key_array = array();
+	        parse_str($_POST["unique_key"] , $unique_key_array);
+	    }
+
+	    if($_POST['tablename'] == "itemunitmeasurefile" || $_POST['tablename'] == "itemunitfile" || $_POST['tablename'] == "warehouse_floor"){
+	        $select_db_before_edit = "SELECT * FROM ".$_POST['tablename']." WHERE recid=?";
+	        $stmt_before_edit = $link->prepare($select_db_before_edit);
+	        $stmt_before_edit->execute(array($_POST["recid_edit"]));
+	        $rs_editcode_before = $stmt_before_edit->fetch();
+	    }
 
     foreach($_POST["xdata"] as $key_value){
 
@@ -552,13 +834,22 @@ else if($_POST["event_action"] == "submitEdit")
 
         }
 
-        if($_POST["ua_field1"] == $fieldname){
-            $ua_field1 =  $fieldvalue;
-            $ua_field_header = $field_datavalue;
-        }
+	        if($_POST["ua_field1"] == $fieldname){
+	            $ua_field1 =  $fieldvalue;
+	            $ua_field_header = $field_datavalue;
+	        }
 
-        $fieldname = str_replace("_crudModal", "",$fieldname);
-        $arr_record_data[$fieldname] 	= $fieldvalue;
+            if(
+                $_POST['tablename'] !== "itemunitmeasurefile" &&
+                !pager_log_values_match($field_datavalue_hidden, $fieldvalue, $field_type)
+            ){
+                $edit_field_changes[] = pager_log_field_label($_POST['tablename'], $fieldname, $field_datavalue)
+                    . " from '" . pager_log_display_value(pager_log_format_value($field_datavalue_hidden, $field_type)) . "' to '"
+                    . pager_log_display_value(pager_log_format_value($fieldvalue, $field_type)) . "'";
+            }
+
+	        $fieldname = str_replace("_crudModal", "",$fieldname);
+	        $arr_record_data[$fieldname] 	= $fieldvalue;
 
     }
 
@@ -581,14 +872,80 @@ else if($_POST["event_action"] == "submitEdit")
             $xdocnum = $rs_editcode[$_POST['fieldcode']];
         }
 
-        $ua_field1_old = $_POST["ua_field1_hidden_modal"];
+	        $ua_field1_old = $_POST["ua_field1_hidden_modal"];
 
-        $xactivity = "edit";
-        $xremarks = "Updated Record In '".$_POST["main_header"]."', FROM: '".$ua_field1_old."' TO: '".$ua_field1."' , Record ID: ".$ua_field2;
+	        $xactivity = "edit";
+	        $xremarks = "Updated Record In '".$_POST["main_header"]."', FROM: '".$ua_field1_old."' TO: '".$ua_field1."' , Record ID: ".$ua_field2;
+	        $should_log_activity = true;
+	        if($_POST['tablename'] == "itemunitmeasurefile"){
+	            $uom_changes = array();
+	            $old_unmdsc = isset($rs_editcode_before['unmdsc']) ? $rs_editcode_before['unmdsc'] : '';
+	            $new_unmdsc = isset($rs_editcode['unmdsc']) ? $rs_editcode['unmdsc'] : '';
+	            if((string)$old_unmdsc !== (string)$new_unmdsc){
+	                $uom_changes[] = "unit of measure from '" . pager_log_display_value($old_unmdsc) . "' to '" . pager_log_display_value($new_unmdsc) . "'";
+	            }
 
-        //PDO_UserActivityLog($link, $xusrcde, $xusrname, $xtrndte, $xprog_module, $xactivity, $xfullname, $xremarks , $linenum, $parameter, $trncde, $trndsc, $compname, $xusrnme, $docnum, $upload_filename);
-        PDO_UserActivityLog($link, $username_session, '', $xtrndte, $xprog_module, $xactivity, $username_full_name, $xremarks , 0, '', '', '','',$username_session, $xdocnum, '');
-    }
+	            if(!empty($uom_changes)){
+	                $xremarks = $username_session . " edited " . implode(', ', $uom_changes);
+	            }else{
+	                $should_log_activity = false;
+	            }
+	        }else if($_POST['tablename'] == "itemunitfile"){
+                $old_uom_description = pager_item_uom_description($link, isset($rs_editcode_before['unmcde']) ? $rs_editcode_before['unmcde'] : '');
+                $new_uom_description = pager_item_uom_description($link, isset($rs_editcode['unmcde']) ? $rs_editcode['unmcde'] : '');
+                $old_conversion = isset($rs_editcode_before['conversion']) ? $rs_editcode_before['conversion'] : '';
+                $new_conversion = isset($rs_editcode['conversion']) ? $rs_editcode['conversion'] : '';
+                $edit_item_desc = pager_item_description_from_itmcde($link, isset($rs_editcode['itmcde']) ? $rs_editcode['itmcde'] : '');
+
+                $uom_name_changed = ((string)$old_uom_description !== (string)$new_uom_description);
+                $conversion_changed = !pager_log_values_match($old_conversion, $new_conversion, 'number');
+
+                if($uom_name_changed && $conversion_changed){
+                    // CASE 3: Both UOM name and conversion changed
+                    $xremarks = $username_session . " updated uom from '" . pager_log_display_value($old_uom_description) . "' to '" . pager_log_display_value($new_uom_description) . "', conversion from " . pager_log_display_value(pager_log_format_value($old_conversion, 'number')) . " to " . pager_log_display_value(pager_log_format_value($new_conversion, 'number')) . " in item - '" . pager_log_display_value($edit_item_desc) . "'";
+                }else if($uom_name_changed){
+                    // CASE 1: Only UOM name changed
+                    $xremarks = $username_session . " updated uom from '" . pager_log_display_value($old_uom_description) . "' to '" . pager_log_display_value($new_uom_description) . "' in item - '" . pager_log_display_value($edit_item_desc) . "'";
+                }else if($conversion_changed){
+                    // CASE 2: Only conversion changed
+                    $xremarks = $username_session . " edited uom '" . pager_log_display_value($new_uom_description) . "' from conversion: " . pager_log_display_value(pager_log_format_value($old_conversion, 'number')) . " to conversion: " . pager_log_display_value(pager_log_format_value($new_conversion, 'number')) . " in item - '" . pager_log_display_value($edit_item_desc) . "'";
+                }else{
+                    $should_log_activity = false;
+                }
+	        }else if($_POST['tablename'] == "warehouse_floor"){
+                $edit_wh_name = pager_warehouse_name_from_warcde($link, isset($rs_editcode['warcde']) ? $rs_editcode['warcde'] : '');
+                $old_floor_name = isset($rs_editcode_before['floor_name']) ? $rs_editcode_before['floor_name'] : '';
+                $new_floor_name = isset($rs_editcode['floor_name']) ? $rs_editcode['floor_name'] : '';
+                $old_floor_no = isset($rs_editcode_before['floor_no']) ? $rs_editcode_before['floor_no'] : '';
+                $new_floor_no = isset($rs_editcode['floor_no']) ? $rs_editcode['floor_no'] : '';
+
+                $floor_name_changed = ((string)$old_floor_name !== (string)$new_floor_name);
+                $floor_no_changed = ((string)$old_floor_no !== (string)$new_floor_no);
+
+                $floor_changes = array();
+                if($floor_name_changed){
+                    $floor_changes[] = "floor name from '" . pager_log_display_value($old_floor_name) . "' to '" . pager_log_display_value($new_floor_name) . "'";
+                }
+                if($floor_no_changed){
+                    $floor_changes[] = "floor number from '" . pager_log_display_value($old_floor_no) . "' to '" . pager_log_display_value($new_floor_no) . "'";
+                }
+
+                if(!empty($floor_changes)){
+                    $xremarks = "Updated Record In 'Warehouse Floor', warehouse: '" . pager_log_display_value($edit_wh_name) . "', " . implode(', ', $floor_changes);
+                }else{
+                    $should_log_activity = false;
+                }
+	        }else if(!empty($edit_field_changes)){
+                $xremarks = $username_session . " updated " . pager_log_context_label($_POST['tablename'], $_POST["main_header"]) . ": " . implode(', ', $edit_field_changes);
+            }else{
+                $should_log_activity = false;
+	        }
+
+	        //PDO_UserActivityLog($link, $xusrcde, $xusrname, $xtrndte, $xprog_module, $xactivity, $xfullname, $xremarks , $linenum, $parameter, $trncde, $trndsc, $compname, $xusrnme, $docnum, $upload_filename);
+	        if($should_log_activity){
+	            PDO_UserActivityLog($link, $username_session, '', $xtrndte, $xprog_module, $xactivity, $username_full_name, $xremarks , 0, '', ($_POST['tablename'] == "itemunitmeasurefile" ? 'UOM' : ''), '','',$username_session, $xdocnum, '');
+	        }
+	    }
 }
 
 header('Content-Type: application/json');

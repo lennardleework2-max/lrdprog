@@ -163,73 +163,99 @@
 
 
     
-    $select_db="SELECT tranfile1.shipto as tranfile1_shipto,tranfile1.cuscde as tranfile1_cuscde,tranfile1.docnum as tranfile1_docnum,
-    tranfile1.trndte as tranfile1_trndte,tranfile1.trntot as tranfile1_trntot,tranfile1.orderby as tranfile1_orderby,tranfile1.recid as tranfile1_recid, tranfile1.ordernum as tranfile1_ordernum,
-    customerfile.recid as customerfile1_recid, customerfile.cusdsc as customerfile_cusdsc, tranfile1.paydate as tranfile1_paydate, tranfile1.paydetails as tranfile1_paydetails,
-    customerfile.cusdsc, customerfile.cuscde FROM tranfile1 LEFT JOIN customerfile ON 
-    tranfile1.cuscde = customerfile.cuscde WHERE true AND trncde='".$_POST['trncde_hidden']."' ".$xfilter." ORDER BY tranfile1.docnum ASC, tranfile1.trndte ASC";
+    // OPTIMIZATION: Single query to get all transactions with their items in ONE database call
+    // This eliminates the N+1 query problem (previously: 1 main query + N detail queries per transaction)
+    $select_db_all = "SELECT
+        tranfile1.shipto as tranfile1_shipto,
+        tranfile1.cuscde as tranfile1_cuscde,
+        tranfile1.docnum as tranfile1_docnum,
+        tranfile1.trndte as tranfile1_trndte,
+        tranfile1.trntot as tranfile1_trntot,
+        tranfile1.orderby as tranfile1_orderby,
+        tranfile1.recid as tranfile1_recid,
+        tranfile1.ordernum as tranfile1_ordernum,
+        customerfile.recid as customerfile1_recid,
+        customerfile.cusdsc as customerfile_cusdsc,
+        tranfile1.paydate as tranfile1_paydate,
+        tranfile1.paydetails as tranfile1_paydetails,
+        customerfile.cusdsc,
+        customerfile.cuscde,
+        tranfile2.recid as t2_recid,
+        tranfile2.itmcde as t2_itmcde,
+        tranfile2.itmqty as t2_itmqty,
+        tranfile2.untprc as t2_untprc,
+        tranfile2.extprc as t2_extprc,
+        itemfile.itmdsc as itmdsc,
+        itemunitmeasurefile.unmdsc as unmdsc,
+        TRIM(CONCAT(COALESCE(warehouse.warehouse_name,''), CASE WHEN TRIM(COALESCE(warehouse_floor.floor_no,'')) <> '' THEN CONCAT(' ', TRIM(warehouse_floor.floor_no), ' floor') ELSE '' END)) as warehouse_display
+    FROM tranfile1
+    LEFT JOIN customerfile ON tranfile1.cuscde = customerfile.cuscde
+    LEFT JOIN tranfile2 ON tranfile1.docnum = tranfile2.docnum
+    LEFT JOIN itemfile ON tranfile2.itmcde = itemfile.itmcde
+    LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
+    LEFT JOIN warehouse ON tranfile2.warcde = warehouse.warcde
+    LEFT JOIN warehouse_floor ON tranfile2.warehouse_floor_id = warehouse_floor.warehouse_floor_id
+    WHERE tranfile1.trncde='".$_POST['trncde_hidden']."' ".$xfilter."
+    ORDER BY tranfile1.docnum ASC, tranfile1.trndte ASC, tranfile2.recid ASC";
 
-    $stmt_main	= $link->prepare($select_db);
-    $stmt_main->execute();
+    $stmt_all = $link->prepare($select_db_all);
+    $stmt_all->execute();
+
+    // MEMORY OPTIMIZATION: Stream-process rows instead of loading all into memory
+    // Process one document at a time as rows come in (SQL already ordered by docnum)
     $grand_total = 0;
     $qty_gtot = 0;
     $cost_gtot = 0;
     $profit_gtot = 0;
-    // $pdf->ezPlaceData($xleft,$xtop-100,$select_db,2,"left");
-    while($rs_main = $stmt_main->fetch()){    
 
+    $current_docnum = null;
+    $current_header = null;
+    $current_items = array();
+
+    // Helper closure to render a single document and return its totals
+    $render_document = function($rs_main, $items) use ($pdf, &$xtop, $col_doc, $col_order, $col_date, $col_item, $col_warehouse, $col_qty, $col_uom, $col_unit_price, $col_total, $pdf_col_order, $pdf_col_date, $line_left, $line_right) {
         $xleft = 25;
 
-        $grand_total += $rs_main["tranfile1_trntot"];
-
-        if(isset($rs_main["tranfile1_trndte"]) && !empty($rs_main["tranfile1_trndte"])){
-            $rs_main["tranfile1_trndte"] = date("m-d-Y",strtotime($rs_main["tranfile1_trndte"]));
-            $rs_main["tranfile1_trndte"] = str_replace('-','/',$rs_main["tranfile1_trndte"]);
+        $display_trndte = '';
+        if(isset($rs_main["trndte"]) && !empty($rs_main["trndte"])){
+            $display_trndte = date("m/d/Y", strtotime($rs_main["trndte"]));
         }
 
-        if(isset($rs_main["tranfile1_paydate"]) && !empty($rs_main["tranfile1_paydate"])){
-            $rs_main["tranfile1_paydate"] = date("m-d-Y",strtotime($rs_main["tranfile1_paydate"]));
-            $rs_main["tranfile1_paydate"] = str_replace('-','/',$rs_main["tranfile1_paydate"]);
+        $display_paydate = '';
+        if(isset($rs_main["paydate"]) && !empty($rs_main["paydate"])){
+            $display_paydate = date("m/d/Y", strtotime($rs_main["paydate"]));
         }
-
 
         if ($_POST['txt_output_type']=='tab')
-		{
-            $rs_main["customerfile_cusdsc"] = $rs_main["customerfile_cusdsc"];
-            $rs_main["tranfile1_shipto"] = $rs_main["tranfile1_shipto"];
-            $rs_main["tranfile1_paydetails"] = $rs_main["tranfile1_paydetails"];
-            $rs_main["tranfile1_ordernum"] = $rs_main["tranfile1_ordernum"];
-		}else{
-            $rs_main["customerfile_cusdsc"] = trim_str($rs_main["customerfile_cusdsc"],140,9);
-            $rs_main["tranfile1_shipto"] = trim_str($rs_main["tranfile1_shipto"],120,9);
-            $rs_main["tranfile1_paydetails"] = trim_str($rs_main["tranfile1_paydetails"],140,9);
+        {
+            $display_cusdsc = $rs_main["cusdsc"];
+            $display_shipto = $rs_main["shipto"];
+            $display_paydetails = $rs_main["paydetails"];
+            $display_ordernum = $rs_main["ordernum"];
+        }else{
+            $display_cusdsc = trim_str($rs_main["cusdsc"],140,9);
+            $display_shipto = trim_str($rs_main["shipto"],120,9);
+            $display_paydetails = trim_str($rs_main["paydetails"],140,9);
+            $display_ordernum = $rs_main["ordernum"];
         }
 
         $row_col_order = ($_POST['txt_output_type']=='tab') ? $col_order : $pdf_col_order;
         $row_col_date = ($_POST['txt_output_type']=='tab') ? $col_date : $pdf_col_date;
         $row_y = $xtop;
         $ordernum_lines = ($_POST['txt_output_type']=='tab')
-            ? array((string)$rs_main["tranfile1_ordernum"])
-            : wrap_text_lines(isset($rs_main["tranfile1_ordernum"]) ? $rs_main["tranfile1_ordernum"] : '', 85, 9);
+            ? array((string)$display_ordernum)
+            : wrap_text_lines(isset($display_ordernum) ? $display_ordernum : '', 85, 9);
 
-        $pdf->ezPlaceData($col_doc,$row_y,$rs_main["tranfile1_docnum"],9,"left");
+        $pdf->ezPlaceData($col_doc,$row_y,$rs_main["docnum"],9,"left");
         foreach($ordernum_lines as $order_line_index => $order_line_text){
             $pdf->ezPlaceData($row_col_order,$row_y - ($order_line_index * 10), $order_line_text, 9, "left");
         }
-        $pdf->ezPlaceData($row_col_date,$row_y,$rs_main["tranfile1_trndte"],9,"left");
-        $pdf->ezPlaceData($col_item,$row_y,$rs_main["customerfile_cusdsc"],9,"left");
-        // $pdf->ezPlaceData($xleft+=75,$xtop,$rs_main["tranfile1_shipto"],9,"left");
-        // $pdf->ezPlaceData($xleft+=135,$xtop,$rs_main["tranfile1_paydate"],9,"left");
-        // $pdf->ezPlaceData($xleft+=85,$xtop,$rs_main["tranfile1_paydetails"],9,"left");
-        // $pdf->ezPlaceData($xleft+215,$xtop,number_format($rs_main["tranfile1_trntot"],"2"),9,"right");
+        $pdf->ezPlaceData($row_col_date,$row_y,$display_trndte,9,"left");
+        $pdf->ezPlaceData($col_item,$row_y,$display_cusdsc,9,"left");
 
         if($_POST['txt_output_type']!='tab' && count($ordernum_lines) > 1){
             $xtop -= ((count($ordernum_lines) - 1) * 10);
         }
-
-        
-
-        
 
         if($xtop <= 60)
         {
@@ -237,31 +263,17 @@
             $xtop = 515;
         }
 
-
-
-        // Added LEFT JOINs so both PDF and XLS exports can show UOM and warehouse/floor values without dropping unmatched rows.
-        $select_db2="SELECT tranfile2.*, itemfile.itmdsc as itmdsc,
-        itemunitmeasurefile.unmdsc as unmdsc,
-        TRIM(CONCAT(COALESCE(warehouse.warehouse_name,''), CASE WHEN TRIM(COALESCE(warehouse_floor.floor_no,'')) <> '' THEN CONCAT(' ', TRIM(warehouse_floor.floor_no), ' floor') ELSE '' END)) as warehouse_display
-        FROM tranfile2
-        LEFT JOIN itemfile ON tranfile2.itmcde = itemfile.itmcde
-        LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
-        LEFT JOIN warehouse ON tranfile2.warcde = warehouse.warcde
-        LEFT JOIN warehouse_floor ON tranfile2.warehouse_floor_id = warehouse_floor.warehouse_floor_id
-        WHERE tranfile2.docnum='".$rs_main['tranfile1_docnum']."'";
-        $stmt_main2	= $link->prepare($select_db2);
-        $stmt_main2->execute();
-        // $pdf->ezPlaceData(15,$xtop-100,$select_db3,8,"left");
         $qty_tot = 0;
         $cost_tot = 0;
         $profit_tot = 0;
-                    $xtop-=12;
+        $xtop-=12;
 
-        while($rs_main2 = $stmt_main2->fetch()){   
+        // Process items for this document
+        foreach($items as $item) {
 
-            $item_desc = normalize_item_text(isset($rs_main2["itmdsc"]) ? $rs_main2["itmdsc"] : '');
-            $warehouse_display = normalize_item_text(isset($rs_main2["warehouse_display"]) ? $rs_main2["warehouse_display"] : '');
-            $uom_desc = normalize_item_text(isset($rs_main2["unmdsc"]) ? $rs_main2["unmdsc"] : '');
+            $item_desc = normalize_item_text(isset($item["itmdsc"]) ? $item["itmdsc"] : '');
+            $warehouse_display = normalize_item_text(isset($item["warehouse_display"]) ? $item["warehouse_display"] : '');
+            $uom_desc = normalize_item_text(isset($item["unmdsc"]) ? $item["unmdsc"] : '');
 
             if ($_POST['txt_output_type']=='tab')
             {
@@ -274,14 +286,6 @@
                 $uom_lines = wrap_text_lines($uom_desc,80,9);
             }
 
-            // get cost
-
-            // $select_db3="SELECT * FROM tranfile1 LEFT JOIN tranfile2 ON tranfile1.docnum = tranfile2.docnum WHERE tranfile1.trndte<='".$rs_main['tranfile1_trndte']."'
-            // AND (tranfile1.trncde='ADJ' OR tranfile1.trncde='PUR') AND tranfile2.itmcde='".$rs_main2['itmcde']."' AND tranfile2.itmqty > 0 ORDER BY tranfile1.trndte DESC, tranfile2.recid DESC LIMIT 1";
-            // $stmt_main3	= $link->prepare($select_db3);
-            // $stmt_main3->execute();
-            // $rs_main3 = $stmt_main3->fetch();
-
             $line_count = max(count($item_lines), count($warehouse_lines), count($uom_lines));
             $row_height = 15 + ((max(1, $line_count) - 1) * 10);
 
@@ -291,7 +295,6 @@
                 $xtop = 515;
             }
 
-            // $pdf->ezPlaceData($xleft,$xtop,"ITEM:",9,"left");
             $row_y = $xtop;
             pad_tab_columns(array($col_doc, $col_order, $col_date), $row_y, 9);
             foreach($item_lines as $line_index => $line_text){
@@ -303,18 +306,13 @@
             foreach($uom_lines as $line_index => $line_text){
                 $pdf->ezPlaceData($col_uom, $row_y - ($line_index * 10), $line_text, 9, "left");
             }
-            $pdf->ezPlaceData($col_qty,$row_y,$rs_main2["itmqty"],9,"right");
-            $pdf->ezPlaceData($col_unit_price,$row_y,number_format($rs_main2["untprc"],"2"),9,"right");
-            // $trndte = (empty($rs_main['tranfile1_trndte'])) ? NULL :  date("Y-m-d", strtotime($rs_main['tranfile1_trndte']));
-            // $unit_cost = get_unitcost($rs_main2['itmcde'],$trndte);
-            // $cost = $unit_cost * $rs_main2["itmqty"];
+            $pdf->ezPlaceData($col_qty,$row_y,$item["itmqty"],9,"right");
+            $pdf->ezPlaceData($col_unit_price,$row_y,number_format($item["untprc"],"2"),9,"right");
 
-            $pdf->ezPlaceData($col_total,$row_y,number_format($rs_main2["extprc"],"2"),9,"right");
-            //$profit = $rs_main2["extprc"] - $cost;
+            $pdf->ezPlaceData($col_total,$row_y,number_format($item["extprc"],"2"),9,"right");
 
-            $qty_tot += (float)$rs_main2["itmqty"];
-            $cost_tot += (float)$rs_main2["extprc"];
-            //$profit_tot+=$profit;
+            $qty_tot += (float)$item["itmqty"];
+            $cost_tot += (float)$item["extprc"];
 
             $xtop -= $row_height;
 
@@ -323,32 +321,86 @@
                 $pdf->ezNewPage();
                 $xtop = 515;
             }
-
-            // $pdf->ezPlaceData(10,$xtop-200,$select_db3,5,"left");
         }
-  
-        $pdf->line($line_left, $xtop, $line_right, $xtop); 
+
+        $pdf->line($line_left, $xtop, $line_right, $xtop);
         $xtop -= 10;
         pad_tab_columns(array($col_doc, $col_order, $col_date, $col_item, $col_uom, $col_unit_price), $xtop, 9);
         $pdf->ezPlaceData($col_warehouse,$xtop,"<b>TOTAL:</b>",9,"left");
         $pdf->ezPlaceData($col_qty,$xtop,number_format($qty_tot,0),9,"right");
         $pdf->ezPlaceData($col_total,$xtop,number_format($cost_tot,2),9,"right");
-        // $pdf->ezPlaceData($xleft+=110,$xtop,number_format($profit_tot,2),9,"right");
         $xtop -= 10;
-        $pdf->line($line_left, $xtop, $line_right, $xtop); 
+        $pdf->line($line_left, $xtop, $line_right, $xtop);
         $xtop -= 15;
 
-        
         if($xtop <= 60)
         {
             $pdf->ezNewPage();
             $xtop = 515;
         }
 
+        return array($qty_tot, $cost_tot, $profit_tot);
+    };
+
+    // Stream through results row by row - only keep one document in memory at a time
+    while ($row = $stmt_all->fetch(PDO::FETCH_ASSOC)) {
+        $docnum = $row['tranfile1_docnum'];
+
+        // When we encounter a new document, render the previous one first
+        if ($current_docnum !== null && $current_docnum !== $docnum) {
+            // Render previous document
+            list($qty_tot, $cost_tot, $profit_tot) = $render_document($current_header, $current_items);
+            $qty_gtot += $qty_tot;
+            $cost_gtot += $cost_tot;
+            $profit_gtot += $profit_tot;
+            $grand_total += $current_header["trntot"];
+
+            // Free memory from previous document
+            $current_items = array();
+        }
+
+        // Start new document or continue current one
+        if ($current_docnum !== $docnum) {
+            $current_docnum = $docnum;
+            $current_header = array(
+                'docnum' => $row['tranfile1_docnum'],
+                'trndte' => $row['tranfile1_trndte'],
+                'trntot' => $row['tranfile1_trntot'],
+                'ordernum' => $row['tranfile1_ordernum'],
+                'paydate' => $row['tranfile1_paydate'],
+                'paydetails' => $row['tranfile1_paydetails'],
+                'shipto' => $row['tranfile1_shipto'],
+                'cusdsc' => $row['customerfile_cusdsc']
+            );
+        }
+
+        // Add item if present (tranfile2 data)
+        if (!empty($row['t2_recid'])) {
+            $current_items[] = array(
+                'recid' => $row['t2_recid'],
+                'itmcde' => $row['t2_itmcde'],
+                'itmqty' => $row['t2_itmqty'],
+                'untprc' => $row['t2_untprc'],
+                'extprc' => $row['t2_extprc'],
+                'itmdsc' => $row['itmdsc'],
+                'unmdsc' => $row['unmdsc'],
+                'warehouse_display' => $row['warehouse_display']
+            );
+        }
+    }
+
+    // Render the last document
+    if ($current_docnum !== null) {
+        list($qty_tot, $cost_tot, $profit_tot) = $render_document($current_header, $current_items);
         $qty_gtot += $qty_tot;
         $cost_gtot += $cost_tot;
         $profit_gtot += $profit_tot;
+        $grand_total += $current_header["trntot"];
     }
+
+    // Free cursor and remaining memory
+    $stmt_all->closeCursor();
+    unset($current_items, $current_header, $row);
 
     $pdf->line($line_left, $xtop, $line_right, $xtop); 
     $xtop -= 10;

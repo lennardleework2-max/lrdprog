@@ -86,15 +86,8 @@ require "includes/main_header.php";
 require "pager/pager_main.class.php";
 
 
-
 ?>
-
-
-
     <style>
-
-
-
         .data_table{
 
             border-collapse:collapse;

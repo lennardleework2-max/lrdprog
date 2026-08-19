@@ -1,0 +1,14 @@
+nul
+/uploads/*.xlsx
+/uploads po/
+/uploads_sales_test/*.xlsx
+/saleshistory_files/*.xlsx
+Sales_del_upload_history2_ajax_copy.php
+Sales_del_upload_history2_copy.php
+Sales_del_upload_history_ajax_copy.php
+inventory_balance_by_war_rep_old.php
+inventory_balance_rep_old.php
+purchases_order_upload_ajax_copy.php
+purchases_order_upload_copy.php
+trn_purchasefile2_ajax_copy10.php
+trn_purchasefile2_copy10.php

@@ -167,14 +167,39 @@
 
 
     
+    // Performance optimization: Pre-fetch all tranfile2 items to eliminate N+1 queries
+    $select_items = "SELECT tranfile2.*, tranfile2.docnum as tf2_docnum, itemfile.itmdsc,
+        itemunitmeasurefile.unmdsc as uom_desc,
+        warehouse.warehouse_name, warehouse_floor.floor_no
+        FROM tranfile2
+        LEFT JOIN itemfile ON tranfile2.itmcde = itemfile.itmcde
+        LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
+        LEFT JOIN warehouse ON tranfile2.warcde = warehouse.warcde
+        LEFT JOIN warehouse_floor ON tranfile2.warehouse_floor_id = warehouse_floor.warehouse_floor_id
+        WHERE tranfile2.docnum IN (
+            SELECT tranfile1.docnum FROM tranfile1
+            LEFT JOIN supplierfile ON tranfile1.suppcde = supplierfile.suppcde
+            WHERE true AND trncde='".$_POST['trncde_hidden']."' ".$xfilter."
+        )
+        ORDER BY tranfile2.docnum ASC, tranfile2.recid ASC";
+    $stmt_items = $link->prepare($select_items);
+    $stmt_items->execute();
+    $items_by_docnum = array();
+    while($item_row = $stmt_items->fetch(PDO::FETCH_ASSOC)){
+        $docnum = $item_row['tf2_docnum'];
+        if(!isset($items_by_docnum[$docnum])){
+            $items_by_docnum[$docnum] = array();
+        }
+        $items_by_docnum[$docnum][] = $item_row;
+    }
+
     $select_db="SELECT tranfile1.shipto as tranfile1_shipto,tranfile1.cuscde as tranfile1_cuscde,tranfile1.docnum as tranfile1_docnum,
     tranfile1.trndte as tranfile1_trndte,tranfile1.trntot as tranfile1_trntot,tranfile1.orderby as tranfile1_orderby,tranfile1.recid as tranfile1_recid, tranfile1.ordernum as tranfile1_ordernum,
     supplierfile.suppdsc as supplierfile_suppdsc, tranfile1.paydate as tranfile1_paydate, tranfile1.paydetails as tranfile1_paydetails
-     FROM tranfile1 LEFT JOIN supplierfile ON 
+     FROM tranfile1 LEFT JOIN supplierfile ON
     tranfile1.suppcde = supplierfile.suppcde WHERE true AND trncde='".$_POST['trncde_hidden']."' ".$xfilter." ORDER BY tranfile1.docnum ASC, tranfile1.trndte ASC";
 
     $stmt_main	= $link->prepare($select_db);
-    // $pdf->ezPlaceData($xleft,$xtop-100,$select_db,1,"left");
     $stmt_main->execute();
     $grand_total = 0;
     $price_gtot = 0;
@@ -229,24 +254,15 @@
         }
         
 
-        $select_db2="SELECT tranfile2.*, itemfile.itmdsc,
-            itemunitmeasurefile.unmdsc as uom_desc,
-            warehouse.warehouse_name,
-            warehouse_floor.floor_no
-            FROM tranfile2
-            LEFT JOIN itemfile ON tranfile2.itmcde = itemfile.itmcde
-            LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
-            LEFT JOIN warehouse ON tranfile2.warcde = warehouse.warcde
-            LEFT JOIN warehouse_floor ON tranfile2.warehouse_floor_id = warehouse_floor.warehouse_floor_id
-            WHERE tranfile2.docnum='".$rs_main['tranfile1_docnum']."'";
-        $stmt_main2	= $link->prepare($select_db2);
-        $stmt_main2->execute();
-        // $pdf->ezPlaceData(15,$xtop-100,$select_db3,8,"left");
+        // Use pre-fetched items from lookup array instead of querying
+        $detail_items = isset($items_by_docnum[$rs_main['tranfile1_docnum']])
+            ? $items_by_docnum[$rs_main['tranfile1_docnum']]
+            : array();
         $price_tot = 0;
         $cost_tot = 0;
         $profit_tot = 0;
         $xtop -= 12;
-        while($rs_main2 = $stmt_main2->fetch()){
+        foreach($detail_items as $rs_main2){
 
             // Build warehouse display value: warehouse_name + floor_no + "floor"
             $warehouse_display = build_warehouse_display($rs_main2["warehouse_name"], $rs_main2["floor_no"]);
@@ -302,7 +318,7 @@
   
         $pdf->line($line_left, $xtop, $line_right, $xtop);
         $xtop -= 10;
-        pad_tab_columns(array($col_docnum, $col_ordernum, $col_trndate, $col_suppitem, $col_warehouse,$col_unitprice,$col_unitprice, $col_qty), $xtop, 9);
+        pad_tab_columns(array($col_docnum, $col_ordernum, $col_trndate, $col_suppitem, $col_warehouse,$col_unitprice,$col_unitprice, $col_qty, 100), $xtop, 9);
         $pdf->ezPlaceData($col_total_label, $xtop, "<b>TOTAL:</b>", 9, "left");
         // $pdf->ezPlaceData($col_unitprice, $xtop, number_format($price_tot, 2), 9, "right");
         $pdf->ezPlaceData($col_total, $xtop, number_format($cost_tot, 2), 9, "right");
@@ -330,7 +346,7 @@
 
     $pdf->line($line_left, $xtop, $line_right, $xtop);
     $xtop -= 10;
-    pad_tab_columns(array($col_docnum, $col_ordernum, $col_trndate, $col_suppitem, $col_warehouse,$col_unitprice,$col_unitprice, $col_qty), $xtop, 9);
+    pad_tab_columns(array($col_docnum, $col_ordernum, $col_trndate, $col_suppitem, $col_warehouse,$col_unitprice,$col_unitprice, $col_qty, 100), $xtop, 9);
     $pdf->ezPlaceData($col_total_label, $xtop, "<b>GRAND TOTAL:</b>", 8, "left");
     // $pdf->ezPlaceData($col_unitprice, $xtop, number_format($price_gtot, 2), 9, "right");
     $pdf->ezPlaceData($col_total, $xtop, number_format($cost_gtot, 2), 9, "right");

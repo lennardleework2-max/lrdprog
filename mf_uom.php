@@ -6,6 +6,24 @@ error_reporting(E_ALL);
 require "includes/main_header.php";
 require "pager/pager_main.class.php";
 
+$used_unmcde_list = array();
+$select_used_unmcde = "SELECT DISTINCT unmcde FROM itemunitfile WHERE unmcde IS NOT NULL AND unmcde <> ''";
+$stmt_used_unmcde = $link->prepare($select_used_unmcde);
+$stmt_used_unmcde->execute();
+while($rs_used_unmcde = $stmt_used_unmcde->fetch()){
+    $used_unmcde_list[] = $rs_used_unmcde["unmcde"];
+}
+
+$uom_in_use_recids = array();
+$select_uom_references = "SELECT recid, unmcde FROM itemunitmeasurefile";
+$stmt_uom_references = $link->prepare($select_uom_references);
+$stmt_uom_references->execute();
+while($rs_uom_reference = $stmt_uom_references->fetch()){
+    if(in_array($rs_uom_reference["unmcde"], $used_unmcde_list, true)){
+        $uom_in_use_recids[(string)$rs_uom_reference["recid"]] = true;
+    }
+}
+
 ?>
 
     <style>
@@ -110,49 +128,232 @@ require "pager/pager_main.class.php";
 <!-- PAGER JS -->
 <script src="pager/pager_js.class.js"></script>
 <script>
-    (function(){
-        var pagerAjaxFuncMfUom = window.ajaxFunc;
+(function(){
+    var originalAjaxFunc = window.ajaxFunc;
+    var isEditMode = false;
+    var lockedUomRecids = <?php echo json_encode($uom_in_use_recids); ?>;
 
-        window.ajaxFunc = function(event, recid, custom_param){
-            if(event === "submitEdit"){
-                var originalValue = $("#unmdsc_crudModal").attr("data-value-hidden");
-                var currentValue = $("#unmdsc_crudModal").val();
+    function isInUseUomRecid(recid){
+        if(!recid){
+            return false;
+        }
+        return lockedUomRecids[String(recid)] === true;
+    }
 
-                if(
-                    typeof originalValue !== "undefined" &&
-                    $.trim(originalValue) !== $.trim(currentValue) &&
-                    !confirm("WARNING: Changing the Unit of Measure name will affect other existing records.\n\nAre you sure you want to proceed?")
-                ){
-                    return;
+    function styleLockedUomActions(){
+        $('#tbody_main, #tbody_main_mobile').find("button.dropdown-toggle[id^='dropdownMenuButton1-']").each(function(){
+            var $button = $(this);
+            var buttonId = $button.attr('id') || '';
+            var recid = buttonId.replace('dropdownMenuButton1-', '');
+            var $dropdown = $button.closest('.dropdown');
+
+            $dropdown.find('ul.main_action_dd > li').each(function(){
+                var $item = $(this);
+                var itemText = $.trim($item.text()).toLowerCase();
+                var $link = $item.find('a.dropdown-item');
+
+                if(itemText === 'edit' || itemText === 'delete'){
+                    if(isInUseUomRecid(recid)){
+                        $item.css('opacity', '0.5');
+                        $link.css({
+                            opacity: '0.5',
+                            pointerEvents: 'none'
+                        });
+                        $item.attr('data-uom-in-use-action', itemText);
+                    }else{
+                        $item.css('opacity', '');
+                        $link.css({
+                            opacity: '',
+                            pointerEvents: ''
+                        });
+                        $item.removeAttr('data-uom-in-use-action');
+                    }
+                }
+            });
+        });
+    }
+
+    window.ajaxFunc = function(event, recid, custom_param){
+        if(event === 'getEdit' && isInUseUomRecid(recid)){
+            alert('Unit of measure in use');
+            return false;
+        }
+
+        if(event === 'delete' && isInUseUomRecid(recid)){
+            alert('Unit of measure in use');
+            return false;
+        }
+
+        // Intercept insert and submitEdit
+        if(event === 'insert' || event === 'submitEdit'){
+            var unmdsc = $('#unmdsc_crudModal').val();
+            var currentRecid = (event === 'submitEdit') ? $('#recid_hidden').val() : '';
+
+            if(event === 'submitEdit' && isInUseUomRecid(currentRecid)){
+                alert('Unit of measure in use');
+                $('#crudModal').modal('hide');
+                return false;
+            }
+
+            // Clear previous error
+            $('.error_msg').html('');
+
+            // For insert: show confirmation dialog first
+            if(event === 'insert'){
+                var confirmed = confirm('Please confirm before saving: this Unit of Measure cannot be deleted later. Are you sure you want to continue?');
+                if(!confirmed){
+                    return false;
                 }
             }
 
-            return pagerAjaxFuncMfUom(event, recid, custom_param);
-        };
-    })();
+            // Validate via AJAX for insert and edit
+            if(event === 'insert' || event === 'submitEdit'){
+                var validationError = null;
+                var ajaxError = false;
 
-    // Hide Edit/Delete buttons for 'pcs' rows when dropdown is shown
-    $(document).ready(function(){
-        // Use event delegation for dropdown show event
-        $(document).on('show.bs.dropdown', '.data_table .dropdown', function(){
-            var $dropdown = $(this);
-            var $row = $dropdown.closest('tr');
-            var unmdscText = $row.find('td:first span').text().toLowerCase().trim();
-
-            if(unmdscText === 'pcs'){
-                // Hide Edit and Delete options
-                $dropdown.find('.dropdown-menu li').each(function(){
-                    var liText = $(this).text().toLowerCase().trim();
-                    if(liText === 'edit' || liText === 'delete'){
-                        $(this).hide();
+                $.ajax({
+                    url: 'mf_uom_ajax.php',
+                    type: 'POST',
+                    dataType: 'json',
+                    data: {
+                        action: 'validate_save',
+                        unmdsc: unmdsc,
+                        recid: currentRecid
+                    },
+                    async: false,
+                    success: function(response){
+                        if(response && response.valid === false){
+                            validationError = response.message || 'Validation failed.';
+                        }
+                    },
+                    error: function(xhr, status, error){
+                        console.error('AJAX Error:', status, error, xhr.responseText);
+                        ajaxError = true;
                     }
                 });
-            } else {
-                // Make sure they're visible for non-pcs rows
-                $dropdown.find('.dropdown-menu li').show();
+
+                if(ajaxError){
+                    $('.error_msg').html('<div class="alert alert-danger">Error validating data. Please try again.</div>');
+                    return false;
+                }
+
+                if(validationError){
+                    $('.error_msg').html('<div class="alert alert-danger">' + validationError + '</div>');
+                    return false;
+                }
+            }
+
+            // Validation passed, proceed with original function
+            return originalAjaxFunc(event, recid, custom_param);
+        }
+
+        // For getEdit: track that we're entering edit mode
+        if(event === 'getEdit'){
+            isEditMode = true;
+        }
+
+        // For openInsert: track that we're in insert mode
+        if(event === 'openInsert'){
+            isEditMode = false;
+        }
+
+        // For all other events, use original function
+        return originalAjaxFunc(event, recid, custom_param);
+    };
+
+    // Handle modal display for edit mode restrictions
+    $(document).ready(function(){
+        // Listen for modal shown event
+        $('#crudModal').on('shown.bs.modal', function(){
+            // Make UOM name field readonly in edit mode
+            var $unmdscField = $('#unmdsc_crudModal');
+            if($unmdscField.length){
+                if(isEditMode){
+                    $unmdscField.prop('readonly', false);
+                    $unmdscField.css('background-color', '');
+                    $unmdscField.attr('title', '');
+                } else {
+                    // Insert mode: ensure field is editable
+                    $unmdscField.prop('readonly', false);
+                    $unmdscField.css('background-color', '');
+                    $unmdscField.attr('title', '');
+                }
+            }
+        });
+
+        // Reset edit mode flag when modal is hidden
+        $('#crudModal').on('hidden.bs.modal', function(){
+            isEditMode = false;
+            // Reset field styling
+            var $unmdscField = $('#unmdsc_crudModal');
+            if($unmdscField.length){
+                $unmdscField.prop('readonly', false);
+                $unmdscField.css('background-color', '');
+                $unmdscField.attr('title', '');
             }
         });
     });
+
+    // Protect 'pcs' row from editing/deleting
+    $(document).ready(function(){
+        document.addEventListener('click', function(e){
+            var lockedAction = $(e.target).closest('#tbody_main .main_action_dd > li[data-uom-in-use-action], #tbody_main_mobile .main_action_dd > li[data-uom-in-use-action]');
+
+            if(!lockedAction.length){
+                return;
+            }
+
+            e.preventDefault();
+            e.stopPropagation();
+            if(typeof e.stopImmediatePropagation === 'function'){
+                e.stopImmediatePropagation();
+            }
+            alert('Unit of measure in use');
+            return false;
+        }, true);
+
+        // Function to style pcs row buttons
+        function stylePcsButtons(){
+            $('#tbody_main tr').each(function(){
+                var $row = $(this);
+                var unmdscText = $row.find('td:first span').text().toLowerCase().trim();
+                var $btn = $row.find('.dropdown-toggle');
+
+                if(unmdscText === 'pcs'){
+                    // Gray out the button and disable dropdown
+                    $btn.removeClass('btn-primary').addClass('btn-secondary');
+                    $btn.removeAttr('data-bs-toggle');
+                    $btn.attr('data-pcs-protected', 'true');
+                }
+            });
+        }
+
+        // Style buttons after AJAX loads content
+        $(document).ajaxComplete(function(){
+            stylePcsButtons();
+            styleLockedUomActions();
+        });
+
+        // Initial styling
+        stylePcsButtons();
+        styleLockedUomActions();
+
+        // Show alert when clicking protected pcs button
+        $(document).on('click', '#tbody_main .dropdown-toggle[data-pcs-protected="true"]', function(e){
+            e.preventDefault();
+            e.stopPropagation();
+            alert('pcs cannot be edited');
+            return false;
+        });
+
+        $(document).on('click', '#tbody_main .main_action_dd > li[data-uom-in-use-action], #tbody_main_mobile .main_action_dd > li[data-uom-in-use-action]', function(e){
+            e.preventDefault();
+            e.stopPropagation();
+            alert('Unit of measure in use');
+            return false;
+        });
+    });
+})();
 </script>
 <?php
 require "includes/main_footer.php";

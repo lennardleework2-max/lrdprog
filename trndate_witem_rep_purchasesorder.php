@@ -176,11 +176,35 @@
 	/***header**/
 
     #region DO YOU LOOP HERE
-    
+
+    // Performance optimization: Pre-fetch all purchasesorderfile2 items to eliminate N+1 queries
+    $select_items = "SELECT purchasesorderfile2.*, purchasesorderfile2.untprc as 'untprc',
+        purchasesorderfile2.docnum as po2_docnum, itemfile.itmdsc,
+        COALESCE(itemunitmeasurefile.unmdsc, '') as uom
+        FROM purchasesorderfile2
+        LEFT JOIN itemfile ON purchasesorderfile2.itmcde = itemfile.itmcde
+        LEFT JOIN itemunitmeasurefile ON purchasesorderfile2.unmcde = itemunitmeasurefile.unmcde
+        WHERE purchasesorderfile2.docnum IN (
+            SELECT purchasesorderfile1.docnum FROM purchasesorderfile1
+            LEFT JOIN supplierfile ON purchasesorderfile1.suppcde = supplierfile.suppcde
+            WHERE true ".$xfilter."
+        )
+        ORDER BY purchasesorderfile2.docnum ASC, purchasesorderfile2.recid ASC";
+    $stmt_items = $link->prepare($select_items);
+    $stmt_items->execute();
+    $items_by_docnum = array();
+    while($item_row = $stmt_items->fetch(PDO::FETCH_ASSOC)){
+        $docnum = $item_row['po2_docnum'];
+        if(!isset($items_by_docnum[$docnum])){
+            $items_by_docnum[$docnum] = array();
+        }
+        $items_by_docnum[$docnum][] = $item_row;
+    }
+
     $select_db="SELECT purchasesorderfile1.shipto as purchasesorderfile1_shipto,purchasesorderfile1.docnum as purchasesorderfile1_docnum,
     purchasesorderfile1.trndte as purchasesorderfile1_trndte,purchasesorderfile1.trntot as purchasesorderfile1_trntot,purchasesorderfile1.orderby as purchasesorderfile1_orderby,purchasesorderfile1.recid as purchasesorderfile1_recid, purchasesorderfile1.ordernum as purchasesorderfile1_ordernum,
     supplierfile.suppdsc as supplierfile_suppdsc, purchasesorderfile1.paydate as purchasesorderfile1_paydate, purchasesorderfile1.paydetails as purchasesorderfile1_paydetails
-     FROM purchasesorderfile1 LEFT JOIN supplierfile ON 
+     FROM purchasesorderfile1 LEFT JOIN supplierfile ON
     purchasesorderfile1.suppcde = supplierfile.suppcde WHERE true ".$xfilter." ORDER BY purchasesorderfile1.docnum ASC, purchasesorderfile1.trndte ASC";
     $stmt_main	= $link->prepare($select_db);
     $stmt_main->execute();
@@ -283,15 +307,15 @@
 
         }
 
-        $select_db2="SELECT purchasesorderfile2.*, purchasesorderfile2.untprc as 'untprc', itemfile.itmdsc, COALESCE(itemunitmeasurefile.unmdsc, '') as uom FROM purchasesorderfile2 LEFT JOIN itemfile ON purchasesorderfile2.itmcde = itemfile.itmcde LEFT JOIN itemunitmeasurefile ON purchasesorderfile2.unmcde = itemunitmeasurefile.unmcde WHERE purchasesorderfile2.docnum='".$rs_main['purchasesorderfile1_docnum']."'";
-        $stmt_main2	= $link->prepare($select_db2);
-        $stmt_main2->execute();
-        // $pdf->ezPlaceData(15,$xtop-100,$select_db3,8,"left");
+        // Use pre-fetched items from lookup array instead of querying
+        $detail_items = isset($items_by_docnum[$rs_main['purchasesorderfile1_docnum']])
+            ? $items_by_docnum[$rs_main['purchasesorderfile1_docnum']]
+            : array();
         $price_tot = 0;
         $cost_tot = 0;
         $profit_tot = 0;
                     $xtop-=12;
-        while($rs_main2 = $stmt_main2->fetch()){   
+        foreach($detail_items as $rs_main2){   
 
 
             $xleft = 255;

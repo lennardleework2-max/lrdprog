@@ -76,10 +76,6 @@
         FROM itemfile
         WHERE true ".$item_filter."
         AND EXISTS (
-            SELECT 1 FROM salesorderfile2
-            WHERE salesorderfile2.itmcde = itemfile.itmcde
-        )
-        AND EXISTS (
             SELECT 1
             FROM tranfile1
             LEFT JOIN tranfile2 ON tranfile1.docnum = tranfile2.docnum

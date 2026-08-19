@@ -209,6 +209,48 @@ while($rs_staff = $stmt_staff->fetch()){
     );
 }
 
+// Fetch all Unit of Measure options
+$uom_options = array();
+$stmt_uom = $link->prepare("SELECT unmcde, unmdsc FROM itemunitmeasurefile ORDER BY unmdsc ASC");
+$stmt_uom->execute();
+while($rs_uom = $stmt_uom->fetch()){
+    $uom_options[] = array(
+        'unmcde' => $rs_uom['unmcde'],
+        'unmdsc' => $rs_uom['unmdsc']
+    );
+}
+$default_uom_code = '';
+$default_uom_desc = '';
+$ordered_uom_options = array();
+foreach($uom_options as $uom_option){
+    $uom_code = trim((string)$uom_option['unmcde']);
+    $uom_desc = strtolower(trim((string)$uom_option['unmdsc']));
+    if($default_uom_code === '' && ($uom_desc === 'pcs' || strtolower($uom_code) === 'pcs')){
+        $default_uom_code = $uom_code;
+        $default_uom_desc = trim((string)$uom_option['unmdsc']);
+        array_unshift($ordered_uom_options, $uom_option);
+        continue;
+    }
+
+    $ordered_uom_options[] = $uom_option;
+}
+
+if($default_uom_desc === '' && !empty($ordered_uom_options)){
+    $default_uom_desc = trim((string)$ordered_uom_options[0]['unmdsc']);
+}
+
+$base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uom_desc;
+
+$existing_ordernum_records = array();
+$stmt_existing_ordernums = $link->prepare("SELECT docnum, ordernum FROM tranfile1 WHERE ordernum IS NOT NULL AND TRIM(ordernum) <> ''");
+$stmt_existing_ordernums->execute();
+while($rs_existing_ordernum = $stmt_existing_ordernums->fetch()){
+    $existing_ordernum_records[] = array(
+        'docnum' => isset($rs_existing_ordernum['docnum']) ? trim((string)$rs_existing_ordernum['docnum']) : '',
+        'ordernum' => isset($rs_existing_ordernum['ordernum']) ? trim((string)$rs_existing_ordernum['ordernum']) : '',
+    );
+}
+
 
 
 ?>
@@ -826,7 +868,21 @@ while($rs_staff = $stmt_staff->fetch()){
 
                             <div class="row m-3">
                                 <div class="col-12">
-                                    <label for="">Price</label>
+                                    <label for="">Unit of Measure</label>
+                                    <select name="unmcde_add" id="unmcde_add" class="form-select" disabled>
+                                        <?php if($default_uom_code === ''): ?>
+                                            <option value="">Select Unit of Measure</option>
+                                        <?php endif; ?>
+                                        <?php foreach($ordered_uom_options as $uom_option): ?>
+                                            <option value="<?php echo htmlspecialchars($uom_option['unmcde'], ENT_QUOTES); ?>" data-default-label="<?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?>" <?php echo ($default_uom_code !== '' && $uom_option['unmcde'] === $default_uom_code) ? 'selected' : ''; ?>><?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="">Price per unit</label>
                                     <input type="text" name="price_add" id="price_add" class="form-control" autocomplete="off" oninput="calcTotal('add')">
                                 </div>
                             </div>
@@ -980,7 +1036,21 @@ while($rs_staff = $stmt_staff->fetch()){
 
                             <div class="row m-3">
                                 <div class="col-12">
-                                    <label for="">Price</label>
+                                    <label for="">Unit of Measure</label>
+                                    <select name="unmcde_edit" id="unmcde_edit" class="form-select" disabled>
+                                        <?php if($default_uom_code === ''): ?>
+                                            <option value="">Select Unit of Measure</option>
+                                        <?php endif; ?>
+                                        <?php foreach($ordered_uom_options as $uom_option): ?>
+                                            <option value="<?php echo htmlspecialchars($uom_option['unmcde'], ENT_QUOTES); ?>" data-default-label="<?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?>" <?php echo ($default_uom_code !== '' && $uom_option['unmcde'] === $default_uom_code) ? 'selected' : ''; ?>><?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="">Price per unit</label>
                                     <input type="text" name="price_edit" id="price_edit" class="form-control" autocomplete="off" oninput="calcTotal('edit')">
                                 </div>
                             </div>
@@ -1228,6 +1298,41 @@ while($rs_staff = $stmt_staff->fetch()){
         <script>
 
         // Handle preview of the selected image and reset modal state.
+        var existingOrdernumRecords = <?php echo json_encode($existing_ordernum_records); ?>;
+
+        function normalizeOrdernumForValidation(value) {
+            return $.trim((value || "").toString()).toLowerCase();
+        }
+
+        function validateUniqueOrdernum() {
+            var currentDocnum = $.trim($("#docnum_hidden").val() || "");
+            var currentOrdernum = $.trim($("#ordernum_1").val() || "");
+
+            if (currentOrdernum === "") {
+                return true;
+            }
+
+            var normalizedCurrentOrdernum = normalizeOrdernumForValidation(currentOrdernum);
+
+            for (var i = 0; i < existingOrdernumRecords.length; i++) {
+                var record = existingOrdernumRecords[i] || {};
+                var recordDocnum = $.trim(record.docnum || "");
+                var recordOrdernum = normalizeOrdernumForValidation(record.ordernum || "");
+
+                if (recordOrdernum === "") {
+                    continue;
+                }
+
+                if (recordOrdernum === normalizedCurrentOrdernum && recordDocnum !== currentDocnum) {
+                    $("#alert_modal_body_system").html("Order number already exists");
+                    $("#alert_modal_system").modal("show");
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         const uploadImageInput = document.getElementById('xfile_sal');
         const uploadImagePreview = document.getElementById('uploadImagePreview');
         const uploadImageError = document.getElementById('uploadImageError');
@@ -1293,6 +1398,8 @@ while($rs_staff = $stmt_staff->fetch()){
 
         var trncde = $("#trncde_hidden").val();
         var warehouseFloorMap = <?php echo json_encode($warehouse_floor_map); ?>;
+        var defaultUomCode = <?php echo json_encode($default_uom_code); ?>;
+        var baseUomDisplay = <?php echo json_encode($base_uom_display); ?>;
 
         function rebuildFloorOptions(selectId, warcde, selectedFloorId, allowNone){
             var $select = $("#" + selectId);
@@ -1327,6 +1434,150 @@ while($rs_staff = $stmt_staff->fetch()){
             }
 
             $select.val(selectedValue);
+        }
+
+        function formatUomConversionValue(conversion){
+            var numericConversion = Number(conversion);
+
+            if(!isFinite(numericConversion)){
+                return "";
+            }
+
+            return numericConversion.toString();
+        }
+
+        function resetUomOptionLabels(selectSelector){
+            $(selectSelector).find("option").each(function(){
+                var defaultLabel = $(this).data("default-label");
+                if(typeof defaultLabel !== "undefined"){
+                    $(this).text(defaultLabel);
+                }
+                $(this).show();
+            });
+        }
+
+        function applyItemUomLabels(selectSelector, uoms, filterByItem){
+            resetUomOptionLabels(selectSelector);
+
+            var uomMap = {};
+            if(uoms && uoms.length){
+                for(var i = 0; i < uoms.length; i++){
+                    if(uoms[i] && uoms[i].unmcde){
+                        uomMap[uoms[i].unmcde] = uoms[i];
+                    }
+                }
+            }
+
+            $(selectSelector).find("option").each(function(){
+                var optionValue = $(this).val();
+                var defaultLabel = $(this).data("default-label");
+
+                if(typeof defaultLabel === "undefined" || optionValue === ""){
+                    return;
+                }
+
+                // If filtering by item, hide options not in uomMap (but always show pcs)
+                if(filterByItem){
+                    if(optionValue === defaultUomCode){
+                        $(this).show();
+                    } else if(!uomMap[optionValue]){
+                        $(this).hide();
+                        return;
+                    } else {
+                        $(this).show();
+                    }
+                }
+
+                if(
+                    uomMap[optionValue] &&
+                    uomMap[optionValue].conversion !== null &&
+                    uomMap[optionValue].conversion !== ""
+                ){
+                    var formattedConversion = formatUomConversionValue(uomMap[optionValue].conversion);
+                    if(formattedConversion !== ""){
+                        $(this).text(defaultLabel + " (" + formattedConversion + " " + baseUomDisplay + ")");
+                    }
+                }
+            });
+        }
+
+        function updateItemUomDropdown(selectSelector, itmcde, selectedUomCode, preserveSelectedUom){
+            var $select = $(selectSelector);
+            var strictEditSelection = preserveSelectedUom === true;
+            var normalizedSelectedUomCode = $.trim(selectedUomCode || "");
+
+            $select.data("current-itmcde", itmcde || "");
+            resetUomOptionLabels(selectSelector);
+            $select.find("option").show();
+
+            if(typeof selectedUomCode !== "undefined"){
+                $select.val(strictEditSelection ? normalizedSelectedUomCode : (normalizedSelectedUomCode || defaultUomCode || ""));
+            }else{
+                $select.val(defaultUomCode || "");
+            }
+
+            syncMatchedSalesOrderUomState(selectSelector === "#unmcde_edit" ? "edit" : "add");
+
+            if(!itmcde){
+                return;
+            }
+
+            $.ajax({
+                data: {
+                    event_action: "get_item_uoms",
+                    itmcde: itmcde
+                },
+                dataType: "json",
+                type: "post",
+                url: "trn_salesfile2_ajax.php",
+                success: function(xdata){
+                    if($select.data("current-itmcde") !== itmcde){
+                        return;
+                    }
+
+                    var uoms = xdata["uoms"] || [];
+                    applyItemUomLabels(selectSelector, uoms, true);
+
+                    var nextUomCode = "";
+                    if(strictEditSelection){
+                        $select.find("option").each(function(){
+                            if($.trim($(this).val()) === normalizedSelectedUomCode){
+                                nextUomCode = normalizedSelectedUomCode;
+                                return false;
+                            }
+                        });
+                    }else{
+                        $select.find("option:visible").each(function(){
+                            if($(this).val() !== ""){
+                                nextUomCode = $(this).val();
+                                return false;
+                            }
+                        });
+                    }
+                    var finalUomCode = strictEditSelection ? nextUomCode : (nextUomCode || defaultUomCode || "");
+                    $select.find("option").prop("selected", false);
+                    (strictEditSelection ? $select.find("option") : $select.find("option:visible")).each(function(){
+                        if($.trim($(this).val()) === $.trim(finalUomCode)){
+                            $(this).prop("selected", true);
+                            return false;
+                        }
+                    });
+                    if(finalUomCode !== ""){
+                        $select.val(finalUomCode).trigger("change");
+                    }
+                    syncMatchedSalesOrderUomState(selectSelector === "#unmcde_edit" ? "edit" : "add");
+                }
+            });
+        }
+
+        function setInitialUomDropdownState(selectSelector){
+            var $select = $(selectSelector);
+
+            $select.data("current-itmcde", "");
+            resetUomOptionLabels(selectSelector);
+            $select.find("option").show();
+            $select.val(defaultUomCode || "");
+            $select.prop("disabled", true);
         }
 
         $(document).ready(function(){
@@ -1369,6 +1620,27 @@ while($rs_staff = $stmt_staff->fetch()){
 
         }
 
+        function hasMatchedSalesOrder(mode){
+            var matchDocSelector = mode === "edit" ? "#so_edit" : "#so_add";
+            return $.trim($(matchDocSelector).val() || "") !== "";
+        }
+
+        function syncMatchedSalesOrderUomState(mode){
+            var selector = mode === "edit" ? "#unmcde_edit" : "#unmcde_add";
+            var itemSelector = mode === "edit" ? "#itmcde_edit_hidden" : "#itmcde_add_hidden";
+            var hasItem = $.trim($(itemSelector).val() || "") !== "";
+
+            $(selector).prop("disabled", !hasItem || hasMatchedSalesOrder(mode));
+        }
+
+        function setMatchedSalesOrderUomState(mode, isLocked){
+            var selector = mode === "edit" ? "#unmcde_edit" : "#unmcde_add";
+            var itemSelector = mode === "edit" ? "#itmcde_edit_hidden" : "#itmcde_add_hidden";
+            var hasItem = $.trim($(itemSelector).val() || "") !== "";
+
+            $(selector).prop("disabled", !hasItem || !!isLocked);
+        }
+
         function print_dr(){
 
             document.forms.myforms.target = "_blank";
@@ -1387,6 +1659,7 @@ while($rs_staff = $stmt_staff->fetch()){
                 $("#itmcde_add").val(xitmdsc);
                 $("#wholesaleprc_add").val(wholesale_prc);
                 $("#current_stock_add").val(current_stock);
+                updateItemUomDropdown("#unmcde_add", xitmcde, $("#unmcde_add").val() || defaultUomCode);
 
                 //$("#price_add").val(xuntprc);
                 var xqty = $("#itmqty_add").val();
@@ -1403,6 +1676,7 @@ while($rs_staff = $stmt_staff->fetch()){
                 $("#itmcde_edit_hidden").val(xitmcde);
                 $("#wholesaleprc_edit").val(wholesale_prc);
                 $("#itmcde_edit").val(xitmdsc);
+                updateItemUomDropdown("#unmcde_edit", xitmcde, $("#unmcde_edit").val() || defaultUomCode);
 
                 //$("#price_edit").val(xuntprc);
                 var xqty = $("#itmqty_edit").val();
@@ -1412,6 +1686,7 @@ while($rs_staff = $stmt_staff->fetch()){
                 if(xitmdsc != xnew_itm){
                     $("#so_edit").val('');
                     $("#recid_so_hidden").val('');
+                    setMatchedSalesOrderUomState("edit", false);
                 }
 
                 $("#view_itm_search").modal("hide");
@@ -1637,12 +1912,21 @@ while($rs_staff = $stmt_staff->fetch()){
             }
             var orderby_1 = document.getElementById("orderby_1").value;
 
+            var shouldRelockAddUomForSearch = $("#unmcde_add").is(':disabled');
+            if(shouldRelockAddUomForSearch){
+                $("#unmcde_add").prop('disabled', false);
+            }
+
             if($('#itmcde_add').is(':disabled')){
                 $("#itmcde_add").attr("disabled", false);
-                var xdata = $("#insert_modal_sales *").serialize("")+"&cuscde="+cuscde_val+"&event_action="+xevent_action+"&orderby_1="+orderby_1;
+                var xdata = $("#insert_modal_sales *").serialize("")+"&cuscde="+cuscde_val+"&event_action="+xevent_action+"&orderby_1="+orderby_1+"&trndte_1="+encodeURIComponent($("#trndte_1").val() || "");
                 $("#itmcde_add").attr("disabled", true);
             }else{
-                var xdata = $("#insert_modal_sales *").serialize("")+"&cuscde="+cuscde_val+"&event_action="+xevent_action+"&orderby_1="+orderby_1;    
+                var xdata = $("#insert_modal_sales *").serialize("")+"&cuscde="+cuscde_val+"&event_action="+xevent_action+"&orderby_1="+orderby_1+"&trndte_1="+encodeURIComponent($("#trndte_1").val() || "");    
+            }
+
+            if(shouldRelockAddUomForSearch){
+                $("#unmcde_add").prop('disabled', true);
             }
 
             jQuery.ajax({    
@@ -1669,6 +1953,7 @@ while($rs_staff = $stmt_staff->fetch()){
                             $('#itmcde_add').attr("disabled", true); 
                             $("#itmqty_add").prop('readonly', true);
                             $("#price_add").prop('readonly', true);
+                            setMatchedSalesOrderUomState("add", true);
                             $('.btn_search_item').addClass('disabled');
                         }
 
@@ -1750,11 +2035,13 @@ while($rs_staff = $stmt_staff->fetch()){
                 var recid_so_hidden_val = $("#recid_so_hidden").val();
             }
 
-            if($('#itmcde_edit').is(':disabled')){
-                //enable the itcde para mapass yung data
-                var xdata = $("#edit_modal_sales *").serialize("")+"&cuscde="+cuscde_val+"&event_action="+xevent_action+"&selected_po="+selected_po+"&tranfile2_recid_hidden="+recid_tranfile2_hidden+"&recid_so_hidden="+recid_so_hidden_val+"&orderby_1="+orderby_1;
-            }else{
-                var xdata = $("#edit_modal_sales *").serialize("")+"&cuscde="+cuscde_val+"&event_action="+xevent_action+"&selected_po="+selected_po+"&tranfile2_recid_hidden="+recid_tranfile2_hidden+"&recid_so_hidden="+recid_so_hidden_val+"&orderby_1="+orderby_1;
+            var shouldRelockEditUom = $("#unmcde_edit").is(':disabled');
+            if(shouldRelockEditUom){
+                $("#unmcde_edit").prop('disabled', false);
+            }
+            var xdata = $("#edit_modal_sales *").serialize("")+"&cuscde="+cuscde_val+"&event_action="+xevent_action+"&selected_po="+selected_po+"&tranfile2_recid_hidden="+recid_tranfile2_hidden+"&recid_so_hidden="+recid_so_hidden_val+"&orderby_1="+orderby_1+"&trndte_1="+encodeURIComponent($("#trndte_1").val() || "");
+            if(shouldRelockEditUom){
+                $("#unmcde_edit").prop('disabled', true);
             }
 
             jQuery.ajax({    
@@ -1776,9 +2063,11 @@ while($rs_staff = $stmt_staff->fetch()){
                             if(xevent_action == 'selectData_edit'){
                                 $("#so_edit").val(xdocnum);
                                 $("#recid_so_hidden").val(xrecid);
+                                setMatchedSalesOrderUomState("edit", true);
                             }else{
                                 $("#so_edit").val('');
                                 $("#recid_so_hidden").val('');
+                                setMatchedSalesOrderUomState("edit", false);
                             }
                             
                             $("#insert_modal_sales_po").modal("hide");
@@ -1897,10 +2186,16 @@ while($rs_staff = $stmt_staff->fetch()){
 
             switch(event){
                 case "save_exit":
+                    if(!validateUniqueOrdernum()){
+                        return;
+                    }
              
                     var xdata = $(".salesfile1 *").serialize()+"&event_action=save_exit&docnum="+docnum+"&ordernum_hidden_val="+ordernum_hidden_val;
                     break;
                 case "save_new":
+                    if(!validateUniqueOrdernum()){
+                        return;
+                    }
                     var xdata = $(".salesfile1 *").serialize()+"&event_action=save_new&docnum="+docnum+"&ordernum_hidden_val="+ordernum_hidden_val;
                     break;
                 case "open_add":
@@ -1910,11 +2205,13 @@ while($rs_staff = $stmt_staff->fetch()){
 
                     $("#itmqty_add").prop('readonly', false);
                     $("#price_add").prop('readonly', false);
+                    setMatchedSalesOrderUomState("add", false);
                     $('.btn_search_item').removeClass('disabled');
 
                     $("#price_add").val('');
                     $("#amount_add").val('');
                     $("#itmqty_add").val('');
+                    setInitialUomDropdownState("#unmcde_add");
                     $("#itmcde_add").val('');
                     $("#so_add").val('');
                     $("#recid_so_hidden").val('');
@@ -1943,8 +2240,15 @@ while($rs_staff = $stmt_staff->fetch()){
                 break;
                 case "insert":
                     $("#itmcde_add").attr("disabled", false);
+                    var shouldRelockAddUom = $("#unmcde_add").is(':disabled');
+                    if(shouldRelockAddUom){
+                        $("#unmcde_add").prop('disabled', false);
+                    }
                     var xdata  = $("#insert_modal_sales *").serialize()+"&event_action="+event+"&docnum="+docnum+"&"+$(".salesfile1 *").serialize();
                     $('#itmcde_add').attr("disabled", true); 
+                    if(shouldRelockAddUom){
+                        $("#unmcde_add").prop('disabled', true);
+                    }
                 break;
                 case "submitEdit":
 
@@ -1956,12 +2260,20 @@ while($rs_staff = $stmt_staff->fetch()){
                     var waybill_num1 = $("#waybill_num1").val();
                     var hidden_itmcde_edit = $("#prev_itmcde_hidden_edit").val();
                     var hidden_itmqty_edit = $("#prev_itmqty_hidden_edit").val();
+                    var shouldRelockEditUomForSubmit = $("#unmcde_edit").is(':disabled');
+                    if(shouldRelockEditUomForSubmit){
+                        $("#unmcde_edit").prop('disabled', false);
+                    }
                     var xdata  = $("#edit_modal_sales *").serialize()+"&event_action="+event+"&cusname_1="+cusname_1+"&docnum="+docnum+"&recid="+recid+"&orderby_1="+orderby_1+"&xtrndte_1="+trndte_1_val+"&hidden_itmcde_edit="+hidden_itmcde_edit+"&hidden_itmqty_edit="+hidden_itmqty_edit+"&"+$(".salesfile1 *").serialize();
+                    if(shouldRelockEditUomForSubmit){
+                        $("#unmcde_edit").prop('disabled', true);
+                    }
                 break;
                 case "getEdit": 
                     $('.btn_search_item').removeClass('disabled');
                     $("#itmqty_edit").prop('readonly', false);
                     $("#price_edit").prop('readonly', false);
+                    setMatchedSalesOrderUomState("edit", false);
 
                     $("#prev_itmcde_hidden_edit").val(xitmcde);
                     $("#prev_itmqty_hidden_edit").val(xitmqty);
@@ -2095,6 +2407,8 @@ while($rs_staff = $stmt_staff->fetch()){
                             $("#amount_edit").val(xdata["retEdit"]["extprc"]);
                             $("#itmqty_edit").val(xdata["retEdit"]["itmqty"]);
                             $("#wholesaleprc_edit").val(xdata["retEdit"]["wholesaleprc"]);
+                            updateItemUomDropdown("#unmcde_edit", xdata["retEdit"]["itmcde"], xdata["retEdit"]["unmcde"], true);
+                            setMatchedSalesOrderUomState("edit", !!xdata["retEdit"]["so_recid"]);
                             $("#allow_empty_location_edit").val(xdata["retEdit"]["allow_empty_location"] || "0");
                             var allowEmptyLocation = (xdata["retEdit"]["allow_empty_location"] || "0") === "1";
                             setEditNoneOption("warcde_edit", "Select Warehouse", xdata["retEdit"]["warcde"], allowEmptyLocation);
@@ -2485,4 +2799,3 @@ while($rs_staff = $stmt_staff->fetch()){
 <?php
     require "includes/main_footer.php";
 ?>
-

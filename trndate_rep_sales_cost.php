@@ -298,18 +298,25 @@
     if(!empty($unique_items)) {
         $item_list = array_keys($unique_items);
         $placeholders = implode(',', array_fill(0, count($item_list), '?'));
+        $cost_query_params = $item_list;
+        $cost_date_limit = '';
+        if(isset($_POST['date_to']) && !empty($_POST['date_to'])) {
+            $cost_date_limit = " AND t1.trndte <= ?";
+            $cost_query_params[] = $_POST['date_to'];
+        }
 
         // Get the latest cost for each item (by recid DESC)
         $cost_query = "SELECT t2.itmcde, t2.unmcde, t2.untprc, t2.recid, t1.trndte
             FROM tranfile2 t2
             INNER JOIN tranfile1 t1 ON t1.docnum = t2.docnum
             WHERE t2.itmcde IN ($placeholders)
-            AND (t1.trncde='ADJ' OR t1.trncde='PUR')
+            AND t1.trncde='PUR'
             AND t2.stkqty > 0
-            ORDER BY t2.itmcde, t2.recid DESC";
+            ".$cost_date_limit."
+            ORDER BY t1.trndte DESC, t2.recid DESC";
 
         $stmt_cost = $link->prepare($cost_query);
-        $stmt_cost->execute($item_list);
+        $stmt_cost->execute($cost_query_params);
 
         // Store ALL cost records grouped by item code + unit code (for date-based lookup)
         while($cost_row = $stmt_cost->fetch(PDO::FETCH_ASSOC)) {
@@ -355,6 +362,18 @@
         // Last fallback: return latest cost
         return $costs[0]['untprc'];
     }
+
+    // Calculate grand total commission (same filters, exclude '-None' salesman)
+    $commission_query = "SELECT COALESCE(SUM(tranfile1.trntot * COALESCE(mf_salesman.commission, 0) / 100), 0) as total_commission
+        FROM tranfile1
+        LEFT JOIN mf_salesman ON tranfile1.salesman_id = mf_salesman.salesman_id
+        WHERE tranfile1.trncde = ?
+        AND (mf_salesman.salesman_name IS NULL OR mf_salesman.salesman_name != '-None')
+        ".$xfilter;
+    $stmt_commission = $link->prepare($commission_query);
+    $stmt_commission->execute(array_merge(array($_POST['trncde_hidden']), $xfilter_params));
+    $commission_row = $stmt_commission->fetch(PDO::FETCH_ASSOC);
+    $grand_total_commission = floatval($commission_row['total_commission']);
 
     // Group data by docnum for rendering
     $grouped_data = array();
@@ -554,6 +573,26 @@
     $pdf->ezPlaceData($xleft+=$col_qty,$xtop+5,number_format($price_gtot,2),9,"right");
     $pdf->ezPlaceData($xleft+=$col_price,$xtop+5,number_format($cost_gtot,2),9,"right");
     $pdf->ezPlaceData($xleft+=$col_cost,$xtop+5,number_format($profit_gtot,2),9,"right");
+    $pdf->line(25, $xtop-=5, 790, $xtop);
+
+    // Total Comm and Net row
+    $net_profit = $profit_gtot - $grand_total_commission;
+    $xtop -= 15;
+    if($xtop <= 60){
+        $pdf->ezNewPage();
+        $xtop = 505;
+    }
+    $xleft = 25;
+    $pdf->ezPlaceData($xleft,$xtop+5,"",9,"left");           // Empty Doc Num
+    $pdf->ezPlaceData($xleft+=$col_docnum,$xtop+5,"",9,"left");       // Empty Order Num
+    $pdf->ezPlaceData($xleft+=$col_ordernum,$xtop+5,"",9,"left");      // Empty Tran Date
+    $pdf->ezPlaceData($xleft+=$col_trndte,$xtop+5,"",9,"left");      // Empty Paydate (Sales)
+    $pdf->ezPlaceData($xleft+=$col_paydate,$xtop+5,"",9,"left");      // Empty Customer Name
+    $pdf->ezPlaceData($xleft+=$col_customer,$xtop+5,"Total Comm:",8,"left");  // Total Comm label
+    $pdf->ezPlaceData($xleft+=$col_shop_item,$xtop+5,"",9,"right");     // Empty Quantity
+    $pdf->ezPlaceData($xleft+=$col_qty,$xtop+5,number_format($grand_total_commission,2),9,"right");  // Commission value under Price column
+    $pdf->ezPlaceData($xleft+=$col_price,$xtop+5,"<b>Net:</b>",8,"right");  // Net label (bold)
+    $pdf->ezPlaceData($xleft+=$col_cost,$xtop+5,"<b>".number_format($net_profit,2)."</b>",9,"right");  // Net value (bold)
     $pdf->line(25, $xtop-=5, 790, $xtop);
 
 

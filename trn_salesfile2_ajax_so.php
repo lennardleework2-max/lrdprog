@@ -19,6 +19,20 @@
     $xret["retEdit"] = array();
     $xret["purchasesDefault"] = array();
 
+    function sales_so_lookup_normalize_date($date_value){
+        $date_value = trim((string)$date_value);
+        if($date_value === ''){
+            return '';
+        }
+
+        $parsed_timestamp = strtotime($date_value);
+        if($parsed_timestamp === false){
+            return '';
+        }
+
+        return date('Y-m-d', $parsed_timestamp);
+    }
+
 
     if($_POST['event_action'] =='getData_add' || $_POST['event_action'] =='getData_edit'){
 
@@ -45,6 +59,10 @@
                     </td>
 
                     <td>
+                        UOM
+                    </td>
+
+                    <td>
                         Total
                     </td>
 
@@ -59,10 +77,13 @@
 
         if($_POST['event_action'] =='getData_add'){
             $itmcde_search = $_POST['itmcde_add_hidden']; 
+            $unmcde_search = isset($_POST['unmcde_add']) ? trim((string)$_POST['unmcde_add']) : '';
         } else if($_POST['event_action'] =='getData_edit'){
             $itmcde_search = $_POST['itmcde_edit_hidden']; 
+            $unmcde_search = isset($_POST['unmcde_edit']) ? trim((string)$_POST['unmcde_edit']) : '';
         }
 
+        $sales_trndte_filter = sales_so_lookup_normalize_date(isset($_POST['trndte_1']) ? $_POST['trndte_1'] : '');
         $select_db_por = "SELECT *, salesorderfile2.docnum as 'po2_docnum',
             itemfile.itmdsc as 'po2_itmdsc',
             itemfile.itmcde as 'po2_itmcde',
@@ -71,21 +92,33 @@
             salesorderfile1.trndte as 'po1_trndte',
             salesorderfile2.recid as 'po2_recid',
             mf_buyers.buyer_name as 'buyer_name',
-            mf_buyers.buyer_id as 'buyer_id'
+            mf_buyers.buyer_id as 'buyer_id',
+            itemunitmeasurefile.unmdsc as 'po2_unmdsc'
             FROM salesorderfile1 LEFT JOIN 
                 salesorderfile2 ON 
                 salesorderfile1.docnum = salesorderfile2.docnum 
             LEFT JOIN itemfile ON
                 salesorderfile2.itmcde = itemfile.itmcde
+            LEFT JOIN itemunitmeasurefile ON
+                salesorderfile2.unmcde = itemunitmeasurefile.unmcde
             LEFT JOIN customerfile ON 
                 salesorderfile1.cuscde = customerfile.cuscde
             LEFT JOIN mf_buyers ON
                 salesorderfile1.buyer_id = mf_buyers.buyer_id
-                WHERE salesorderfile2.itmcde='".$itmcde_search."'
-                AND salesorderfile1.docnum NOT LIKE '%-BOM%' 
+                WHERE salesorderfile2.itmcde = ?
+                AND salesorderfile2.unmcde = ?
+                AND salesorderfile1.docnum NOT LIKE '%-BOM%'";
+        $select_db_por_params = array($itmcde_search, $unmcde_search);
+
+        if($sales_trndte_filter !== ''){
+            $select_db_por .= " AND salesorderfile1.trndte <= ?";
+            $select_db_por_params[] = $sales_trndte_filter;
+        }
+
+        $select_db_por .= " 
             ORDER BY salesorderfile1.trndte ASC, salesorderfile2.docnum ASC";
         $stmt_por	= $link->prepare($select_db_por);
-        $stmt_por->execute();
+        $stmt_por->execute($select_db_por_params);
         $xcount_por = 0;
         while($rs_por = $stmt_por->fetch()){
 
@@ -182,6 +215,10 @@
                     ".htmlspecialchars($rs_por['po2_itmdsc'],ENT_QUOTES)."
                 </td>
 
+                <td>
+                    ".htmlspecialchars(!empty($rs_por['po2_unmdsc']) ? $rs_por['po2_unmdsc'] : $unmcde_search,ENT_QUOTES)."
+                </td>
+
                 <td style='text-align:right'>
                     ".$rs_por['po2_itmqty']."
                 </td>
@@ -265,6 +302,15 @@
                     <td>
                         ".$rs_por['buyer_name']."
                     </td>    
+                </tr>
+
+                <tr class='".$tr_class."'>
+                    <td>
+                        UOM
+                    </td>
+                    <td>
+                        ".htmlspecialchars(!empty($rs_por['po2_unmdsc']) ? $rs_por['po2_unmdsc'] : $unmcde_search,ENT_QUOTES)."
+                    </td>
                 </tr>
 
 

@@ -107,13 +107,6 @@ require "pager/pager_main.class.php";
                             $table1->field_name_dis["shopee_itm_sku"] = "shopee_itm_sku";
                             $table1->field_header_dis["shopee_itm_sku"] = "Shopee Item SKU";
 
-                            $table1->field_type_dis["unmcde"] = "dropdown_custom";
-                            $table1->field_name_dis["unmcde"] = "unmcde";
-                            $table1->field_header_dis["unmcde"] = "Default UOM";
-                            $table1->field_dropdown_field_name_dis["unmcde"] = "unmcde";
-                            $table1->field_dropdown_field_name_value_dis["unmcde"] = "unmdsc";
-                            $table1->field_dropdown_tablename_dis["unmcde"] = "itemunitmeasurefile";
-
                             //FIELDS  CRUD(create,read,update,delete)
                             $table1->field_type_crud["itemdsc"] = "text";
                             $table1->field_name_crud["itemdsc"] = "itmdsc";
@@ -151,16 +144,6 @@ require "pager/pager_main.class.php";
                             $table1->field_is_required["shopee_itm_sku"] = "N";
                             $table1->field_is_unique["shopee_itm_sku"] = "N";
 
-                            $table1->field_type_crud["unmcde"] = "dropdown_custom";
-                            $table1->field_name_crud["unmcde"] = "unmcde";
-                            $table1->field_header_crud["unmcde"] = "Default UOM";
-                            $table1->field_dropdown_field_name_crud["unmcde"] = "unmcde";
-                            $table1->field_dropdown_field_name_value_crud["unmcde"] = "unmdsc";
-                            $table1->field_dropdown_tablename_crud["unmcde"] = "itemunitmeasurefile";
-                            $table1->field_dropdown_orderby_field_crud["unmcde"] = "unmdsc";
-                            $table1->field_is_required["unmcde"] = "N";
-                            $table1->field_is_unique["unmcde"] = "N";
-
                             //pager
                             $table1->show_pager = "Y";
                             $table1->pager_xlimit = 20;
@@ -172,7 +155,7 @@ require "pager/pager_main.class.php";
                              $table1->show_search = "Y";
 
                             //alert
-                            $table1->alert_del = "N";
+                            $table1->alert_del = "Y";
                             $table1->alert_del_logo_dir = $logo_dir;
                             
                             $table1->alert_del_logo_w = $logo_width;

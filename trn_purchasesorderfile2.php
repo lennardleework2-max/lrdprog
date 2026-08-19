@@ -179,7 +179,15 @@ if($default_uom_desc === '' && !empty($ordered_uom_options)){
 
 $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uom_desc;
 
-
+$existing_ordernum_records = array();
+$stmt_existing_ordernums = $link->prepare("SELECT docnum, ordernum FROM purchasesorderfile1 WHERE ordernum IS NOT NULL AND TRIM(ordernum) <> ''");
+$stmt_existing_ordernums->execute();
+while($rs_existing_ordernum = $stmt_existing_ordernums->fetch()){
+    $existing_ordernum_records[] = array(
+        'docnum' => isset($rs_existing_ordernum['docnum']) ? trim((string)$rs_existing_ordernum['docnum']) : '',
+        'ordernum' => isset($rs_existing_ordernum['ordernum']) ? trim((string)$rs_existing_ordernum['ordernum']) : '',
+    );
+}
 
 ?>
 
@@ -740,6 +748,114 @@ $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uo
         var defaultUomCode = <?php echo json_encode($default_uom_code); ?>;
         var defaultUomDesc = <?php echo json_encode($default_uom_desc); ?>;
         var baseUomDisplay = <?php echo json_encode($base_uom_display); ?>;
+        var purchasesOrderMatchedPurDocnums = [];
+        var existingOrdernumRecords = <?php echo json_encode($existing_ordernum_records); ?>;
+
+        function normalizeOrdernumForValidation(value) {
+            return $.trim((value || "").toString()).toLowerCase();
+        }
+
+        function validateUniqueOrdernum() {
+            var currentDocnum = $.trim($("#docnum_hidden").val() || "");
+            var currentOrdernum = $.trim($("#ordernum_1").val() || "");
+
+            if (currentOrdernum === "") {
+                return true;
+            }
+
+            var normalizedCurrentOrdernum = normalizeOrdernumForValidation(currentOrdernum);
+
+            for (var i = 0; i < existingOrdernumRecords.length; i++) {
+                var record = existingOrdernumRecords[i] || {};
+                var recordDocnum = $.trim(record.docnum || "");
+                var recordOrdernum = normalizeOrdernumForValidation(record.ordernum || "");
+
+                if (recordOrdernum === "") {
+                    continue;
+                }
+
+                if (recordOrdernum === normalizedCurrentOrdernum && recordDocnum !== currentDocnum) {
+                    var escapedOrdernum = $("<div>").text(currentOrdernum).html();
+                    var escapedDocnum = $("<div>").text(recordDocnum).html();
+                    $("#alert_modal_body_system").html("same ordernum: " + escapedOrdernum + " matches with docnum " + escapedDocnum);
+                    $("#alert_modal_system").modal("show");
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        function getUniqueMatchedDocnums(docnums){
+            var uniqueDocnums = [];
+
+            for(var i = 0; i < docnums.length; i++){
+                if(uniqueDocnums.indexOf(docnums[i]) === -1){
+                    uniqueDocnums.push(docnums[i]);
+                }
+            }
+
+            return uniqueDocnums;
+        }
+
+        function extractMatchedDocnums(rawText, prefix){
+            var safeText = rawText || "";
+            var regex = new RegExp("\\b" + prefix + "-[A-Z0-9]+\\b", "g");
+            var matches = safeText.match(regex) || [];
+
+            return getUniqueMatchedDocnums(matches);
+        }
+
+        function getCurrentPurchasesOrderDocnum(){
+            return $.trim($("#docnum_hidden").val() || $("#docnum_1").val() || "");
+        }
+
+        function buildMatchedAlertMessage(porDocnum, purDocnums){
+            if(purDocnums.length === 0){
+                return "";
+            }
+
+            var porLabel = porDocnum || "This purchases order";
+            return "Cannot edit or delete as " + porLabel + " is already matched with " + purDocnums.join(", ");
+        }
+
+        function syncPurchasesOrderHeaderLock(){
+            var hasValidPurMatch = purchasesOrderMatchedPurDocnums.length > 0;
+            $("#cusname_1").prop("disabled", hasValidPurMatch);
+            $("#trndte_1").prop("disabled", hasValidPurMatch);
+        }
+
+        function enablePurchasesOrderActionDropdown($button){
+            $button.removeAttr("onclick");
+            $button.removeAttr("style");
+            $button.attr("data-bs-toggle", "dropdown");
+            $button.attr("aria-expanded", "false");
+
+            if(!$button.hasClass("dropdown-toggle")){
+                $button.addClass("dropdown-toggle");
+            }
+        }
+
+        function refreshPurchasesOrderMatchedActions(){
+            purchasesOrderMatchedPurDocnums = [];
+
+            $("#tbody_main button[onclick*='matched_alert'], #tbody_main_mobile button[onclick*='matched_alert']").each(function(){
+                var $button = $(this);
+                var inlineHandler = $button.attr("onclick") || "";
+                var purDocnums = extractMatchedDocnums(inlineHandler, "PUR");
+
+                if(purDocnums.length === 0){
+                    enablePurchasesOrderActionDropdown($button);
+                    return;
+                }
+
+                purchasesOrderMatchedPurDocnums = getUniqueMatchedDocnums(
+                    purchasesOrderMatchedPurDocnums.concat(purDocnums)
+                );
+            });
+
+            syncPurchasesOrderHeaderLock();
+        }
 
         $(document).ready(function(){
 
@@ -760,6 +876,7 @@ $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uo
                      
                         $("#tbody_main").html(xdata["html"]);
                         $("#tbody_main_mobile").html(xdata["html_mobile"]);
+                        refreshPurchasesOrderMatchedActions();
                     }
 
             })
@@ -1314,7 +1431,17 @@ $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uo
         function matched_alert(xevent, matched_s){
 
             if(xevent == "disabled"){
-                alert("Cannot edit or delete already matched by "+matched_s);
+                var purDocnums = purchasesOrderMatchedPurDocnums;
+
+                if(purDocnums.length === 0){
+                    purDocnums = extractMatchedDocnums(matched_s, "PUR");
+                }
+
+                if(purDocnums.length === 0){
+                    return;
+                }
+
+                alert(buildMatchedAlertMessage(getCurrentPurchasesOrderDocnum(), purDocnums));
             }
 
         }        
@@ -1329,6 +1456,9 @@ $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uo
 
             switch(event){
                     case "save_exit":
+                    if(!validateUniqueOrdernum()){
+                        return;
+                    }
 
                     if ($('#cusname_1').prop('disabled')) {
                         $("#cusname_1").prop("disabled", false);
@@ -1347,6 +1477,9 @@ $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uo
 
                     break;
                 case "save_new":
+                    if(!validateUniqueOrdernum()){
+                        return;
+                    }
 
                     if ($('#cusname_1').prop('disabled')) {
                         $("#cusname_1").prop("disabled", false);
@@ -1563,6 +1696,7 @@ $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uo
 
                         $("#tbody_main").html(xdata["html"]);
                         $("#tbody_main_mobile").html(xdata["html_mobile"]);
+                        refreshPurchasesOrderMatchedActions();
 
                         $("#trntot_1").val(xdata["trntot"]);
                 }

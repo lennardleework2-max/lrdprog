@@ -114,28 +114,28 @@ $DEBUG_ROLLING_SALES = false;
         $xfilter_amount .= " AND amount_tranfile1.trndte<='".$date_to_sql."'";
     }
 
-    // Rolling 30/60/90-day columns ALWAYS use today's date as the reference (current system date).
-    // 30D = today minus 30 days through today
-    // 60D = today minus 2 months through today
-    // 90D = today minus 3 months through today
-    $today_date = date("Y-m-d"); // Always today
-    $head_rolling_sales_date = date("m-d-Y"); // For display in header
-    $past_30_start = date("Y-m-d", strtotime("-30 days"));
-    $past_60_start = date("Y-m-d", strtotime("-2 months"));
-    $past_90_start = date("Y-m-d", strtotime("-3 months"));
+    // Rolling 30/60/90-day columns use date_to filter as end date if provided, otherwise current date.
+    // 30D = end_date minus 30 days through end_date
+    // 60D = end_date minus 60 days through end_date
+    // 90D = end_date minus 90 days through end_date
+    $rolling_end_date = !empty($date_to_sql) ? $date_to_sql : date("Y-m-d");
+    $head_rolling_sales_date = date("m-d-Y", strtotime($rolling_end_date)); // For display in header
+    $past_30_start = date("Y-m-d", strtotime($rolling_end_date . " -30 days"));
+    $past_60_start = date("Y-m-d", strtotime($rolling_end_date . " -60 days"));
+    $past_90_start = date("Y-m-d", strtotime($rolling_end_date . " -90 days"));
 
     // DEBUG: Log rolling date ranges
     if($DEBUG_ROLLING_SALES){
         error_log("=== TOP_SALES_ITEM_PDF DEBUG START ===");
-        error_log("[ROLLING_SALES] Today: " . $today_date);
-        error_log("[ROLLING_SALES] 30D Window: " . $past_30_start . " to " . $today_date);
-        error_log("[ROLLING_SALES] 60D Window: " . $past_60_start . " to " . $today_date);
-        error_log("[ROLLING_SALES] 90D Window: " . $past_90_start . " to " . $today_date);
+        error_log("[ROLLING_SALES] End Date: " . $rolling_end_date . " (from " . (!empty($date_to_sql) ? "date_to filter" : "current date") . ")");
+        error_log("[ROLLING_SALES] 30D Window: " . $past_30_start . " to " . $rolling_end_date);
+        error_log("[ROLLING_SALES] 60D Window: " . $past_60_start . " to " . $rolling_end_date);
+        error_log("[ROLLING_SALES] 90D Window: " . $past_90_start . " to " . $rolling_end_date);
         error_log("[ROLLING_SALES] User Date Filter - From: " . ($date_from_sql ?: 'not set') . " | To: " . ($date_to_sql ?: 'not set'));
     }
 
-    // For cost lookup, use Date To if specified, otherwise today's date
-    $latest_cost_date_to = !empty($date_to_sql) ? $date_to_sql : $today_date;
+    // For cost lookup, use Date To if specified, otherwise current date
+    $latest_cost_date_to = !empty($date_to_sql) ? $date_to_sql : date("Y-m-d");
 
     $pcs_unmcde = '';
     $stmt_pcs = $link->prepare("SELECT unmcde FROM itemunitmeasurefile WHERE LOWER(unmdsc) = 'pcs' LIMIT 1");
@@ -191,10 +191,14 @@ if (!$is_tab_export) {
 
         $pdf->ezPlaceData($col_item,$xheader_base_y,"<b>Item</b>",10,'left');
         $pdf->ezPlaceData($col_amount,$xheader_base_y,"<b>Amount</b>",10,'right');
-        $pdf->ezPlaceData($col_qty,$xheader_base_y,"<b>Total Qty</b>",10,'right');
-        $pdf->ezPlaceData($col_sales_30,$xheader_base_y,"<b>Sales Qty 30D</b>",9,'right');
-        $pdf->ezPlaceData($col_sales_60,$xheader_base_y,"<b>Sales Qty 60D</b>",9,'right');
-        $pdf->ezPlaceData($col_sales_90,$xheader_base_y,"<b>Sales Qty 90D</b>",9,'right');
+        $pdf->ezPlaceData($col_qty,$xheader_base_y,"<b>Total</b>",9,'right');
+        $pdf->ezPlaceData($col_qty,$xheader_base_y-9,"<b>Qty</b>",9,'right');
+        $pdf->ezPlaceData($col_sales_30,$xheader_base_y,"<b>Sales Qty</b>",8,'right');
+        $pdf->ezPlaceData($col_sales_30,$xheader_base_y-9,"<b>30 days</b>",8,'right');
+        $pdf->ezPlaceData($col_sales_60,$xheader_base_y,"<b>Sales Qty</b>",8,'right');
+        $pdf->ezPlaceData($col_sales_60,$xheader_base_y-9,"<b>60 days</b>",8,'right');
+        $pdf->ezPlaceData($col_sales_90,$xheader_base_y,"<b>Sales Qty</b>",8,'right');
+        $pdf->ezPlaceData($col_sales_90,$xheader_base_y-9,"<b>90 days</b>",8,'right');
         $pdf->ezPlaceData($col_current_stock,$xheader_base_y,"<b>Current Stock</b>",9,'right');
         $pdf->ezPlaceData($col_cost,$xheader_base_y,"<b>Cost</b>",9,'right');
         $pdf->ezPlaceData($col_current_inventory_valuation,$xheader_base_y,"<b>Current Inventory</b>",7,'right');
@@ -226,74 +230,74 @@ if (!$is_tab_export) {
 
 // Rolling sales quantity uses subqueries independent of main date filter - always based on today's date
 // Pattern: SELECT SUM(tranfile2.stkqty) * -1 FROM tranfile1 LEFT JOIN tranfile2 WHERE itmcde=X AND trndte>=start AND trndte<=today
-$select_db_base="SELECT itemfile.itmdsc as itmdsc,
-    main_tranfile2.itmcde as itmcde,
-    COALESCE((
-        SELECT SUM(amount_tranfile2.extprc)
-        FROM tranfile2 amount_tranfile2
-        LEFT JOIN tranfile1 amount_tranfile1 ON amount_tranfile2.docnum = amount_tranfile1.docnum
-        WHERE amount_tranfile2.itmcde = main_tranfile2.itmcde
-          AND amount_tranfile1.trncde = 'SAL'".$xfilter_amount."
-    ), 0) AS tot_extprc,
-    SUM(main_tranfile2.stkqty * -1) as tot_itmqty,
-    COALESCE((
-        SELECT SUM(t2.stkqty) * -1
-        FROM tranfile1 t1
-        LEFT JOIN tranfile2 t2 ON t1.docnum = t2.docnum
-        WHERE t2.itmcde = main_tranfile2.itmcde
-          AND t1.trncde = 'SAL'
-          AND t1.trndte >= '".$past_30_start."'
-          AND t1.trndte <= '".$today_date."'
-    ), 0) AS sales_past_30,
-    COALESCE((
-        SELECT SUM(t2.itmqty)
-        FROM tranfile1 t1
-        LEFT JOIN tranfile2 t2 ON t1.docnum = t2.docnum
-        WHERE t2.itmcde = main_tranfile2.itmcde
-          AND t1.trncde = 'SAL'
-          AND t1.trndte >= '".$past_30_start."'
-          AND t1.trndte <= '".$today_date."'
-    ), 0) AS qty_past_30,
-    COALESCE((
-        SELECT SUM(t2.stkqty) * -1
-        FROM tranfile1 t1
-        LEFT JOIN tranfile2 t2 ON t1.docnum = t2.docnum
-        WHERE t2.itmcde = main_tranfile2.itmcde
-          AND t1.trncde = 'SAL'
-          AND t1.trndte >= '".$past_60_start."'
-          AND t1.trndte <= '".$today_date."'
-    ), 0) AS sales_past_60,
-    COALESCE((
-        SELECT SUM(t2.stkqty) * -1
-        FROM tranfile1 t1
-        LEFT JOIN tranfile2 t2 ON t1.docnum = t2.docnum
-        WHERE t2.itmcde = main_tranfile2.itmcde
-          AND t1.trncde = 'SAL'
-          AND t1.trndte >= '".$past_90_start."'
-          AND t1.trndte <= '".$today_date."'
-    ), 0) AS sales_past_90,
-    COALESCE((
-        SELECT pur_tranfile2.untprc
+$latest_cost_join = "
+LEFT JOIN (
+    SELECT latest_cost_rows.itmcde, latest_cost_rows.untprc AS latest_cost
+    FROM (
+        SELECT pur_tranfile2.itmcde, pur_tranfile2.untprc, pur_tranfile1.trndte, pur_tranfile2.recid
         FROM tranfile2 pur_tranfile2
-        LEFT JOIN tranfile1 pur_tranfile1 ON pur_tranfile2.docnum=pur_tranfile1.docnum
-        WHERE pur_tranfile2.itmcde=main_tranfile2.itmcde
-          AND pur_tranfile1.trncde='PUR'
-          AND pur_tranfile1.trndte<='".$latest_cost_date_to."'" . ($pcs_unmcde !== '' ? "
-          AND pur_tranfile2.unmcde='".$pcs_unmcde."'" : "") . "
-        ORDER BY pur_tranfile1.trndte DESC, pur_tranfile2.recid DESC
-        LIMIT 1
-    ),0) AS latest_cost,
-    COALESCE((
-        SELECT SUM(stock_tranfile2.stkqty)
-        FROM tranfile2 stock_tranfile2
-        LEFT JOIN tranfile1 stock_tranfile1 ON stock_tranfile2.docnum=stock_tranfile1.docnum
-        WHERE stock_tranfile2.itmcde=main_tranfile2.itmcde ".$xfilter_current_stock."
-    ),0) AS current_stock
-    FROM tranfile2 main_tranfile2
-    LEFT JOIN tranfile1 main_tranfile1 ON main_tranfile2.docnum=main_tranfile1.docnum
-    LEFT JOIN itemfile ON main_tranfile2.itmcde=itemfile.itmcde
-    WHERE main_tranfile1.trncde='SAL' ".$xfilter."
-    GROUP BY main_tranfile2.itmcde";
+        INNER JOIN tranfile1 pur_tranfile1 ON pur_tranfile2.docnum = pur_tranfile1.docnum
+        INNER JOIN (
+            SELECT pur_base.itmcde,
+                   MAX(CONCAT(DATE_FORMAT(pur_head.trndte, '%Y%m%d'), LPAD(pur_base.recid, 12, '0'))) AS latest_key
+            FROM tranfile2 pur_base
+            INNER JOIN tranfile1 pur_head ON pur_base.docnum = pur_head.docnum
+            WHERE pur_head.trncde = 'PUR'
+              AND pur_head.trndte <= '".$latest_cost_date_to."'" . ($pcs_unmcde !== '' ? "
+              AND pur_base.unmcde = '".$pcs_unmcde."'" : "") . "
+            GROUP BY pur_base.itmcde
+        ) latest_cost_keys
+            ON latest_cost_keys.itmcde = pur_tranfile2.itmcde
+           AND latest_cost_keys.latest_key = CONCAT(DATE_FORMAT(pur_tranfile1.trndte, '%Y%m%d'), LPAD(pur_tranfile2.recid, 12, '0'))
+        WHERE pur_tranfile1.trncde = 'PUR'
+          AND pur_tranfile1.trndte <= '".$latest_cost_date_to."'" . ($pcs_unmcde !== '' ? "
+          AND pur_tranfile2.unmcde = '".$pcs_unmcde."'" : "") . "
+    ) latest_cost_rows
+) latest_cost_data ON latest_cost_data.itmcde = sales_main.itmcde";
+
+$select_db_base="SELECT sales_main.itmdsc as itmdsc,
+    sales_main.itmcde as itmcde,
+    sales_main.tot_extprc,
+    sales_main.tot_itmqty,
+    COALESCE(rolling_sales.sales_past_30, 0) AS sales_past_30,
+    COALESCE(rolling_sales.qty_past_30, 0) AS qty_past_30,
+    COALESCE(rolling_sales.sales_past_60, 0) AS sales_past_60,
+    COALESCE(rolling_sales.sales_past_90, 0) AS sales_past_90,
+    COALESCE(latest_cost_data.latest_cost, 0) AS latest_cost,
+    COALESCE(current_stock_data.current_stock, 0) AS current_stock
+    FROM (
+        SELECT main_tranfile2.itmcde,
+            itemfile.itmdsc,
+            SUM(main_tranfile2.extprc) AS tot_extprc,
+            SUM(main_tranfile2.stkqty * -1) AS tot_itmqty
+        FROM tranfile2 main_tranfile2
+        INNER JOIN tranfile1 main_tranfile1 ON main_tranfile2.docnum = main_tranfile1.docnum
+        LEFT JOIN itemfile ON main_tranfile2.itmcde = itemfile.itmcde
+        WHERE main_tranfile1.trncde='SAL' ".$xfilter."
+        GROUP BY main_tranfile2.itmcde, itemfile.itmdsc
+    ) sales_main
+LEFT JOIN (
+    SELECT t2.itmcde,
+        SUM(CASE WHEN t1.trndte >= '".$past_30_start."' THEN t2.stkqty * -1 ELSE 0 END) AS sales_past_30,
+        SUM(CASE WHEN t1.trndte >= '".$past_30_start."' THEN t2.itmqty ELSE 0 END) AS qty_past_30,
+        SUM(CASE WHEN t1.trndte >= '".$past_60_start."' THEN t2.stkqty * -1 ELSE 0 END) AS sales_past_60,
+        SUM(t2.stkqty * -1) AS sales_past_90
+    FROM tranfile1 t1
+    INNER JOIN tranfile2 t2 ON t1.docnum = t2.docnum
+    WHERE t1.trncde = 'SAL'
+      AND t1.trndte >= '".$past_90_start."'
+      AND t1.trndte <= '".$rolling_end_date."'
+    GROUP BY t2.itmcde
+) rolling_sales ON rolling_sales.itmcde = sales_main.itmcde
+".$latest_cost_join."
+LEFT JOIN (
+    SELECT stock_tranfile2.itmcde,
+        SUM(stock_tranfile2.stkqty) AS current_stock
+    FROM tranfile2 stock_tranfile2
+    LEFT JOIN tranfile1 stock_tranfile1 ON stock_tranfile2.docnum = stock_tranfile1.docnum
+    WHERE 1=1 ".$xfilter_current_stock."
+    GROUP BY stock_tranfile2.itmcde
+) current_stock_data ON current_stock_data.itmcde = sales_main.itmcde";
 
 $select_db = "SELECT base.itmdsc,
     base.itmcde,
@@ -661,8 +665,6 @@ $select_db = "SELECT base.itmdsc,
 
 
 ?>
-
-
 
 
 

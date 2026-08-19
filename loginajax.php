@@ -108,7 +108,7 @@ else {
     
                 $xtrndte = date("Y-m-d H:i:s");
                 $xactivity = "Login";
-                $xremarks = "Successfull login";
+                $xremarks = "Successful login";
                 //PDO_UserActivityLog($link, $xusrcde, $xusrname, $xtrndte, $xprog_module, $xactivity, $xfullname, $xremarks , $linenum, $parameter, $trncde, $trndsc, $compname, $xusrnme);
                 PDO_UserActivityLog($link, $userdesc_select, '', $xtrndte, '', $xactivity, $xfullname, $xremarks , 0, '', '', '','',$userdesc_select);
             }else{
@@ -132,7 +132,7 @@ else {
         
                     $xtrndte = date("Y-m-d H:i:s");
                     $xactivity = "Login";
-                    $xremarks = "Successfull login";
+                    $xremarks = "Successful login";
                     //PDO_UserActivityLog($link, $xusrcde, $xusrname, $xtrndte, $xprog_module, $xactivity, $xfullname, $xremarks , $linenum, $parameter, $trncde, $trndsc, $compname, $xusrnme);
                     PDO_UserActivityLog($link, $userdesc_select, '', $xtrndte, '', $xactivity, $xfullname, $xremarks , 0, '', '', '','',$userdesc_select);
                 }else{

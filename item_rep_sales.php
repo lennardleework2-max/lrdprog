@@ -97,20 +97,19 @@
         $xfilter .= " AND itmcde='".$_POST['item']."'";
     }
 
+    // OPTIMIZATION: Build all report groups with a single optimized query instead of N+1 queries
+    $report_groups = build_item_sales_report_groups_optimized($link, $xfilter, $xfilter2, $_POST['trncde_hidden']);
+
     if($is_tab_export){
-        $report_groups = build_item_sales_report_groups($link, $xfilter, $xfilter2, $_POST['trncde_hidden']);
         export_item_sales_xls($report_groups, $progname_hidden, $_SESSION['userdesc'], $date_printed);
         exit;
     }
 
-    $select_db = "SELECT * FROM itemfile WHERE true ".$xfilter." ORDER BY itmdsc ASC";
-    $stmt_main	= $link->prepare($select_db);
-    $stmt_main->execute();
     $grand_total = 0;
-    
-    while($rs_main = $stmt_main->fetch()){
-        $item_desc = normalize_item_text(isset($rs_main['itmdsc']) ? $rs_main['itmdsc'] : '');
-        $detail_rows = fetch_item_sales_detail_rows($link, $rs_main['itmcde'], $xfilter2, $_POST['trncde_hidden']);
+
+    foreach($report_groups as $group){
+        $item_desc = $group['item_desc'];
+        $detail_rows = $group['rows'];
         if(empty($detail_rows)){
             continue;
         }
@@ -511,6 +510,89 @@
         return $rows;
     }
 
+    // OPTIMIZATION: Single query to fetch all items with their transactions, grouped by item
+    // Eliminates the N+1 query problem (previously: 1 main query + N detail queries per item)
+    function build_item_sales_report_groups_optimized($link, $xfilter, $xfilter2, $trncde_hidden)
+    {
+        $groups = array();
+        $item_order = array();
+        $item_map = array();
+
+        // Single query: get all items with their transactions in ONE database call
+        $select_all = "SELECT
+                itemfile.itmcde,
+                itemfile.itmdsc,
+                tranfile2.itmqty,
+                tranfile2.untprc,
+                tranfile2.extprc,
+                tranfile1.trndte,
+                tranfile1.orderby,
+                tranfile1.ordernum,
+                customerfile.cusdsc,
+                mf_buyers.buyer_name,
+                itemunitmeasurefile.unmdsc as uom_description,
+                TRIM(CONCAT(COALESCE(warehouse.warehouse_name,''), CASE WHEN TRIM(COALESCE(warehouse_floor.floor_no,'')) <> '' THEN CONCAT(' ', TRIM(warehouse_floor.floor_no), ' floor') ELSE '' END)) as warehouse_display
+            FROM itemfile
+            INNER JOIN tranfile2 ON itemfile.itmcde = tranfile2.itmcde
+            INNER JOIN tranfile1 ON tranfile2.docnum = tranfile1.docnum
+            LEFT JOIN customerfile ON tranfile1.cuscde = customerfile.cuscde
+            LEFT JOIN mf_buyers ON tranfile1.buyer_id = mf_buyers.buyer_id
+            LEFT JOIN itemunitmeasurefile ON tranfile2.unmcde = itemunitmeasurefile.unmcde
+            LEFT JOIN warehouse ON tranfile2.warcde = warehouse.warcde
+            LEFT JOIN warehouse_floor ON tranfile2.warehouse_floor_id = warehouse_floor.warehouse_floor_id
+            WHERE tranfile1.trncde='".$trncde_hidden."' ".$xfilter2." ".$xfilter."
+            ORDER BY itemfile.itmdsc ASC, tranfile1.trndte ASC, tranfile2.recid ASC";
+
+        $stmt_all = $link->prepare($select_all);
+        $stmt_all->execute();
+        $all_rows = $stmt_all->fetchAll(PDO::FETCH_ASSOC);
+
+        // Group data by item code
+        foreach($all_rows as $row) {
+            $itmcde = $row['itmcde'];
+            if(!isset($item_map[$itmcde])) {
+                $item_map[$itmcde] = array(
+                    'item_desc' => normalize_item_text(isset($row['itmdsc']) ? $row['itmdsc'] : ''),
+                    'rows' => array(),
+                    'subtotal_qty' => 0,
+                    'subtotal_ext' => 0,
+                );
+                $item_order[] = $itmcde;
+            }
+
+            $trndte = '';
+            if(isset($row["trndte"]) && !empty($row["trndte"])){
+                $trndte = date("m/d/Y", strtotime($row["trndte"]));
+            }
+
+            $detail_row = array(
+                'trndte' => $trndte,
+                'ordernum' => isset($row['ordernum']) ? (string)$row['ordernum'] : '',
+                'cusdsc' => normalize_item_text(isset($row["cusdsc"]) ? $row["cusdsc"] : ''),
+                'buyer_name' => normalize_item_text(isset($row["buyer_name"]) ? $row["buyer_name"] : ''),
+                'itmqty' => (float)$row["itmqty"],
+                'uom_description' => normalize_item_text(isset($row["uom_description"]) ? $row["uom_description"] : ''),
+                'warehouse_display' => normalize_item_text(isset($row["warehouse_display"]) ? $row["warehouse_display"] : ''),
+                'untprc' => (float)$row["untprc"],
+                'extprc' => (float)$row["extprc"],
+            );
+
+            $item_map[$itmcde]['rows'][] = $detail_row;
+            $item_map[$itmcde]['subtotal_qty'] += (float)$row["itmqty"];
+            $item_map[$itmcde]['subtotal_ext'] += (float)$row["extprc"];
+        }
+
+        // Build groups array in order
+        foreach($item_order as $itmcde) {
+            if(!empty($item_map[$itmcde]['rows'])) {
+                $groups[] = $item_map[$itmcde];
+            }
+        }
+
+        return $groups;
+    }
+
+    // Legacy function kept for reference (now superseded by build_item_sales_report_groups_optimized)
     function build_item_sales_report_groups($link, $xfilter, $xfilter2, $trncde_hidden)
     {
         $groups = array();

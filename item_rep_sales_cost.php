@@ -104,15 +104,22 @@
     if(!empty($unique_items)){
         $item_list = array_keys($unique_items);
         $placeholders = implode(',', array_fill(0, count($item_list), '?'));
+        $cost_query_params = $item_list;
+        $cost_date_limit = '';
+        if(isset($_POST['date_to']) && !empty($_POST['date_to'])){
+            $cost_date_limit = " AND t1.trndte <= ?";
+            $cost_query_params[] = $_POST['date_to'];
+        }
         $cost_query = "SELECT t2.itmcde, t2.unmcde, t2.untprc, t2.recid, t1.trndte
             FROM tranfile2 t2
             INNER JOIN tranfile1 t1 ON t1.docnum = t2.docnum
             WHERE t2.itmcde IN ($placeholders)
             AND t1.trncde='PUR'
             AND t2.stkqty > 0
+            ".$cost_date_limit."
             ORDER BY t1.trndte DESC , t2.recid DESC";
         $stmt_cost = $link->prepare($cost_query);
-        $stmt_cost->execute($item_list);
+        $stmt_cost->execute($cost_query_params);
 
         while($cost_row = $stmt_cost->fetch(PDO::FETCH_ASSOC)){
             $cost_key = item_sales_cost_cache_key($cost_row['itmcde'], $cost_row['unmcde']);

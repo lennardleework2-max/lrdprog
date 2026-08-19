@@ -89,7 +89,7 @@ require "includes/main_header.php";
                                             </div>
                                             
                                             <div class="col-4 d-flex justify-content-center">
-                                                <input type="button" name="flexRadioDefault" id="flexRadioDefault1"  class="btn btn-primary" value="Export to TXT" onclick="exp_txt()">
+                                                <input type="button" name="flexRadioDefault" id="flexRadioDefault1"  class="btn btn-primary" value="Export to XLS" onclick="exp_txt()">
                                             </div>
                                         </div>
 
@@ -129,7 +129,7 @@ require "includes/main_header.php";
                     // </div>\
                     
                     // <div class='col-4'>\
-                    //     <input type='button' name='flexRadioDefault' id='flexRadioDefault1'  class='btn btn-primary' value='Export to TXT' onclick='exp_txt()'>\
+                    //     <input type='button' name='flexRadioDefault' id='flexRadioDefault1'  class='btn btn-primary' value='Export to XLS' onclick='exp_txt()'>\
                     // </div>
                         
                     // `);

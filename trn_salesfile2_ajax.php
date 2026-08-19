@@ -327,24 +327,21 @@
                 }
 
 
-                // --REMOVED CUS THERE ARE INSTANCES WITH SAME ORDER NUMBER
-                // if(isset($_POST['ordernum_1']) && !empty($_POST['ordernum_1']) && $_POST['ordernum_1'] !=$_POST['ordernum_hidden_val']){
-                //     $select_check="SELECT * FROM tranfile1 WHERE ordernum='".$_POST['ordernum_1']."'";
-                //     $stmt_check	= $link->prepare($select_check);
-                //     $stmt_check->execute();
-                //     $rs_check = $stmt_check->fetch();
+                // Duplicate ordernum validation for ADD
+                $ordernum_input = isset($_POST['ordernum_1']) ? trim((string)$_POST['ordernum_1']) : '';
+                if($ordernum_input !== ''){
+                    $select_check = "SELECT recid FROM tranfile1 WHERE TRIM(ordernum) = ? LIMIT 1";
+                    $stmt_check = $link->prepare($select_check);
+                    $stmt_check->execute(array($ordernum_input));
+                    $rs_check = $stmt_check->fetch();
 
-                //     if(!empty($rs_check)){
-                //         if($xret["error1"] == 1 || $xret["error1"] == 2){
-                //             $xret["msg"].= "</br>";
-                //         }
-                        
-                //         $xret["status"] = 0;
-                //         $xret["msg"] = "Order No. <b>".$_POST['ordernum_1']."</b> already exist";
-                //         $xret["error1"] = 3;
-                //     }
-                // }
-                
+                    if(!empty($rs_check)){
+                        $xret["status"] = 0;
+                        $xret["msg"] = "Cannot save. The same order number already exists.";
+                        $xret["error1"] = 3;
+                    }
+                }
+
                 if($xret["status"] == 1){
                     $_POST['trndte_1']  = (empty($_POST['trndte_1'])) ? NULL :  date("Y-m-d", strtotime($_POST['trndte_1']));
                     $_POST['paydate_1']  = (empty($_POST['paydate_1'])) ? NULL :  date("Y-m-d", strtotime($_POST['paydate_1']));
@@ -392,25 +389,22 @@
                 }
 
 
-                // --REMOVED CUS THERE ARE INSTANCES WITH SAME ORDER NUMBER
-                // if(isset($_POST['ordernum_1']) && !empty($_POST['ordernum_1']) && $_POST['ordernum_1'] !=$_POST['ordernum_hidden_val']){
+                // Duplicate ordernum validation for EDIT (exclude current record)
+                $ordernum_input = isset($_POST['ordernum_1']) ? trim((string)$_POST['ordernum_1']) : '';
+                $current_recid = isset($rs_docnum['recid']) ? (int)$rs_docnum['recid'] : 0;
+                if($ordernum_input !== ''){
+                    $select_check = "SELECT recid FROM tranfile1 WHERE TRIM(ordernum) = ? AND recid != ? LIMIT 1";
+                    $stmt_check = $link->prepare($select_check);
+                    $stmt_check->execute(array($ordernum_input, $current_recid));
+                    $rs_check = $stmt_check->fetch();
 
-                //     $select_check="SELECT * FROM tranfile1 WHERE ordernum='".$_POST['ordernum_1']."' AND recid!=".$rs_docnum['recid']."";
-                //     $stmt_check	= $link->prepare($select_check);
-                //     $stmt_check->execute();
-                //     $rs_check = $stmt_check->fetch();
+                    if(!empty($rs_check)){
+                        $xret["status"] = 0;
+                        $xret["msg"] = "Cannot save. The same order number already exists.";
+                        $xret["error1"] = 3;
+                    }
+                }
 
-                //     if(!empty($rs_check)){
-                //         if($xret["error1"] == 1 || $xret["error1"] == 2){
-                //             $xret["msg"].= "</br>";
-                //         }
-                        
-                //         $xret["status"] = 0;
-                //         $xret["msg"] = "Order No. <b>".$_POST['ordernum_1']."</b> already exist";
-                //         $xret["error1"] = 3;
-                //     }
-                // }                
-                
                 if($xret["status"] == 1){
 
                     $xret["msg"] = "edit_exit";
@@ -603,8 +597,25 @@
         }
         
         if($xret["status"] == 1){
-            
+
             if(empty($rs_check)){
+                // Duplicate ordernum validation for INSERT (new tranfile1 record)
+                $ordernum_input_insert = isset($_POST['ordernum_1']) ? trim((string)$_POST['ordernum_1']) : '';
+                if($ordernum_input_insert !== ''){
+                    $select_check_ordernum = "SELECT recid FROM tranfile1 WHERE TRIM(ordernum) = ? LIMIT 1";
+                    $stmt_check_ordernum = $link->prepare($select_check_ordernum);
+                    $stmt_check_ordernum->execute(array($ordernum_input_insert));
+                    $rs_check_ordernum = $stmt_check_ordernum->fetch();
+
+                    if(!empty($rs_check_ordernum)){
+                        $xret["status"] = 0;
+                        $xret["msg"] = "Cannot save. The same order number already exists.";
+                        $xret["error1"] = 3;
+                    }
+                }
+            }
+
+            if($xret["status"] == 1 && empty($rs_check)){
                 $_POST['trndte_1']  = (empty($_POST['trndte_1'])) ? NULL :  date("Y-m-d", strtotime($_POST['trndte_1']));
                 $_POST['paydate_1']  = (empty($_POST['paydate_1'])) ? NULL :  date("Y-m-d", strtotime($_POST['paydate_1']));
                 $_POST['paydate_salesman_1']  = (empty($_POST['paydate_salesman_1'])) ? NULL :  date("Y-m-d", strtotime($_POST['paydate_salesman_1']));
@@ -629,19 +640,22 @@
                 //$arr_record_file1['order_status'] 	= $_POST['order_status_select1'];
                 $arr_record_file1['trncde']     = $trncde;
                 PDO_InsertRecord($link,'tranfile1',$arr_record_file1, false);
-    
+
                 $xret["msg"] = "insert_new";
-            }else{
+            }else if($xret["status"] == 1){
                 $xret["msg"] = "insert_old";
             }
+        }
 
+        // Only insert tranfile2 if validation passed
+        if($xret["status"] == 1){
             $conversion_value = sales_get_item_conversion_value($link, $_POST['itmcde_add_hidden'], $_POST['unmcde_add']);
             $stkqty = (float)$_POST['itmqty_add'];
             if($conversion_value > 0){
                 $stkqty = (float)$_POST['itmqty_add'] * $conversion_value;
             }
             $stkqty = $stkqty * -1;
-    
+
             $arr_record = array();
             $arr_record['docnum'] 	= $_POST['docnum'];
             $arr_record['itmcde'] 	= $_POST['itmcde_add_hidden'];
@@ -668,12 +682,12 @@
                 // $select_order_status2="SELECT * FROM salesorderfile1 WHERE docnum=?";
                 // $stmt_order_status2	= $link->prepare($select_order_status2);
                 // $stmt_order_status2->execute(array($rs_order_status['docnum']));
-                // $rs_order_status2 = $stmt_order_status2->fetch(); 
+                // $rs_order_status2 = $stmt_order_status2->fetch();
 
                 // $sql1 = "UPDATE salesorderfile1 SET order_status='completed' WHERE recid='".$rs_order_status2['recid']."'";
                 // $stmt_upd1 = $link->prepare($sql1);
                 // $stmt_upd1->execute();
-             
+
             }
 
             PDO_InsertRecord($link,'tranfile2',$arr_record, false);
@@ -1156,6 +1170,10 @@
 
 	            if($log_format_number(isset($log_old_record['untprc']) ? $log_old_record['untprc'] : '') !== $log_format_number($_POST['price_edit'])){
 	                $log_change_parts[] = "price per unit from '" . $log_format_number(isset($log_old_record['untprc']) ? $log_old_record['untprc'] : '') . "' to '" . $log_format_number($_POST['price_edit']) . "'";
+	            }
+
+	            if($log_format_number(isset($log_old_record['wholesaleprc']) ? $log_old_record['wholesaleprc'] : '') !== $log_format_number(isset($_POST['wholesaleprc_edit']) ? $_POST['wholesaleprc_edit'] : '')){
+	                $log_change_parts[] = "wholesale price from '" . $log_format_number(isset($log_old_record['wholesaleprc']) ? $log_old_record['wholesaleprc'] : '') . "' to '" . $log_format_number(isset($_POST['wholesaleprc_edit']) ? $_POST['wholesaleprc_edit'] : '') . "'";
 	            }
 
 	            if(trim((string)(isset($log_old_record['warcde']) ? $log_old_record['warcde'] : '')) !== trim((string)$_POST['warcde_edit'])){

@@ -105,11 +105,11 @@ $trncde = "SAL";
                                         </div>
 
                                         <!-- TEMPORARY DEBUG: Preview with SQL Debug button - Remove after fixing rolling sales -->
-                                        <div class="row d-flex justify-content-center align-items-top mt-3" id="debug_btn_wrap">
+                                        <!-- <div class="row d-flex justify-content-center align-items-top mt-3" id="debug_btn_wrap">
                                             <div class="col-12 d-flex justify-content-center">
                                                 <input type="button" id="btn_sql_debug" class="btn btn-warning" value="Preview with SQL Debug (Top 50 Items)" onclick="preview_sql_debug()">
                                             </div>
-                                        </div>
+                                        </div> -->
 
 
                                     </td>

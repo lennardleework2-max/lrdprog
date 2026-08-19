@@ -154,8 +154,27 @@ while($rs_staff = $stmt_staff->fetch()){
     );
 }
 
-$default_warcde = 'WHS-0000001';
-$default_warehouse_floor_id = 'WHFID-0000002';
+$default_warcde = '';
+$default_warehouse_floor_id = '';
+
+$stmt_default_warehouse = $link->prepare("SELECT warcde FROM warehouse WHERE warehouse_name = ? LIMIT 1");
+$stmt_default_warehouse->execute(array('Main Warehouse'));
+$rs_default_warehouse = $stmt_default_warehouse->fetch(PDO::FETCH_ASSOC);
+if($rs_default_warehouse && isset($rs_default_warehouse['warcde']) && trim((string)$rs_default_warehouse['warcde']) !== ''){
+    $default_warcde = trim((string)$rs_default_warehouse['warcde']);
+}
+
+if($default_warcde !== '' && isset($warehouse_floor_map[$default_warcde])){
+    foreach($warehouse_floor_map[$default_warcde] as $default_floor_option){
+        if(
+            isset($default_floor_option['warehouse_floor_id']) &&
+            trim((string)$default_floor_option['warehouse_floor_id']) === 'WHFID-0000001'
+        ){
+            $default_warehouse_floor_id = 'WHFID-0000001';
+            break;
+        }
+    }
+}
 ?>
 <!doctype html>
 <html lang="en" style="height:100%;">
@@ -367,7 +386,7 @@ $default_warehouse_floor_id = 'WHFID-0000002';
                                                 <select name="warcde" id="warcde" class="form-select">
                                                     <option value="">Select Warehouse</option>
                                                     <?php foreach($warehouse_options as $warehouse_option): ?>
-                                                        <option value="<?php echo htmlspecialchars($warehouse_option['warcde'], ENT_QUOTES); ?>"><?php echo htmlspecialchars($warehouse_option['warehouse_name'], ENT_QUOTES); ?></option>
+                                                        <option value="<?php echo htmlspecialchars($warehouse_option['warcde'], ENT_QUOTES); ?>" <?php echo ($default_warcde !== '' && $default_warcde === $warehouse_option['warcde']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($warehouse_option['warehouse_name'], ENT_QUOTES); ?></option>
                                                     <?php endforeach; ?>
                                                 </select>
                                             </div>

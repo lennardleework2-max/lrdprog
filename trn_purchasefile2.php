@@ -456,7 +456,29 @@ $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uo
                                     
                                                     <div class="p-3 col-md-4 col-6 ">
                                                         <label for="" style="font-weight:bold">Order Number:</label>
-                                                        <input type="text" class="form-control" name="ordernum_1" id="ordernum_1" value="<?php echo $ordernum;?>" autocomplete="off">
+                                                        <?php if(!$is_edit_mode): ?>
+                                                        <div class="mb-2">
+                                                            <div class="form-check form-check-inline">
+                                                                <input class="form-check-input" type="radio" name="ordernum_mode" id="ordernum_mode_manual" value="manual" checked onchange="toggleOrderNumMode()">
+                                                                <label class="form-check-label" for="ordernum_mode_manual">Manual</label>
+                                                            </div>
+                                                            <div class="form-check form-check-inline">
+                                                                <input class="form-check-input" type="radio" name="ordernum_mode" id="ordernum_mode_po" value="from_po" onchange="toggleOrderNumMode()">
+                                                                <label class="form-check-label" for="ordernum_mode_po">From PO</label>
+                                                            </div>
+                                                        </div>
+                                                        <div id="ordernum_manual_div">
+                                                            <input type="text" class="form-control" name="ordernum_1" id="ordernum_1" value="<?php echo htmlspecialchars($ordernum, ENT_QUOTES);?>" autocomplete="off">
+                                                        </div>
+                                                        <div id="ordernum_po_div" style="display:none;">
+                                                            <div class="input-group">
+                                                                <input type="text" class="form-control" id="ordernum_po_display" readonly placeholder="Click Search to select">
+                                                                <button class="btn btn-success fw-bold" type="button" onclick="openSearchValidPOModal()">Search</button>
+                                                            </div>
+                                                        </div>
+                                                        <?php else: ?>
+                                                        <input type="text" class="form-control" name="ordernum_1" id="ordernum_1" value="<?php echo htmlspecialchars($ordernum, ENT_QUOTES);?>" autocomplete="off">
+                                                        <?php endif; ?>
                                                     </div>                                       
                                         
                                                     <div class="p-3 col-md-4 col-6 p-md-3 pt-0 p-3">
@@ -806,7 +828,107 @@ $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uo
                     </div>
                     </div>
                 </div>
-            </div>              
+            </div>
+
+            <!-- Modal: Search Valid Purchase Orders -->
+            <div class="modal fade" id="search_valid_po_modal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Search Purchase Orders</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body" style="max-height:70vh;overflow-y:auto;">
+                            <div class="input-group mb-3">
+                                <input type="text" class="form-control" id="search_valid_po_input" placeholder="Enter Order Number to search" autocomplete="off">
+                                <button class="btn btn-success fw-bold" type="button" onclick="searchValidPurchaseOrders()">Search</button>
+                            </div>
+                            <div id="search_valid_po_error" class="mb-2"></div>
+                            <div id="search_valid_po_results">
+                                <p class="text-muted">Enter a search term or click Search to see available purchase orders.</p>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: Create Purchase from PO Confirmation -->
+            <div class="modal fade" id="create_purchase_from_po_modal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Create Purchase from PO</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <label class="fw-bold">Order Number:</label>
+                                    <input type="text" class="form-control" id="po_create_ordernum_display" readonly>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <label class="fw-bold">Supplier:</label>
+                                    <input type="text" class="form-control" id="po_create_supplier_display" readonly>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <label class="fw-bold">Warehouse:<span style="color:red">*</span></label>
+                                    <select name="po_create_warcde" id="po_create_warcde" class="form-select">
+                                        <option value="">Select Warehouse</option>
+                                        <?php foreach($warehouse_options as $warehouse_option): ?>
+                                            <option value="<?php echo htmlspecialchars($warehouse_option['warcde'], ENT_QUOTES); ?>"><?php echo htmlspecialchars($warehouse_option['warehouse_name'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <label class="fw-bold">Warehouse Floor:<span style="color:red">*</span></label>
+                                    <select name="po_create_warehouse_floor_id" id="po_create_warehouse_floor_id" class="form-select">
+                                        <option value="">Select Warehouse Floor</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <label class="fw-bold">Warehouse Staff:</label>
+                                    <select name="po_create_warehouse_staff_id" id="po_create_warehouse_staff_id" class="form-select">
+                                        <option value="">None</option>
+                                        <?php foreach($warehouse_staff_options as $staff_option): ?>
+                                            <option value="<?php echo htmlspecialchars($staff_option['warehouse_staff_id'], ENT_QUOTES); ?>"><?php echo htmlspecialchars($staff_option['staff_name'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <label class="fw-bold">Tran. Date:<span style="color:red">*</span></label>
+                                    <input type="text" class="form-control date_picker" id="po_create_trndte" readonly>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <label class="fw-bold">Remarks:</label>
+                                    <textarea class="form-control" id="po_create_remarks" rows="3"></textarea>
+                                </div>
+                            </div>
+                            <input type="hidden" id="po_create_docnum" value="">
+                            <input type="hidden" id="po_create_suppcde" value="">
+                            <div id="po_create_error" class="mb-2"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" onclick="backToSearchValidPO()">Back</button>
+                            <button type="button" class="btn btn-primary fw-bold" onclick="confirmCreatePurchaseFromPO()">Create Purchase</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <div class="modal fade" id="edit_modal_sales" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog">
@@ -1004,6 +1126,248 @@ $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uo
 
             $select.val(selectedValue);
         }
+
+        // ========== Create Purchase from PO Functions ==========
+
+        var selectedPOForCreate = null;
+
+        function toggleOrderNumMode(){
+            var mode = $("input[name='ordernum_mode']:checked").val();
+            if(mode === "from_po"){
+                $("#ordernum_manual_div").hide();
+                $("#ordernum_po_div").show();
+                // Clear manual order number when switching to PO mode
+                $("#ordernum_1").val("");
+            }else{
+                $("#ordernum_manual_div").show();
+                $("#ordernum_po_div").hide();
+                // Clear PO selection when switching to manual mode
+                $("#ordernum_po_display").val("");
+                selectedPOForCreate = null;
+            }
+        }
+
+        function openSearchValidPOModal(){
+            selectedPOForCreate = null;
+            $("#search_valid_po_input").val("");
+            $("#search_valid_po_error").html("");
+            $("#search_valid_po_results").html("<p class='text-muted'>Enter a search term or click Search to see available purchase orders.</p>");
+            $("#search_valid_po_modal").modal("show");
+        }
+
+        function searchValidPurchaseOrders(){
+            var searchTerm = $.trim($("#search_valid_po_input").val());
+            $("#search_valid_po_error").html("");
+            $("#search_valid_po_results").html("<p class='text-muted'>Searching...</p>");
+
+            $.ajax({
+                data: {
+                    event_action: "search_valid_po",
+                    search_ordernum: searchTerm
+                },
+                dataType: "json",
+                type: "post",
+                url: "trn_purchasefile2_ajax.php",
+                success: function(xdata){
+                    if(xdata.status === 0){
+                        $("#search_valid_po_error").html("<div class='alert alert-danger'>" + xdata.msg + "</div>");
+                        $("#search_valid_po_results").html("");
+                        return;
+                    }
+
+                    var validPOs = xdata.valid_pos || [];
+                    if(validPOs.length === 0){
+                        $("#search_valid_po_results").html("<p class='text-muted'>No available purchase orders found.</p>");
+                        return;
+                    }
+
+                    // Build results table
+                    var html = "<div class='table-responsive'><table class='table table-striped table-hover'>";
+                    html += "<thead><tr>";
+                    html += "<th>Order Number</th>";
+                    html += "<th>Supplier</th>";
+                    html += "<th>Date Ordered</th>";
+                    html += "<th class='text-center'>Action</th>";
+                    html += "</tr></thead><tbody>";
+
+                    for(var i = 0; i < validPOs.length; i++){
+                        var po = validPOs[i];
+                        html += "<tr>";
+                        html += "<td>" + (po.ordernum || "-") + "</td>";
+                        html += "<td>" + (po.suppdsc || "-") + "</td>";
+                        html += "<td>" + (po.trndte || "-") + "</td>";
+                        html += "<td class='text-center'>";
+                        html += "<button type='button' class='btn btn-primary btn-sm fw-bold' onclick='selectValidPurchaseOrder(" + JSON.stringify(po) + ")'>Select</button>";
+                        html += "</td>";
+                        html += "</tr>";
+                    }
+
+                    html += "</tbody></table></div>";
+
+                    // Mobile-friendly view
+                    html += "<div class='d-block d-sm-none'>";
+                    for(var j = 0; j < validPOs.length; j++){
+                        var poMobile = validPOs[j];
+                        html += "<div class='card mb-2'><div class='card-body p-2'>";
+                        html += "<p class='mb-1'><strong>Order Number:</strong> " + (poMobile.ordernum || "-") + "</p>";
+                        html += "<p class='mb-1'><strong>Supplier:</strong> " + (poMobile.suppdsc || "-") + "</p>";
+                        html += "<p class='mb-1'><strong>Date Ordered:</strong> " + (poMobile.trndte || "-") + "</p>";
+                        html += "<button type='button' class='btn btn-primary btn-sm fw-bold w-100 mt-1' onclick='selectValidPurchaseOrder(" + JSON.stringify(poMobile) + ")'>Select</button>";
+                        html += "</div></div>";
+                    }
+                    html += "</div>";
+
+                    $("#search_valid_po_results").html(html);
+
+                    // Hide desktop table on mobile, hide mobile cards on desktop
+                    if($(window).width() < 576){
+                        $("#search_valid_po_results .table-responsive").hide();
+                    }else{
+                        $("#search_valid_po_results .d-block.d-sm-none").hide();
+                    }
+                },
+                error: function(){
+                    $("#search_valid_po_error").html("<div class='alert alert-danger'>An error occurred. Please try again.</div>");
+                    $("#search_valid_po_results").html("");
+                }
+            });
+        }
+
+        function selectValidPurchaseOrder(po){
+            selectedPOForCreate = po;
+
+            // Close search modal
+            $("#search_valid_po_modal").modal("hide");
+
+            // Populate confirmation modal
+            $("#po_create_ordernum_display").val(po.ordernum || "");
+            $("#po_create_supplier_display").val(po.suppdsc || "");
+            $("#po_create_docnum").val(po.docnum || "");
+            $("#po_create_suppcde").val(po.suppcde || "");
+            $("#po_create_warcde").val("");
+            rebuildFloorOptions("po_create_warehouse_floor_id", "", "", false);
+            $("#po_create_warehouse_staff_id").val("");
+
+            // Set trndte to today
+            var today = new Date();
+            var month = String(today.getMonth() + 1).padStart(2, "0");
+            var day = String(today.getDate()).padStart(2, "0");
+            var year = today.getFullYear();
+            $("#po_create_trndte").val(month + "/" + day + "/" + year);
+
+            $("#po_create_remarks").val("");
+            $("#po_create_error").html("");
+
+            // Open confirmation modal
+            $("#create_purchase_from_po_modal").modal("show");
+
+            // Initialize date picker for the trndte field
+            setTimeout(function(){
+                if($.fn.datepicker){
+                    $("#po_create_trndte").datepicker({
+                        dateFormat: "mm/dd/yy",
+                        changeMonth: true,
+                        changeYear: true
+                    });
+                }
+            }, 100);
+        }
+
+        function backToSearchValidPO(){
+            $("#create_purchase_from_po_modal").modal("hide");
+            $("#search_valid_po_modal").modal("show");
+        }
+
+        function confirmCreatePurchaseFromPO(){
+            var poDocnum = $.trim($("#po_create_docnum").val());
+            var warcde = $.trim($("#po_create_warcde").val());
+            var warehouseFloorId = $.trim($("#po_create_warehouse_floor_id").val());
+            var warehouseStaffId = $.trim($("#po_create_warehouse_staff_id").val());
+            var trndte = $.trim($("#po_create_trndte").val());
+            var remarks = $.trim($("#po_create_remarks").val());
+
+            // Validation
+            var errors = [];
+            if(warcde === ""){
+                errors.push("<b>Warehouse</b> is required");
+            }
+            if(warehouseFloorId === ""){
+                errors.push("<b>Warehouse Floor</b> is required");
+            }
+            if(trndte === ""){
+                errors.push("<b>Tran. Date</b> is required");
+            }
+
+            if(errors.length > 0){
+                $("#po_create_error").html("<div class='alert alert-danger'>" + errors.join("<br>") + "</div>");
+                return;
+            }
+
+            // Confirm with user
+            if(!confirm("Are you sure you want to create a purchase from this Purchase Order?")){
+                return;
+            }
+
+            $("#po_create_error").html("<div class='alert alert-info'>Creating purchase...</div>");
+
+            $.ajax({
+                data: {
+                    event_action: "create_purchase_from_po",
+                    po_docnum: poDocnum,
+                    warcde: warcde,
+                    warehouse_floor_id: warehouseFloorId,
+                    warehouse_staff_id: warehouseStaffId,
+                    trndte: trndte,
+                    remarks: remarks
+                },
+                dataType: "json",
+                type: "post",
+                url: "trn_purchasefile2_ajax.php",
+                success: function(xdata){
+                    if(xdata.status === 0){
+                        $("#po_create_error").html("<div class='alert alert-danger'>" + xdata.msg + "</div>");
+                        return;
+                    }
+
+                    // Success - show message and redirect
+                    $("#po_create_error").html("<div class='alert alert-success'>Purchase created successfully! Doc. Num: " + xdata.new_docnum + "</div>");
+
+                    // Update the display and close modals
+                    $("#ordernum_po_display").val(selectedPOForCreate.ordernum || "");
+                    $("#crud_msg_h").val("save_exit");
+
+                    // Redirect to purchases list after a short delay
+                    setTimeout(function(){
+                        $("#create_purchase_from_po_modal").modal("hide");
+                        localStorage.setItem("scroll_check", "Y");
+                        document.forms.myforms.target = "_self";
+                        document.forms.myforms.method = "post";
+                        document.forms.myforms.action = "trn_purchasefile1.php";
+                        document.forms.myforms.submit();
+                    }, 1500);
+                },
+                error: function(){
+                    $("#po_create_error").html("<div class='alert alert-danger'>An error occurred. Please try again.</div>");
+                }
+            });
+        }
+
+        // Bind warehouse change for PO create modal
+        $(document).ready(function(){
+            $("#po_create_warcde").on("change", function(){
+                rebuildFloorOptions("po_create_warehouse_floor_id", $(this).val(), "", false);
+            });
+
+            // Enter key handler for search input
+            $("#search_valid_po_input").on("keypress", function(e){
+                if(e.which === 13 || e.keyCode === 13){
+                    e.preventDefault();
+                    searchValidPurchaseOrders();
+                }
+            });
+        });
+
+        // ========== End Create Purchase from PO Functions ==========
 
         function showPurchaseDetailModalError(mode, messages){
             var selector = mode === "edit" ? ".error_msg_edit_modal" : ".error_msg_add_modal";

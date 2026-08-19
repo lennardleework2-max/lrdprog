@@ -26,6 +26,21 @@ if($warcde !== ''){
 }
 
 $has_valid_warehouse = ($warcde !== '' && $warehouse_name !== '');
+$warehouse_floor_in_use_recids = array();
+
+if($has_valid_warehouse){
+    $select_db_floor_in_use = "SELECT DISTINCT wf.recid
+                               FROM warehouse_floor wf
+                               INNER JOIN tranfile2 tf
+                                   ON tf.warehouse_floor_id = wf.warehouse_floor_id
+                               WHERE wf.warcde = ?";
+    $stmt_floor_in_use = $link->prepare($select_db_floor_in_use);
+    $stmt_floor_in_use->execute(array($warcde));
+
+    while($row_floor_in_use = $stmt_floor_in_use->fetch(PDO::FETCH_ASSOC)){
+        $warehouse_floor_in_use_recids[] = (string)$row_floor_in_use["recid"];
+    }
+}
 ?>
 
     <style>
@@ -110,10 +125,11 @@ $has_valid_warehouse = ($warcde !== '' && $warehouse_name !== '');
                             $table1->show_export = "Y";
                             $table1->show_search = "Y";
 
-                            $table1->alert_del = "N";
+                            $table1->alert_del = "Y";
                             $table1->alert_del_logo_dir = $logo_dir;
                             $table1->alert_del_logo_w = $logo_width;
                             $table1->alert_del_logo_h = $logo_height;
+                            $table1->customize_function_name = "warehouseFloorAction";
 
                             $table1->ua_field1  = "floor_name";
                             $table1->ua_field2  = "warehouse_floor_id";
@@ -146,6 +162,59 @@ $has_valid_warehouse = ($warcde !== '' && $warehouse_name !== '');
 <!-- PAGER JS -->   
 <?php if($has_valid_warehouse): ?>
 <script src="pager/pager_js.class.js"> </script>
+<script>
+    var warehouseFloorInUseRecids = <?php echo json_encode($warehouse_floor_in_use_recids); ?>;
+
+    function warehouseFloorAction(event, recid, custom_param){
+        if(event === "delete" && warehouseFloorInUseRecids.indexOf(String(recid)) !== -1){
+            alert("Cannot delete, warehouse floor in use");
+            return;
+        }
+
+        ajaxFunc(event, recid, custom_param);
+    }
+
+    function applyWarehouseFloorDeleteState(scopeSelector){
+        var scope = document.querySelector(scopeSelector);
+
+        if(!scope){
+            return;
+        }
+
+        warehouseFloorInUseRecids.forEach(function(recid){
+            var deleteMenus = scope.querySelectorAll("[aria-labelledby='dropdownMenuButton1-" + recid + "']");
+
+            deleteMenus.forEach(function(menu){
+                menu.querySelectorAll("li").forEach(function(item){
+                    var itemText = item.textContent || "";
+
+                    if(itemText.indexOf("Delete") !== -1){
+                        item.style.opacity = "0.5";
+                    }
+                });
+            });
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", function(){
+        applyWarehouseFloorDeleteState("#tbody_main");
+        applyWarehouseFloorDeleteState("#tbody_main_mobile");
+
+        ["tbody_main", "tbody_main_mobile"].forEach(function(targetId){
+            var target = document.getElementById(targetId);
+
+            if(!target){
+                return;
+            }
+
+            var observer = new MutationObserver(function(){
+                applyWarehouseFloorDeleteState("#" + targetId);
+            });
+
+            observer.observe(target, { childList: true, subtree: true });
+        });
+    });
+</script>
 <?php endif; ?>
 <?php 
 require "includes/main_footer.php";

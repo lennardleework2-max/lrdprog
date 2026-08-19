@@ -17,14 +17,14 @@
   - Each transfer line now saves as two `tranfile2` rows:
     - one negative `stkqty` row for the source location
     - one positive `stkqty` row for the destination location
-  - Save-time validation checks the selected source warehouse, source floor, item, and transaction date before allowing the transfer quantity.
+  - Save-time validation checks the selected source warehouse floor and item before allowing the transfer quantity.
   - The current-stock display now uses the joined stock-balance query pattern based on:
-    - `tranfile2.warcde`
     - `tranfile2.warehouse_floor_id`
-    - `tranfile1.trndte <= selected transfer date`
+    - `tranfile1.trndte <= today's date`
     - `tranfile2.itmcde`
+  - The stock-transfer header `Tran. Date` is still saved into `tranfile1`, but current-stock display and insufficiency validation now always use today's stock snapshot instead of the selected transfer date.
   - The modal no longer refreshes current stock while typing quantity.
-  - Current stock now refreshes only when the selected item, source warehouse, source floor, or transfer date changes, and the save button still revalidates quantity before insert.
+  - Current stock now refreshes only when the selected item or source floor changes, and the save button still revalidates quantity before insert.
   - The stock-transfer table no longer shows `Warehouse Staff` in the list view.
   - `Warehouse Staff` remains available in the add/edit modals and still saves into both transfer-detail inserts.
   - The `Edit` and `Delete` actions now render with larger spacing for easier use.
@@ -280,6 +280,16 @@ Tracks user activity and audit logs in the system. Keeps only the **last 100 rec
 ### Record Limit
 - System keeps only the **last 100 records**
 - Oldest records are automatically deleted when limit is exceeded
+
+### AJAX CRUD Logging Coverage
+- CRUD logging now uses readable remarks with the logged-in user's `users.userdesc`, correct `docnum`, and module/activity values in `useractivitylogfile`.
+- Transaction AJAX files with CRUD logging:
+  `trn_salesfile2_ajax.php`, `trn_salesorderfile2_ajax.php`, `trn_purchasefile2_ajax.php`, `trn_purchasesorderfile2_ajax.php`, `trn_invadjfile2_ajax.php`, `trn_salesretfile2_ajax.php`.
+- Additional logging coverage:
+  `expensefile2_ajax.php` now logs expense add/edit actions using `expensefile1.docnum`.
+- Unit of Measure CRUD logging is handled in the shared `pager/pager_ajax.class.php` flow used by `mf_uom.php`, with `itemunitmeasurefile.unmcde` as `docnum` and `itemunitmeasurefile.unmdsc` in readable remarks.
+- Edit remarks log only fields that actually changed using old -> new wording.
+- `PDO_UserActivityLog()` continues to keep only the latest 100 records globally after each insert.
 
 ### Files Modified
 

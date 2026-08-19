@@ -182,27 +182,41 @@ if (!$is_tab_export) {
     $xtop = $detail_start_top;
 }
 
+$latest_cost_join = "LEFT JOIN (
+    SELECT latest_cost_rows.itmcde, latest_cost_rows.untprc AS latest_cost
+    FROM (
+        SELECT pur_tranfile2.itmcde, pur_tranfile2.untprc, pur_tranfile1.trndte, pur_tranfile2.recid
+        FROM tranfile2 pur_tranfile2
+        INNER JOIN tranfile1 pur_tranfile1 ON pur_tranfile2.docnum = pur_tranfile1.docnum
+        INNER JOIN (
+            SELECT pur_base.itmcde,
+                   MAX(CONCAT(DATE_FORMAT(pur_head.trndte, '%Y%m%d'), LPAD(pur_base.recid, 12, '0'))) AS latest_key
+            FROM tranfile2 pur_base
+            INNER JOIN tranfile1 pur_head ON pur_base.docnum = pur_head.docnum
+            WHERE pur_head.trncde = 'PUR'
+              AND pur_head.trndte <= '" . $date_to_sql . "'" . ($pcs_unmcde !== '' ? "
+              AND pur_base.unmcde = '" . $pcs_unmcde . "'" : "") . "
+            GROUP BY pur_base.itmcde
+        ) latest_cost_keys
+            ON latest_cost_keys.itmcde = pur_tranfile2.itmcde
+           AND latest_cost_keys.latest_key = CONCAT(DATE_FORMAT(pur_tranfile1.trndte, '%Y%m%d'), LPAD(pur_tranfile2.recid, 12, '0'))
+        WHERE pur_tranfile1.trncde = 'PUR'
+          AND pur_tranfile1.trndte <= '" . $date_to_sql . "'" . ($pcs_unmcde !== '' ? "
+          AND pur_tranfile2.unmcde = '" . $pcs_unmcde . "'" : "") . "
+    ) latest_cost_rows
+) latest_cost_data ON itemfile.itmcde = latest_cost_data.itmcde";
+
 $select_db_base = "SELECT
     itemfile.itmcde,
     itemfile.itmdsc,
-    COALESCE(platform_sales.tiktok_qty, 0) AS tiktok_qty,
-    COALESCE(platform_sales.lazada_qty, 0) AS lazada_qty,
-    COALESCE(platform_sales.shopee_qty, 0) AS shopee_qty,
-    COALESCE(platform_sales.ryu_qty, 0) AS ryu_qty,
-    COALESCE(all_sales.sold_qty_30, 0) AS sold_qty_30,
-    COALESCE(total_stock.current_total_stock, 0) AS current_total_stock,
-    COALESCE(current_stock.current_stock, 0) AS current_stock,
-    COALESCE((
-        SELECT pur_tranfile2.untprc
-        FROM tranfile2 pur_tranfile2
-        INNER JOIN tranfile1 pur_tranfile1 ON pur_tranfile2.docnum = pur_tranfile1.docnum
-        WHERE pur_tranfile2.itmcde = itemfile.itmcde
-          AND pur_tranfile1.trncde = 'PUR'
-          AND pur_tranfile1.trndte <= '" . $date_to_sql . "'" . ($pcs_unmcde !== '' ? "
-          AND pur_tranfile2.unmcde = '" . $pcs_unmcde . "'" : "") . "
-        ORDER BY pur_tranfile1.trndte DESC, pur_tranfile2.recid DESC
-        LIMIT 1
-    ), 0) AS latest_cost
+    COALESCE(sales_30.tiktok_qty, 0) AS tiktok_qty,
+    COALESCE(sales_30.lazada_qty, 0) AS lazada_qty,
+    COALESCE(sales_30.shopee_qty, 0) AS shopee_qty,
+    COALESCE(sales_30.ryu_qty, 0) AS ryu_qty,
+    COALESCE(sales_30.sold_qty_30, 0) AS sold_qty_30,
+    COALESCE(stock_totals.current_total_stock, 0) AS current_total_stock,
+    COALESCE(stock_totals.current_stock, 0) AS current_stock,
+    COALESCE(latest_cost_data.latest_cost, 0) AS latest_cost
 FROM itemfile
 LEFT JOIN (
     SELECT
@@ -210,45 +224,27 @@ LEFT JOIN (
         SUM(CASE WHEN UPPER(customerfile.cusdsc) = 'TIKTOK' THEN sale_tranfile2.stkqty * -1 ELSE 0 END) AS tiktok_qty,
         SUM(CASE WHEN UPPER(customerfile.cusdsc) = 'LAZADA' THEN sale_tranfile2.stkqty * -1 ELSE 0 END) AS lazada_qty,
         SUM(CASE WHEN UPPER(customerfile.cusdsc) = 'SHOPEE' THEN sale_tranfile2.stkqty * -1 ELSE 0 END) AS shopee_qty,
-        SUM(CASE WHEN UPPER(customerfile.cusdsc) = 'RYU' THEN sale_tranfile2.stkqty * -1 ELSE 0 END) AS ryu_qty
+        SUM(CASE WHEN UPPER(customerfile.cusdsc) = 'RYU' THEN sale_tranfile2.stkqty * -1 ELSE 0 END) AS ryu_qty,
+        SUM(sale_tranfile2.stkqty * -1) AS sold_qty_30
     FROM tranfile1 sale_tranfile1
     INNER JOIN tranfile2 sale_tranfile2 ON sale_tranfile1.docnum = sale_tranfile2.docnum
     INNER JOIN customerfile ON sale_tranfile1.cuscde = customerfile.cuscde
     WHERE sale_tranfile1.trncde = 'SAL'
       AND sale_tranfile1.trndte >= '" . $window_start_sql . "'
       AND sale_tranfile1.trndte <= '" . $date_to_sql . "'
-      AND UPPER(customerfile.cusdsc) IN ('TIKTOK', 'LAZADA', 'SHOPEE', 'RYU')
     GROUP BY sale_tranfile2.itmcde
-) platform_sales ON itemfile.itmcde = platform_sales.itmcde
-LEFT JOIN (
-    SELECT
-        ratio_tranfile2.itmcde,
-        SUM(ratio_tranfile2.stkqty * -1) AS sold_qty_30
-    FROM tranfile1 ratio_tranfile1
-    INNER JOIN tranfile2 ratio_tranfile2 ON ratio_tranfile1.docnum = ratio_tranfile2.docnum
-    WHERE ratio_tranfile1.trncde = 'SAL'
-      AND ratio_tranfile1.trndte >= '" . $window_start_sql . "'
-      AND ratio_tranfile1.trndte <= '" . $date_to_sql . "'
-    GROUP BY ratio_tranfile2.itmcde
-) all_sales ON itemfile.itmcde = all_sales.itmcde
-LEFT JOIN (
-    SELECT
-        all_stock_tranfile2.itmcde,
-        SUM(all_stock_tranfile2.stkqty) AS current_total_stock
-    FROM tranfile1 all_stock_tranfile1
-    LEFT JOIN tranfile2 all_stock_tranfile2 ON all_stock_tranfile1.docnum = all_stock_tranfile2.docnum
-    WHERE all_stock_tranfile2.itmcde IS NOT NULL
-    GROUP BY all_stock_tranfile2.itmcde
-) total_stock ON itemfile.itmcde = total_stock.itmcde
+) sales_30 ON itemfile.itmcde = sales_30.itmcde
 LEFT JOIN (
     SELECT
         stock_tranfile2.itmcde,
-        SUM(stock_tranfile2.stkqty) AS current_stock
-    FROM tranfile1 stock_tranfile1
-    INNER JOIN tranfile2 stock_tranfile2 ON stock_tranfile1.docnum = stock_tranfile2.docnum
-    WHERE stock_tranfile1.trndte <= '" . $date_to_sql . "'
+        SUM(stock_tranfile2.stkqty) AS current_total_stock,
+        SUM(CASE WHEN stock_tranfile1.trndte <= '" . $date_to_sql . "' THEN stock_tranfile2.stkqty ELSE 0 END) AS current_stock
+    FROM tranfile2 stock_tranfile2
+    LEFT JOIN tranfile1 stock_tranfile1 ON stock_tranfile2.docnum = stock_tranfile1.docnum
+    WHERE stock_tranfile2.itmcde IS NOT NULL
     GROUP BY stock_tranfile2.itmcde
-) current_stock ON itemfile.itmcde = current_stock.itmcde";
+) stock_totals ON itemfile.itmcde = stock_totals.itmcde
+" . $latest_cost_join;
 
 $select_db = "SELECT
     base.itmcde,
