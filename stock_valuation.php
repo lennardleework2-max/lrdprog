@@ -2,6 +2,14 @@
 require "includes/main_header.php";
 // $trncde = "SAL";
 ?>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <style>
+        #ui-datepicker-div {
+            z-index: 2000 !important;
+        }
+    </style>
     <form name='myforms' id="myforms" method="post" target="_self" style="height:calc(100vh - 85px)"> 
         <table class='big_table'> 
             <tr colspan=1>
@@ -37,17 +45,17 @@ require "includes/main_header.php";
                                         <div class="w-100 h-100 d-flex justify-content-center align-items-top">
                                             <div class="m-2" style='width:80%'>
                                                 <label for="">Item:</label>
-                                                <select class="form-select" id="item" name="item" autocomplete="off">
+                                                <select class="form-select" id="item" name="item" autocomplete="off" style="width:100%">
 
                                                     <?php
                                                         $select_db_itemfile="SELECT * FROM itemfile ORDER BY itmdsc";
                                                         $stmt_itemfile	= $link->prepare($select_db_itemfile);
                                                         $stmt_itemfile->execute();
 
-                                                            echo "<option></option>";
+                                                            echo "<option value=\"\">-- Select Item --</option>";
                                                         while($rs_itemfile = $stmt_itemfile->fetch()){
 
-                                                            echo "<option value=".$rs_itemfile['itmcde'].">".$rs_itemfile['itmdsc']."</option>";
+                                                            echo "<option value=\"".$rs_itemfile['itmcde']."\">".$rs_itemfile['itmdsc']."</option>";
                                                         }
                                                     ?>
                                                 </select>
@@ -56,12 +64,12 @@ require "includes/main_header.php";
                                     </td>
                                 </tr>
 
-                                <!--tr>
+                                <tr>
                                     <td colspan="2">
                                     <div class="w-100 d-flex justify-content-center" id="item_total">
                                     </div>
                                     </td>
-                                </tr-->
+                                </tr>
                                 <!--tr style='height:20%'>
 
                                     <td colspan="2">
@@ -89,7 +97,7 @@ require "includes/main_header.php";
                                             </div>
                                             
                                             <div class="col-4 d-flex justify-content-center">
-                                                <input type="button" name="flexRadioDefault" id="flexRadioDefault1"  class="btn btn-primary" value="Export to TXT" onclick="exp_txt()">
+                                                <input type="button" name="flexRadioDefault" id="flexRadioDefault1"  class="btn btn-primary" value="Export to XLS" onclick="exp_txt()">
                                             </div>
                                         </div>
 
@@ -120,21 +128,9 @@ require "includes/main_header.php";
             $("#item").change(function(){
                 var end = this.value;
                 if(end == ""){
-
-                    // $("#item_total").html("");
-
-                    // $(".btns_item").html(`
-                    // <div class='col-4'>\
-                    //     <input type='button' name='flexRadioDefault' id='flexRadioDefault1' class='btn btn-primary' value='Export to PDF' onclick='exp_pdf()'>\
-                    // </div>\
-                    
-                    // <div class='col-4'>\
-                    //     <input type='button' name='flexRadioDefault' id='flexRadioDefault1'  class='btn btn-primary' value='Export to TXT' onclick='exp_txt()'>\
-                    // </div>
-                        
-                    // `);
+                    $("#item_total").html("");
+                    $(".btns_item").html("");
                 }else{
-
                     $(".btns_item").html(`<div class='col-8 d-flex justify-content-center'>\
                     <input type='button' name='flexRadioDefault' id='flexRadioDefault1'  class='btn btn-primary' value='Display Balance' onclick='get_balance()'>\
                     </div>`); 
@@ -146,11 +142,13 @@ require "includes/main_header.php";
             function get_balance(){
                 var date_filter = $("#date_search").val();
                     var item_filter = $("#item").val();
-                    xdata = "date_search="+date_filter+"&item="+item_filter;
 
                     jQuery.ajax({    
 
-                        data:xdata,
+                        data:{
+                            date_search: date_filter,
+                            item: item_filter
+                        },
                         dataType:"json",
                         type:"post",
                         url:"inventory_balance_ajax.php", 
@@ -195,10 +193,16 @@ require "includes/main_header.php";
 
                     var output = (month<10 ? '0' : '') + month + '/' + (day<10 ? '0' : '') + day + '/' +  d.getFullYear();
                     $('#date_search').val(output);
+
+                    $('#item').select2({
+                        theme: 'bootstrap-5',
+                        placeholder: '-- Select Item --',
+                        allowClear: true,
+                        width: '100%'
+                    });
             });
     </script>
 
 <?php 
 require "includes/main_footer.php";
 ?>
-

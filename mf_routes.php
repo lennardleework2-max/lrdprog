@@ -204,7 +204,7 @@ require "pager/pager_main.class.php";
 
                             //alert
 
-                            $table1->alert_del = "N";
+                            $table1->alert_del = "Y";
 
                             $table1->alert_del_logo_dir = $logo_dir;
 

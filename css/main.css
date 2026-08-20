@@ -87,7 +87,7 @@ tr{height:auto;}
 }        
 
 @media screen and (min-width: 320px) {
-    #search_input{width:50%}
+    #search_input{width:75%}
     #search_dd{width:50%!important}
 }
 

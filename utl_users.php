@@ -401,8 +401,12 @@ require "includes/main_header.php";
 
             switch(event) {
                 case "delete":
-                    var xdata = "event_action=delete&recid="+recid;
-                    break;
+                if (!confirm("Are you sure you want to delete this user?")) {
+                    return false;
+                }
+
+                var xdata = "event_action=delete&recid=" + recid;
+                break;
                 case "insert":
                     var xdata = $("#insertModal *").serialize()+"&event_action=insert";
                     break;

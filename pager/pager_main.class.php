@@ -641,6 +641,7 @@ Class pager extends db_init{
 
         //for user acces counting crud
         echo "<input type='hidden' name='crud_count' id='crud_count' value='".$value_crud_count."'>";
+        echo "<input type='hidden' name='view_crud_hidden' id='view_crud_hidden' value='".$this->view_crud."'>";
         //check if search is in use
         echo "<input type='hidden' name='show_search' id='show_search' value='".$this->show_search."'>";
 
@@ -718,17 +719,17 @@ Class pager extends db_init{
 
             $btn_header_esc = htmlspecialchars($btn_header, ENT_QUOTES, 'UTF-8');
             $btn_color_esc = htmlspecialchars($btn_color, ENT_QUOTES, 'UTF-8');
-            $btn_logo_esc = htmlspecialchars($btn_logo, ENT_QUOTES, 'UTF-8');
-            $btn_function_esc = htmlspecialchars($btn_function, ENT_QUOTES, 'UTF-8');
+            $btn_logo_attr = str_replace('"', "'", trim((string)$btn_logo));
+            $btn_function_attr = htmlspecialchars((string)$btn_function, ENT_COMPAT, 'UTF-8');
 
             echo "<input 
-                   type='hidden' 
-                   name='".$btn_header_esc."_btn' 
-                   id='".$btn_header_esc."_btn' 
-                   btn-header='".$btn_header_esc."' 
-                   btn-color='".$btn_color_esc."'
-                   btn-logo='".$btn_logo_esc."'
-                   btn-function='".$btn_function_esc."'
+                   type=\"hidden\" 
+                   name=\"".$btn_header_esc."_btn\" 
+                   id=\"".$btn_header_esc."_btn\" 
+                   btn-header=\"".$btn_header_esc."\" 
+                   btn-color=\"".$btn_color_esc."\"
+                   btn-logo=\"".$btn_logo_attr."\"
+                   btn-function=\"".$btn_function_attr."\"
                 >";
         }
         echo "<div>";
@@ -771,6 +772,9 @@ Class pager extends db_init{
 
                             $data_type = array();
                             $maxlength = '';
+                            $num_scale = null;
+                            $num_pres = null;
+                            $step_limit = null;
 
                             if(isset($_SESSION['db_dbname'])){
                                 $db_check = $_SESSION['db_dbname'];
@@ -984,6 +988,18 @@ Class pager extends db_init{
                                     $field_numlimit_crud = $this->field_numlimit_crud[$field_name_crud_key];   
                                 }else{
                                     $field_numlimit_crud = '';
+                                }
+
+                                if($num_pres === null || $num_pres === ''){
+                                    if($field_numlimit_crud !== ''){
+                                        $num_pres = (int)$field_numlimit_crud;
+                                    }else{
+                                        $num_pres = 18;
+                                    }
+                                }
+
+                                if($num_scale === null || $num_scale === ''){
+                                    $num_scale = -1;
                                 }
                                 
                                 echo "<div class='row m-3' id='crudModal_values'>";

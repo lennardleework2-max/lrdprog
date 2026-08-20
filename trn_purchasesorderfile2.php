@@ -11,9 +11,11 @@ require "includes/main_header.php";
 //     $password   = $rs_salesfile1['password'];
 //     // loop here
 // }
-
+$header_usercode = '';
+$is_edit_mode = false;
 
 if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
+    $is_edit_mode = true;
 
 
 
@@ -70,6 +72,7 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
         $po_qr_id  = $rs_docnum1['po_qr_id'];
         $ordernum  = $rs_docnum1['ordernum'];
         $remarks  = $rs_docnum1['remarks'];
+        $header_usercode = isset($rs_docnum1['usercode']) ? trim((string)$rs_docnum1['usercode']) : '';
 
     }
 }else{
@@ -103,10 +106,15 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
     $ordernum = '';
     $po_qr_id  = '';
 
-    $select_db_purchasesdf="SELECT * FROM default_purchases WHERE is_selected='1' LIMIT 1";
-    $stmt_purchasesdf	= $link->prepare($select_db_purchasesdf);
-    $stmt_purchasesdf->execute();
-    $rs_purchasesdf = $stmt_purchasesdf->fetch();
+    $rs_purchasesdf = false;
+    try{
+        $select_db_purchasesdf="SELECT * FROM default_purchases WHERE is_selected='1' LIMIT 1";
+        $stmt_purchasesdf	= $link->prepare($select_db_purchasesdf);
+        $stmt_purchasesdf->execute();
+        $rs_purchasesdf = $stmt_purchasesdf->fetch();
+    }catch(PDOException $e){
+        $rs_purchasesdf = false;
+    }
 
     if(!empty($rs_purchasesdf)){
         if(!empty($rs_purchasesdf['shipto_default'])){
@@ -120,7 +128,66 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
 
 }
 
+$session_usercode = '';
+if(isset($_SESSION['usercode']) && trim((string)$_SESSION['usercode']) !== ''){
+    $session_usercode = trim((string)$_SESSION['usercode']);
+}else if(isset($_POST["usercode_hidden"]) && trim((string)$_POST["usercode_hidden"]) !== ''){
+    $session_usercode = trim((string)$_POST["usercode_hidden"]);
+}
 
+$display_usercode = $is_edit_mode ? $header_usercode : $session_usercode;
+$display_userdesc = '';
+if($display_usercode !== ''){
+    $select_user = "SELECT userdesc FROM users WHERE usercode = ? LIMIT 1";
+    $stmt_user = $link->prepare($select_user);
+    $stmt_user->execute(array($display_usercode));
+    $rs_user = $stmt_user->fetch();
+    if(!empty($rs_user) && isset($rs_user['userdesc'])){
+        $display_userdesc = $rs_user['userdesc'];
+    }
+}
+
+// Fetch all Unit of Measure options
+$uom_options = array();
+$stmt_uom = $link->prepare("SELECT unmcde, unmdsc FROM itemunitmeasurefile ORDER BY unmdsc ASC");
+$stmt_uom->execute();
+while($rs_uom = $stmt_uom->fetch()){
+    $uom_options[] = array(
+        'unmcde' => $rs_uom['unmcde'],
+        'unmdsc' => $rs_uom['unmdsc']
+    );
+}
+$default_uom_code = '';
+$default_uom_desc = '';
+$ordered_uom_options = array();
+foreach($uom_options as $uom_option){
+    $uom_code = trim((string)$uom_option['unmcde']);
+    $uom_desc = strtolower(trim((string)$uom_option['unmdsc']));
+    if($default_uom_code === '' && ($uom_desc === 'pcs' || strtolower($uom_code) === 'pcs')){
+        $default_uom_code = $uom_code;
+        $default_uom_desc = trim((string)$uom_option['unmdsc']);
+        array_unshift($ordered_uom_options, $uom_option);
+        continue;
+    }
+
+    $ordered_uom_options[] = $uom_option;
+}
+
+if($default_uom_desc === '' && !empty($ordered_uom_options)){
+    $default_uom_desc = trim((string)$ordered_uom_options[0]['unmdsc']);
+}
+
+$base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uom_desc;
+
+$existing_ordernum_records = array();
+$stmt_existing_ordernums = $link->prepare("SELECT docnum, ordernum FROM purchasesorderfile1 WHERE ordernum IS NOT NULL AND TRIM(ordernum) <> ''");
+$stmt_existing_ordernums->execute();
+while($rs_existing_ordernum = $stmt_existing_ordernums->fetch()){
+    $existing_ordernum_records[] = array(
+        'docnum' => isset($rs_existing_ordernum['docnum']) ? trim((string)$rs_existing_ordernum['docnum']) : '',
+        'ordernum' => isset($rs_existing_ordernum['ordernum']) ? trim((string)$rs_existing_ordernum['ordernum']) : '',
+    );
+}
 
 ?>
 
@@ -379,6 +446,18 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                                         </td>                                  
                                     </tr>
 
+                                    <tr class="m-1 edit_row salesfile1" style="border-bottom:3px solid #cccccc ">
+                                        <td colspan="3">
+                                            <div class="m-3" style="max-width:33.333333%;min-width:260px;">
+                                                <div>
+                                                    <label for="userdesc_display" style="font-weight:bold">User:</label>
+                                                    <input type="text" class="form-control" name="userdesc_display" id="userdesc_display" value="<?php echo htmlspecialchars($display_userdesc, ENT_QUOTES); ?>" readonly>
+                                                    <input type="hidden" name="usercode_1" id="usercode_1" value="<?php echo htmlspecialchars($display_usercode, ENT_QUOTES); ?>">
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+
                                     <tr>
                                         <td colspan="3">
                                             <span class="error_msg_span" id="error_msg_span">
@@ -491,6 +570,21 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
 
                             <div class="row m-3">
                                 <div class="col-12">
+                                    <label for="">Unit of Measure</label>
+                                    <select name="unmcde_add" id="unmcde_add" class="form-select" disabled>
+                                        <?php if($default_uom_code === ''): ?>
+                                            <option value="">Select Unit of Measure</option>
+                                        <?php endif; ?>
+                                        <?php foreach($ordered_uom_options as $uom_option): ?>
+                                            <option value="<?php echo htmlspecialchars($uom_option['unmcde'], ENT_QUOTES); ?>" data-default-label="<?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?>" <?php echo ($default_uom_code !== '' && $uom_option['unmcde'] === $default_uom_code) ? 'selected' : ''; ?>><?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <input type="hidden" name="untmea_add" id="untmea_add" value="<?php echo htmlspecialchars($default_uom_desc, ENT_QUOTES); ?>">
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
                                     <label for="">Price</label>
                                     <input type="text" name="price_add" id="price_add" class="form-control" autocomplete="off" oninput="calcTotal('add')">
                                 </div>
@@ -542,6 +636,21 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                                 <div class="col-12">
                                     <label for="">Quantity</label>
                                     <input type="text" name="itmqty_edit" id="itmqty_edit" class="form-control" autocomplete="off" oninput="calcTotal('edit')">
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="">Unit of Measure</label>
+                                    <select name="unmcde_edit" id="unmcde_edit" class="form-select" disabled>
+                                        <?php if($default_uom_code === ''): ?>
+                                            <option value="">Select Unit of Measure</option>
+                                        <?php endif; ?>
+                                        <?php foreach($ordered_uom_options as $uom_option): ?>
+                                            <option value="<?php echo htmlspecialchars($uom_option['unmcde'], ENT_QUOTES); ?>" data-default-label="<?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?>" <?php echo ($default_uom_code !== '' && $uom_option['unmcde'] === $default_uom_code) ? 'selected' : ''; ?>><?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <input type="hidden" name="untmea_edit" id="untmea_edit" value="<?php echo htmlspecialchars($default_uom_desc, ENT_QUOTES); ?>">
                                 </div>
                             </div>
 
@@ -607,6 +716,8 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
             </div>     
             
             <input type="hidden" name="xevent_itmsearch_hidden" id="xevent_itmsearch_hidden">            
+            <input type="hidden" name="base_item_price_add_hidden" id="base_item_price_add_hidden">
+            <input type="hidden" name="base_item_price_edit_hidden" id="base_item_price_edit_hidden">
 
             <input type='hidden' name='txt_pager_totalrec' id='txt_pager_totalrec'  value="<?php if(isset($_POST['txt_pager_totalrec'])){echo $_POST['txt_pager_totalrec'];}?>">
             <input type='hidden' name='txt_pager_maxpage' id='txt_pager_maxpage'  value="<?php if(isset($_POST['txt_pager_maxpage'])){echo $_POST['txt_pager_maxpage'];}?>" >
@@ -634,6 +745,117 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
         <script>
 
         var trncde = $("#trncde_hidden").val();
+        var defaultUomCode = <?php echo json_encode($default_uom_code); ?>;
+        var defaultUomDesc = <?php echo json_encode($default_uom_desc); ?>;
+        var baseUomDisplay = <?php echo json_encode($base_uom_display); ?>;
+        var purchasesOrderMatchedPurDocnums = [];
+        var existingOrdernumRecords = <?php echo json_encode($existing_ordernum_records); ?>;
+
+        function normalizeOrdernumForValidation(value) {
+            return $.trim((value || "").toString()).toLowerCase();
+        }
+
+        function validateUniqueOrdernum() {
+            var currentDocnum = $.trim($("#docnum_hidden").val() || "");
+            var currentOrdernum = $.trim($("#ordernum_1").val() || "");
+
+            if (currentOrdernum === "") {
+                return true;
+            }
+
+            var normalizedCurrentOrdernum = normalizeOrdernumForValidation(currentOrdernum);
+
+            for (var i = 0; i < existingOrdernumRecords.length; i++) {
+                var record = existingOrdernumRecords[i] || {};
+                var recordDocnum = $.trim(record.docnum || "");
+                var recordOrdernum = normalizeOrdernumForValidation(record.ordernum || "");
+
+                if (recordOrdernum === "") {
+                    continue;
+                }
+
+                if (recordOrdernum === normalizedCurrentOrdernum && recordDocnum !== currentDocnum) {
+                    var escapedOrdernum = $("<div>").text(currentOrdernum).html();
+                    var escapedDocnum = $("<div>").text(recordDocnum).html();
+                    $("#alert_modal_body_system").html("same ordernum: " + escapedOrdernum + " matches with docnum " + escapedDocnum);
+                    $("#alert_modal_system").modal("show");
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        function getUniqueMatchedDocnums(docnums){
+            var uniqueDocnums = [];
+
+            for(var i = 0; i < docnums.length; i++){
+                if(uniqueDocnums.indexOf(docnums[i]) === -1){
+                    uniqueDocnums.push(docnums[i]);
+                }
+            }
+
+            return uniqueDocnums;
+        }
+
+        function extractMatchedDocnums(rawText, prefix){
+            var safeText = rawText || "";
+            var regex = new RegExp("\\b" + prefix + "-[A-Z0-9]+\\b", "g");
+            var matches = safeText.match(regex) || [];
+
+            return getUniqueMatchedDocnums(matches);
+        }
+
+        function getCurrentPurchasesOrderDocnum(){
+            return $.trim($("#docnum_hidden").val() || $("#docnum_1").val() || "");
+        }
+
+        function buildMatchedAlertMessage(porDocnum, purDocnums){
+            if(purDocnums.length === 0){
+                return "";
+            }
+
+            var porLabel = porDocnum || "This purchases order";
+            return "Cannot edit or delete as " + porLabel + " is already matched with " + purDocnums.join(", ");
+        }
+
+        function syncPurchasesOrderHeaderLock(){
+            var hasValidPurMatch = purchasesOrderMatchedPurDocnums.length > 0;
+            $("#cusname_1").prop("disabled", hasValidPurMatch);
+            $("#trndte_1").prop("disabled", hasValidPurMatch);
+        }
+
+        function enablePurchasesOrderActionDropdown($button){
+            $button.removeAttr("onclick");
+            $button.removeAttr("style");
+            $button.attr("data-bs-toggle", "dropdown");
+            $button.attr("aria-expanded", "false");
+
+            if(!$button.hasClass("dropdown-toggle")){
+                $button.addClass("dropdown-toggle");
+            }
+        }
+
+        function refreshPurchasesOrderMatchedActions(){
+            purchasesOrderMatchedPurDocnums = [];
+
+            $("#tbody_main button[onclick*='matched_alert'], #tbody_main_mobile button[onclick*='matched_alert']").each(function(){
+                var $button = $(this);
+                var inlineHandler = $button.attr("onclick") || "";
+                var purDocnums = extractMatchedDocnums(inlineHandler, "PUR");
+
+                if(purDocnums.length === 0){
+                    enablePurchasesOrderActionDropdown($button);
+                    return;
+                }
+
+                purchasesOrderMatchedPurDocnums = getUniqueMatchedDocnums(
+                    purchasesOrderMatchedPurDocnums.concat(purDocnums)
+                );
+            });
+
+            syncPurchasesOrderHeaderLock();
+        }
 
         $(document).ready(function(){
 
@@ -654,6 +876,7 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                      
                         $("#tbody_main").html(xdata["html"]);
                         $("#tbody_main_mobile").html(xdata["html_mobile"]);
+                        refreshPurchasesOrderMatchedActions();
                     }
 
             })
@@ -684,6 +907,311 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
             }
             
         }
+
+        function formatUomConversionValue(conversion){
+            var numericConversion = Number(conversion);
+
+            if(!isFinite(numericConversion)){
+                return "";
+            }
+
+            return numericConversion.toString();
+        }
+
+        function parseNumericInput(value){
+            if(value === null || typeof value === "undefined"){
+                return null;
+            }
+
+            if(typeof value === "number"){
+                return isFinite(value) ? value : null;
+            }
+
+            var normalizedValue = value.toString().replaceAll(",", "").trim();
+            if(normalizedValue === ""){
+                return null;
+            }
+
+            var numericValue = Number(normalizedValue);
+            return isFinite(numericValue) ? numericValue : null;
+        }
+
+        function formatPriceInputValue(value){
+            var numericValue = parseNumericInput(value);
+
+            if(numericValue === null){
+                return "";
+            }
+
+            return numericValue.toFixed(2);
+        }
+
+        function buildItemUomMap(uomLabels){
+            var uomMap = {};
+
+            if(!uomLabels){
+                return uomMap;
+            }
+
+            for(var unmcde in uomLabels){
+                if(Object.prototype.hasOwnProperty.call(uomLabels, unmcde)){
+                    uomMap[unmcde] = {
+                        conversion: parseNumericInput(uomLabels[unmcde].conversion)
+                    };
+                }
+            }
+
+            return uomMap;
+        }
+
+        function resetUomOptionLabels(selectSelector){
+            $(selectSelector).find("option").each(function(){
+                var defaultLabel = $(this).data("default-label");
+                if(typeof defaultLabel !== "undefined"){
+                    $(this).text(defaultLabel);
+                }
+                $(this).show();
+            });
+        }
+
+        function syncUntmeaField(selectSelector, hiddenSelector){
+            var selectedText = $(selectSelector).find("option:selected").data("default-label");
+            $(hiddenSelector).val(typeof selectedText !== "undefined" ? selectedText : "");
+        }
+
+        function setInitialUomDropdownState(selectSelector, hiddenSelector){
+            var $select = $(selectSelector);
+
+            $select.data("current-itmcde", "");
+            $select.data("uom-map", {});
+            resetUomOptionLabels(selectSelector);
+            $select.find("option").show();
+            $select.val(defaultUomCode || "");
+            $select.prop("disabled", true);
+            syncUntmeaField(selectSelector, hiddenSelector);
+        }
+
+        function applyItemUomLabels(selectSelector, uomLabels, filterByItem){
+            resetUomOptionLabels(selectSelector);
+
+            $(selectSelector).find("option").each(function(){
+                var optionValue = $(this).val();
+                var defaultLabel = $(this).data("default-label");
+
+                if(typeof defaultLabel === "undefined" || optionValue === ""){
+                    return;
+                }
+
+                // If filtering by item, hide options not in uomLabels (but always show pcs)
+                if(filterByItem){
+                    if(optionValue === defaultUomCode){
+                        $(this).show();
+                    } else if(!uomLabels || !uomLabels[optionValue]){
+                        $(this).hide();
+                        return;
+                    } else {
+                        $(this).show();
+                    }
+                }
+
+                if(
+                    uomLabels &&
+                    uomLabels[optionValue] &&
+                    uomLabels[optionValue].conversion !== null &&
+                    uomLabels[optionValue].conversion !== ""
+                ){
+                    var formattedConversion = formatUomConversionValue(uomLabels[optionValue].conversion);
+                    if(formattedConversion !== ""){
+                        $(this).text(defaultLabel + " (" + formattedConversion + " " + baseUomDisplay + ")");
+                    }
+                }
+            });
+        }
+
+        function getUomCodeFromUntmea(selectSelector, untmea){
+            var matchedCode = "";
+            var normalizedUntmea = $.trim(untmea || "").toLowerCase();
+
+            if(normalizedUntmea === ""){
+                return matchedCode;
+            }
+
+            $(selectSelector).find("option").each(function(){
+                var defaultLabel = $.trim($(this).data("default-label") || "").toLowerCase();
+                if(defaultLabel !== "" && defaultLabel === normalizedUntmea){
+                    matchedCode = $(this).val();
+                    return false;
+                }
+            });
+
+            return matchedCode;
+        }
+
+        function updateItemUomDropdown(selectSelector, hiddenSelector, itmcde, selectedUomCode, untmeaValue, onComplete, preserveSelectedUom){
+            var $select = $(selectSelector);
+            var strictEditSelection = preserveSelectedUom === true;
+            var resolvedUomCode = $.trim(selectedUomCode || "");
+            if(!strictEditSelection && resolvedUomCode === ""){
+                resolvedUomCode = getUomCodeFromUntmea(selectSelector, untmeaValue) || defaultUomCode || "";
+            }
+
+            $select.data("current-itmcde", itmcde || "");
+            $select.data("uom-map", {});
+            resetUomOptionLabels(selectSelector);
+            $select.find("option").show();
+            $select.val(resolvedUomCode);
+            $select.prop("disabled", !itmcde);
+            syncUntmeaField(selectSelector, hiddenSelector);
+
+            if(!itmcde){
+                if(typeof onComplete === "function"){
+                    onComplete();
+                }
+                return;
+            }
+
+            $.ajax({
+                data: {
+                    event_action: "get_item_uom_labels",
+                    itmcde: itmcde
+                },
+                dataType: "json",
+                type: "post",
+                url: "trn_purchasesorderfile2_ajax.php",
+                success: function(xdata){
+                    if($select.data("current-itmcde") !== itmcde){
+                        return;
+                    }
+
+                    var uomLabels = xdata["uom_labels"] || {};
+                    $select.data("uom-map", buildItemUomMap(uomLabels));
+                    applyItemUomLabels(selectSelector, uomLabels, true);
+
+                    var nextUomCode = "";
+                    if(strictEditSelection){
+                        $select.find("option").each(function(){
+                            if($.trim($(this).val()) === resolvedUomCode){
+                                nextUomCode = resolvedUomCode;
+                                return false;
+                            }
+                        });
+                    }else{
+                        $select.find("option:visible").each(function(){
+                            if($(this).val() !== ""){
+                                nextUomCode = $(this).val();
+                                return false;
+                            }
+                        });
+                    }
+                    var finalUomCode = strictEditSelection ? nextUomCode : (nextUomCode || defaultUomCode || "");
+                    $select.find("option").prop("selected", false);
+                    (strictEditSelection ? $select.find("option") : $select.find("option:visible")).each(function(){
+                        if($.trim($(this).val()) === $.trim(finalUomCode)){
+                            $(this).prop("selected", true);
+                            return false;
+                        }
+                    });
+                    if(finalUomCode !== ""){
+                        $select.val(finalUomCode).trigger("change");
+                    }
+                    $select.prop("disabled", false);
+                    syncUntmeaField(selectSelector, hiddenSelector);
+
+                    if(typeof onComplete === "function"){
+                        onComplete();
+                    }
+                }
+            });
+        }
+
+        function getSelectedUomConversion(selectSelector){
+            var $select = $(selectSelector);
+            var selectedUomCode = $select.val();
+            var uomMap = $select.data("uom-map") || {};
+
+            if(selectedUomCode === "" || selectedUomCode === defaultUomCode){
+                return 1;
+            }
+
+            if(
+                uomMap[selectedUomCode] &&
+                uomMap[selectedUomCode].conversion !== null &&
+                uomMap[selectedUomCode].conversion > 0
+            ){
+                return uomMap[selectedUomCode].conversion;
+            }
+
+            return 1;
+        }
+
+        function setBaseItemPrice(mode, basePrice){
+            var hiddenSelector = mode === "edit" ? "#base_item_price_edit_hidden" : "#base_item_price_add_hidden";
+            var numericBasePrice = parseNumericInput(basePrice);
+
+            if(numericBasePrice === null){
+                $(hiddenSelector).val("");
+                return;
+            }
+
+            $(hiddenSelector).val(numericBasePrice);
+        }
+
+        function applyConvertedItemPrice(mode, basePrice){
+            var priceSelector = mode === "edit" ? "#price_edit" : "#price_add";
+            var selectSelector = mode === "edit" ? "#unmcde_edit" : "#unmcde_add";
+            var numericBasePrice = parseNumericInput(basePrice);
+
+            setBaseItemPrice(mode, basePrice);
+
+            if(numericBasePrice === null){
+                $(priceSelector).val("");
+                calcTotal(mode);
+                return;
+            }
+
+            var conversion = getSelectedUomConversion(selectSelector);
+            var convertedPrice = numericBasePrice * conversion;
+
+            $(priceSelector).val(formatPriceInputValue(convertedPrice));
+            calcTotal(mode);
+        }
+
+        function refreshItemPrice(mode, basePrice){
+            var itmcdeSelector = mode === "edit" ? "#itmcde_edit_hidden" : "#itmcde_add_hidden";
+            var itmcde = $(itmcdeSelector).val();
+
+            if(!itmcde){
+                return;
+            }
+
+            if(typeof basePrice !== "undefined"){
+                applyConvertedItemPrice(mode, basePrice);
+                return;
+            }
+
+            $.ajax({
+                data: {
+                    event_action: "change_itmprice",
+                    xitmcde: itmcde
+                },
+                dataType: "json",
+                type: "post",
+                url: "trn_purchasesorderfile2_ajax.php",
+                success: function(xdata){
+                    applyConvertedItemPrice(mode, xdata["retEdit"] ? xdata["retEdit"]["xprice"] : "");
+                }
+            });
+        }
+
+        $("#unmcde_add").on("change", function(){
+            syncUntmeaField("#unmcde_add", "#untmea_add");
+            refreshItemPrice("add");
+        });
+
+        $("#unmcde_edit").on("change", function(){
+            syncUntmeaField("#unmcde_edit", "#untmea_edit");
+            refreshItemPrice("edit");
+        });
 
         function print_pdf(){
 
@@ -761,14 +1289,12 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                 $("#itmcde_add_hidden").val(xitmcde);
                 $("#itmcde_add").val(xitmdsc);
 
-                $("#price_add").val(xuntprc);
-                var xqty = $("#itmqty_add").val();
-                var xtotal = xqty * xuntprc;
-                $("#amount_add").val(xtotal);
-
                 $("#view_itm_search").modal("hide");
                 $("#itmcde_add").prop("readonly", true);
                 $("#insert_modal_sales").modal("show");
+                updateItemUomDropdown("#unmcde_add", "#untmea_add", xitmcde, $("#unmcde_add").val() || defaultUomCode, $("#untmea_add").val(), function(){
+                    refreshItemPrice("add", xuntprc);
+                });
             }else if(xevent_action == 'edit'){
 
                 $(".error_msg_edit_modal").html("");
@@ -776,13 +1302,11 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                 $("#itmcde_edit_hidden").val(xitmcde);
                 $("#itmcde_edit").val(xitmdsc);
 
-                $("#price_edit").val(xuntprc);
-                var xqty = $("#itmqty_edit").val();
-                var xtotal = xqty * xuntprc;
-                $("#amount_edit").val(xtotal);
-
                 $("#view_itm_search").modal("hide");
-                $("#edit_modal_sales").modal("show");   
+                $("#edit_modal_sales").modal("show");
+                updateItemUomDropdown("#unmcde_edit", "#untmea_edit", xitmcde, $("#unmcde_edit").val() || defaultUomCode, $("#untmea_edit").val(), function(){
+                    refreshItemPrice("edit", xuntprc);
+                });
             }
 
             $(".error_msg_itm_view").html("");
@@ -900,28 +1424,24 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
         }
 
         $('#itmcde_edit').on('change', function() {
-
-            xdata = "event_action=change_itmprice&xitmcde="+this.value;
-
-            jQuery.ajax({    
-                data:xdata,
-                dataType:"json",
-                type:"post",
-                url:"trn_purchasesorderfile2_ajax.php", 
-                success: function(xdata){  
-                    $("#price_edit").val(xdata['retEdit']['xprice']);
-                    var xqty = $("#itmqty_edit").val();
-                    var xtotal = xqty * xdata['retEdit']['xprice'];
-                    $("#amount_edit").val(xtotal);
-                }
-            })  
+            refreshItemPrice("edit");
         });
         
         
         function matched_alert(xevent, matched_s){
 
             if(xevent == "disabled"){
-                alert("Cannot edit or delete already matched by "+matched_s);
+                var purDocnums = purchasesOrderMatchedPurDocnums;
+
+                if(purDocnums.length === 0){
+                    purDocnums = extractMatchedDocnums(matched_s, "PUR");
+                }
+
+                if(purDocnums.length === 0){
+                    return;
+                }
+
+                alert(buildMatchedAlertMessage(getCurrentPurchasesOrderDocnum(), purDocnums));
             }
 
         }        
@@ -936,6 +1456,9 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
 
             switch(event){
                     case "save_exit":
+                    if(!validateUniqueOrdernum()){
+                        return;
+                    }
 
                     if ($('#cusname_1').prop('disabled')) {
                         $("#cusname_1").prop("disabled", false);
@@ -954,6 +1477,9 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
 
                     break;
                 case "save_new":
+                    if(!validateUniqueOrdernum()){
+                        return;
+                    }
 
                     if ($('#cusname_1').prop('disabled')) {
                         $("#cusname_1").prop("disabled", false);
@@ -976,6 +1502,8 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                     $("#price_add").val('');
                     $("#amount_add").val('');
                     $("#itmqty_add").val('');
+                    $("#base_item_price_add_hidden").val('');
+                    setInitialUomDropdownState("#unmcde_add", "#untmea_add");
                     $("#itmcde_add").val('');
                     $("#itmcde_add_hidden").val('');
                     $(".error_msg_add_modal").html('');
@@ -1140,9 +1668,12 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
                         if(xdata["msg"] == "retEdit"){
                             $("#itmcde_edit_hidden").val(xdata["retEdit"]["itmcde"]);
                             $("#itmcde_edit").val(xdata["retEdit"]["itmdsc"]);
+                            $("#base_item_price_edit_hidden").val('');
                             $("#price_edit").val(xdata["retEdit"]["untprc"]);
                             $("#amount_edit").val(xdata["retEdit"]["extprc"]);
                             $("#itmqty_edit").val(xdata["retEdit"]["itmqty"]);
+                            $("#untmea_edit").val(xdata["retEdit"]["untmea"] || '');
+                            updateItemUomDropdown("#unmcde_edit", "#untmea_edit", xdata["retEdit"]["itmcde"], xdata["retEdit"]["unmcde"], xdata["retEdit"]["untmea"] || '', undefined, true);
                             // $("#itmcde_edit option[text=" + xdata["retEdit"]["itmdsc"] +"]").prop("selected", true);
                             // $("#itmcde_edit option:contains("+xdata["retEdit"]["itmdsc"]+")").prop("selected", true);
 
@@ -1165,6 +1696,7 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
 
                         $("#tbody_main").html(xdata["html"]);
                         $("#tbody_main_mobile").html(xdata["html_mobile"]);
+                        refreshPurchasesOrderMatchedActions();
 
                         $("#trntot_1").val(xdata["trntot"]);
                 }
@@ -1179,4 +1711,3 @@ if(isset($_POST['recid_hidden']) && !empty($_POST['recid_hidden'])){
 <?php
     require "includes/main_footer.php";
 ?>
-
