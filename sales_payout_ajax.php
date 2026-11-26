@@ -256,14 +256,15 @@ try {
 
             $matchedSheets = [];
             foreach ($allSheetNames as $sn) {
-                if (preg_match('/^Income\s*-\s*\d+$/i', trim($sn))) {
+                // "Income" (single-sheet export) or "Income - 1", "Income - 2", ... (split export)
+                if (preg_match('/^Income(\s*-\s*\d+)?$/i', trim($sn))) {
                     $matchedSheets[] = $sn;
                 }
             }
 
             if (empty($matchedSheets)) {
                 $response['status'] = 0;
-                $response['errorMsg'] = "No 'Income - N' sheets found in the uploaded Shopee file.";
+                $response['errorMsg'] = "No 'Income' or 'Income - N' sheets found in the uploaded Shopee file.";
                 echo json_encode($response);
                 exit;
             }
@@ -272,7 +273,23 @@ try {
                 $sheetTargets[] = [$sn, 6, 7];
             }
         } else {
-            $activeSheetName = payout_resolve_active_sheet_name($filePath);
+            $activeSheetName = null;
+
+            // TikTok: the data is always on "Order details" - don't depend on which tab
+            // happened to be open when the file was saved (e.g. "Reports").
+            if ($platform_name === 'TIKTOK') {
+                $probeReader = new Xlsx();
+                foreach ($probeReader->listWorksheetNames($filePath) as $sn) {
+                    if (strcasecmp(trim($sn), 'Order details') === 0) {
+                        $activeSheetName = $sn;
+                        break;
+                    }
+                }
+            }
+
+            if ($activeSheetName === null) {
+                $activeSheetName = payout_resolve_active_sheet_name($filePath);
+            }
             if ($activeSheetName === null) {
                 $probeReader = new Xlsx();
                 $allSheetNames = $probeReader->listWorksheetNames($filePath);
