@@ -1,0 +1,191 @@
+/* Customer Payments page (trn_salespayments.php) - scoped under .cp / .cp_modal */
+.cp, .cp_modal{
+    --cp-bg:#f4f5f7;
+    --cp-surface:#ffffff;
+    --cp-border:#e5e7eb;
+    --cp-border-soft:#f0f1f3;
+    --cp-text:#111827;
+    --cp-muted:#6b7280;
+    --cp-subtle:#9ca3af;
+    --cp-primary:#2563eb;
+    --cp-primary-soft:#eff4ff;
+    --cp-success:#15803d;
+    --cp-success-soft:#ecfdf3;
+    --cp-warning:#b45309;
+    --cp-warning-soft:#fff7e6;
+    --cp-danger:#b91c1c;
+    --cp-danger-soft:#fef2f2;
+    --cp-shadow:0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+    color:var(--cp-text);
+    font-family:"Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size:14px;
+}
+.cp{background:var(--cp-bg);min-height:calc(100vh - 85px);padding:24px 24px 48px}
+.cp_inner{max-width:1320px;margin:0 auto}
+
+/* header */
+.cp_head{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;margin-bottom:20px}
+.cp_head h1{font-size:24px;font-weight:600;margin:0;letter-spacing:-.01em}
+.cp_head p{margin:4px 0 0;color:var(--cp-muted)}
+
+/* buttons */
+.cp .btn, .cp_modal .btn{border-radius:8px;font-weight:500;font-size:14px;padding:8px 14px}
+.cp .btn-sm{font-size:13px;padding:5px 10px;white-space:nowrap}
+.cp .btn-primary, .cp_modal .btn-primary{background:var(--cp-primary);border-color:var(--cp-primary)}
+.cp .btn-primary:hover, .cp_modal .btn-primary:hover{background:#1d4ed8;border-color:#1d4ed8}
+.cp .btn-light, .cp_modal .btn-light{background:#fff;border:1px solid var(--cp-border);color:var(--cp-text)}
+.cp .btn-light:hover, .cp_modal .btn-light:hover{background:#f9fafb;border-color:#d1d5db}
+.cp .btn-icon{background:transparent;border:0;color:var(--cp-muted);padding:4px 8px}
+.cp .btn-icon:hover{background:#f3f4f6;color:var(--cp-text)}
+.cp .btn-icon.danger:hover{background:var(--cp-danger-soft);color:var(--cp-danger)}
+.cp .btn-soft-success{background:var(--cp-success-soft);color:var(--cp-success);border:1px solid #c6f0d6}
+.cp .btn-soft-success:hover{background:#dcfce7;color:var(--cp-success)}
+
+/* cards */
+.cp_card{background:var(--cp-surface);border:1px solid var(--cp-border);border-radius:12px;box-shadow:var(--cp-shadow)}
+
+/* form controls */
+.cp .form-control, .cp .form-select, .cp_modal .form-control, .cp_modal .form-select{border-radius:8px;border-color:var(--cp-border);font-size:14px;height:40px}
+.cp .form-select-sm{height:34px;font-size:13px}
+.cp .form-control:focus, .cp .form-select:focus, .cp_modal .form-control:focus, .cp_modal .form-select:focus{border-color:#93b4f5;box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+.cp_search{position:relative}
+.cp_search i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--cp-subtle)}
+.cp_search input{padding-left:34px}
+
+/* split layout */
+.cp_split{display:grid;grid-template-columns:320px minmax(0,1fr);gap:20px;align-items:start}
+.cp_back{display:none}
+
+/* customer list */
+.cp_list_tools{padding:14px;border-bottom:1px solid var(--cp-border)}
+.cp_cust{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--cp-border-soft);cursor:pointer}
+.cp_cust:hover{background:#fafbfc}
+.cp_cust.on{background:var(--cp-primary-soft);box-shadow:inset 3px 0 0 var(--cp-primary)}
+.cp_cust .meta{flex:1;min-width:0}
+.cp_cust .meta div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cp_list_total{display:flex;justify-content:space-between;padding:14px 16px;border-top:1px solid var(--cp-border);background:#f9fafb;border-radius:0 0 12px 12px;font-weight:600}
+.cp_avatar{width:34px;height:34px;border-radius:50%;background:var(--cp-primary-soft);color:var(--cp-primary);display:inline-flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;flex-shrink:0}
+.cp_avatar.lg{width:48px;height:48px;font-size:17px}
+
+/* account header + KPIs */
+.cp_account_head{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:20px}
+.cp_account_head .who{flex:1;min-width:200px;display:flex;align-items:center;gap:14px}
+.cp_account_name{font-size:19px;font-weight:600}
+.cp_kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin:16px 0}
+.cp_kpi{padding:16px 18px}
+.cp_kpi .label{color:var(--cp-muted);font-size:13px;display:flex;align-items:center;gap:6px}
+.cp_kpi .value{font-size:22px;font-weight:600;margin-top:6px;font-variant-numeric:tabular-nums;letter-spacing:-.01em;white-space:nowrap}
+.cp_kpi .hint{font-size:12px;color:var(--cp-subtle);margin-top:2px}
+.cp_kpi.alert{border-color:#fecaca;background:#fffafa}
+.cp_kpi.alert .value{color:var(--cp-danger)}
+.cp_dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+
+/* tabs */
+.cp_tabs{display:flex;gap:22px;border-bottom:1px solid var(--cp-border);padding:0 20px;overflow-x:auto;white-space:nowrap}
+.cp_tabs a{padding:12px 0;color:var(--cp-muted);text-decoration:none;font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px}
+.cp_tabs a.active{color:var(--cp-text);border-bottom-color:var(--cp-primary)}
+.cp_tabs .count{background:#f3f4f6;border-radius:999px;padding:1px 8px;font-size:12px;margin-left:4px;color:var(--cp-muted)}
+.cp_tab_tools{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 16px;border-bottom:1px solid var(--cp-border-soft)}
+
+/* tables */
+.cp_tbl{width:100%;margin:0;border-collapse:separate;border-spacing:0}
+.cp_tbl thead th{background:#f9fafb;color:var(--cp-muted);font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:10px 16px;border-bottom:1px solid var(--cp-border);white-space:nowrap}
+.cp_tbl tbody td{padding:12px 16px;border-bottom:1px solid var(--cp-border-soft);vertical-align:middle}
+.cp .num, .cp_modal .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.cp .muted, .cp_modal .muted{color:var(--cp-muted)}
+.cp .small_muted, .cp_modal .small_muted{color:var(--cp-muted);font-size:12.5px}
+.cp .amt_due, .cp_modal .amt_due{color:var(--cp-danger);font-weight:600}
+.cp .amt_ok, .cp_modal .amt_ok{color:var(--cp-success);font-weight:600}
+.cp .name{font-weight:500}
+.cp_empty{padding:36px 16px;text-align:center;color:var(--cp-muted)}
+.cp_empty i{font-size:26px;display:block;margin-bottom:6px;color:var(--cp-subtle)}
+
+/* status pills */
+.cp_pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
+.cp_pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.cp_pill.ok{background:var(--cp-success-soft);color:var(--cp-success)}
+.cp_pill.wait{background:var(--cp-warning-soft);color:var(--cp-warning)}
+.cp_pill.due{background:var(--cp-danger-soft);color:var(--cp-danger)}
+.cp_pill.neutral{background:#f3f4f6;color:var(--cp-muted)}
+
+/* pager */
+.cp_pager{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:12px 16px;color:var(--cp-muted);font-size:13px}
+.cp_pager .pagination{margin:0}
+.cp_pager .page-link{border-radius:6px!important;margin:0 2px;border:1px solid var(--cp-border)!important;background:#fff!important;color:var(--cp-text)!important;font-size:13px;padding:4px 10px;cursor:pointer}
+.cp_pager .page-link:hover{background:#f3f4f6!important}
+.cp_pager .active .page-link{background:var(--cp-primary)!important;border-color:var(--cp-primary)!important;color:#fff!important}
+.cp_pager .disabled .page-link{color:var(--cp-subtle)!important;cursor:default}
+.cp .nowrap{white-space:nowrap}
+
+/* loading state */
+.cp_loading{opacity:.5;pointer-events:none;transition:opacity .15s}
+
+/* modal */
+.cp_modal .modal-content{border:0;border-radius:16px;box-shadow:0 24px 60px rgba(16,24,40,.25)}
+.cp_modal .modal-header{border-bottom:1px solid var(--cp-border);padding:18px 24px}
+.cp_modal .modal-title{font-weight:600;font-size:18px}
+.cp_modal .modal-body{padding:22px 24px}
+.cp_modal .modal-footer{border-top:1px solid var(--cp-border);padding:14px 24px;background:#fafbfc;border-radius:0 0 16px 16px}
+.cp_label{font-size:13px;font-weight:500;color:#374151;margin-bottom:5px;display:block}
+.cp_section{font-size:12px;font-weight:600;color:var(--cp-muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 12px}
+.cp_types{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.cp_types input{display:none}
+.cp_types label{border:1px solid var(--cp-border);border-radius:10px;padding:10px;text-align:center;cursor:pointer;color:var(--cp-muted);font-weight:500;margin:0}
+.cp_types label i{display:block;font-size:18px;margin-bottom:2px}
+.cp_types input:checked + label{border-color:var(--cp-primary);background:var(--cp-primary-soft);color:var(--cp-primary)}
+.cp_check_box{background:#fafbfc;border:1px dashed var(--cp-border);border-radius:10px;padding:14px}
+.cp_check_box.row{margin-top:12px}
+.cp_alloc_sum{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--cp-border);border-radius:10px;overflow:hidden;margin-top:12px}
+.cp_alloc_sum div{padding:10px 14px;border-right:1px solid var(--cp-border)}
+.cp_alloc_sum div:last-child{border-right:0}
+.cp_alloc_sum small{color:var(--cp-muted);display:block;font-size:12px}
+.cp_alloc_sum b{font-variant-numeric:tabular-nums;font-size:15px}
+.cp_error{background:var(--cp-danger-soft);color:var(--cp-danger);border-radius:8px;padding:10px 12px;margin-top:14px;display:none}
+
+/* toast */
+.cp_toast{position:fixed;right:20px;bottom:20px;z-index:2000;background:#111827;color:#fff;border-radius:10px;padding:12px 16px;box-shadow:0 10px 30px rgba(16,24,40,.25);display:none;max-width:calc(100vw - 40px)}
+.cp_toast.error{background:var(--cp-danger)}
+
+/* jQuery UI datepicker should sit above the modal */
+.cp_modal #ui-datepicker-div{z-index:2100!important}
+
+/* ---------- tablet (iPad portrait and smaller): one column, list OR account ---------- */
+@media (max-width: 991.98px){
+    .cp{padding:18px 16px 40px}
+    .cp_split{grid-template-columns:minmax(0,1fr)}
+    .cp_detail{display:none}
+    .cp.show_detail .cp_detail{display:block}
+    .cp.show_detail .cp_list{display:none}
+    .cp_back{display:inline-flex}
+    .cp_kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+/* ---------- phone: tables become stacked cards ---------- */
+@media (max-width: 767.98px){
+    .cp_head h1{font-size:21px}
+    .cp_account_head{padding:16px}
+    .cp_account_head .actions{width:100%;display:flex;gap:8px}
+    .cp_account_head .actions .btn{flex:1}
+    .cp_kpis{gap:10px}
+    .cp_kpi{padding:12px 14px}
+    .cp_kpi .value{font-size:18px}
+    .cp_tabs{padding:0 16px;gap:18px}
+
+    .cp_tbl thead{display:none}
+    .cp_tbl, .cp_tbl tbody, .cp_tbl tr, .cp_tbl td{display:block;width:100%}
+    .cp_tbl tbody tr{padding:10px 16px;border-bottom:1px solid var(--cp-border)}
+    .cp_tbl tbody td{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:5px 0;border:0;text-align:right}
+    .cp_tbl tbody td::before{content:attr(data-label);color:var(--cp-muted);font-size:12px;font-weight:500;text-align:left;flex-shrink:0}
+    .cp_tbl tbody td.cp_actions{justify-content:flex-end}
+    .cp_tbl tbody td.cp_actions::before{content:none}
+    .cp_tbl tbody td.cp_empty{display:block;text-align:center}
+    .cp_tbl tbody td.cp_empty::before{content:none}
+
+    .cp_types label{padding:8px 4px;font-size:13px}
+    .cp_alloc_sum div{padding:8px 10px}
+    .cp_alloc_sum b{font-size:13.5px}
+    .cp_modal .modal-body{padding:18px 16px}
+    .cp_modal .modal-header, .cp_modal .modal-footer{padding:14px 16px}
+    .cp_modal .modal-footer{border-radius:0}
+    .cp_toast{left:20px;right:20px;text-align:center}
+}

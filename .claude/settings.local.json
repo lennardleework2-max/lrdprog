@@ -1,7 +1,15 @@
 {
   "permissions": {
     "allow": [
-      "Bash(php -l:*)"
+      "Bash(php -l:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd item-specific unit of measure management\n\n- Created mf_item_uom.php for managing unit conversions per item\n- Added Unit of Measure button to items table in mf_itemfile.php\n- New page allows adding multiple unit conversions with different values\n- Follows warehouse/warehouse_floor pattern with item context filtering\n- Updated CHANGELOG.md with implementation details\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(grep:*)",
+      "Read(//d/xampp/htdocs/**)",
+      "Bash(dir:*)",
+      "Bash(powershell -Command:*)"
     ]
   }
 }

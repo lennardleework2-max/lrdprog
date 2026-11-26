@@ -563,11 +563,28 @@
 
         if($xchecker == true){
             $xcount_total_itmheight = 30 * ($xcounter_item_newline - 1);
-        }    
+        }
 
+        // *******************
+        // THIRD PAGE - SENDER LABEL
+        // *******************
+        $pdf->ezNewPage();
 
-        
+        $xtop = 760;
+        $xleft = 25;
 
+        // "SENDER" header text
+        $pdf->setColor(0, 0, 0);
+        $pdf->addText(80, $xtop - 50, 32, "<b>SENDER</b>");
+
+        // "RYU" large bold text
+        $pdf->addText(80, $xtop - 180, 120, "<b>RYU</b>");
+
+        // Address lines
+        $pdf->addText(80, $xtop - 320, 32, "SteelWorld Tower, NS");
+        $pdf->addText(80, $xtop - 365, 32, "Amoranto UNIT 804,");
+        $pdf->addText(80, $xtop - 410, 32, "cor. Biak na Bato,");
+        $pdf->addText(80, $xtop - 455, 32, "Quezon City");
 
 
 	/***header**/

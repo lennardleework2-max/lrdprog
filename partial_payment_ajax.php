@@ -4,6 +4,7 @@ session_start();
 require_once("resources/db_init.php");
 require "resources/connect4.php";
 require "resources/lx2.pdodb.php";
+require_once "trn_salespayments_lib.php";
 
 $xret = array();
 $xret["status"] = 1;
@@ -220,6 +221,7 @@ try{
             $stmt_insert->execute(array($docnum, $amount, $date_paid_db));
         }
 
+        cp_sync_paid_status($link, array($docnum));
         $link->commit();
 
         $xret["msg"] = "Partial payment added successfully.";
@@ -295,6 +297,7 @@ try{
             $stmt_update->execute(array($amount, $date_paid_db, $recid));
         }
 
+        cp_sync_paid_status($link, array($docnum));
         $link->commit();
 
         $xret["msg"] = "Partial payment updated successfully.";
@@ -330,6 +333,7 @@ try{
         $stmt_delete = $link->prepare($delete_qry);
         $stmt_delete->execute(array($recid));
 
+        cp_sync_paid_status($link, array($docnum));
         $link->commit();
 
         $xret["msg"] = "Partial payment deleted successfully.";

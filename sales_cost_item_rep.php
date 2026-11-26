@@ -75,6 +75,17 @@ $trncde = "SAL";
 
                                 <tr>
                                     <td colspan="2">
+                                        <div class="d-flex justify-content-center">
+                                            <div class="form-check" style="width:80%">
+                                                <input class="form-check-input" type="checkbox" name="show_no_cost" id="show_no_cost" value="1">
+                                                <label class="form-check-label" for="show_no_cost">Show items with no cost</label>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td colspan="2">
 
                                         <div class="row d-flex justify-content-center align-items-top">
                                             <div class="col-4">
@@ -82,7 +93,7 @@ $trncde = "SAL";
                                             </div>
 
                                             <div class="col-4">
-                                                <input type="button" name="flexRadioDefault" id="flexRadioDefault1"  class="btn btn-primary" value="Export to TXT" onclick="exp_txt()">
+                                                <input type="button" name="flexRadioDefault" id="flexRadioDefault1"  class="btn btn-primary" value="Export to XLS" onclick="exp_txt()">
                                         </div>
                                         </div>
 

@@ -30,6 +30,7 @@ require "pager/pager_main.class.php";
                             $table1->edit_crud = $edit_crud;
                             $table1->delete_crud = $delete_crud;
                             $table1->view_crud = $view_crud;
+                            $table1->export_crud = $export_crud;
                             
                             //field code
                             $table1->field_code = "advisorID";
@@ -114,6 +115,7 @@ require "pager/pager_main.class.php";
                             
                             //export
                             $table1->show_export = "Y";
+                            $table1->exp_pdf = "utl_useractivitylog_pdf.php";
                             //search
                             $table1->show_search = "Y";
 
@@ -146,4 +148,3 @@ require "pager/pager_main.class.php";
 <?php 
 include "includes/main_footer.php";
 ?>
-

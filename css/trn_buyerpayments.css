@@ -1,0 +1,251 @@
+/* Buyer Payments (trn_buyerpayments.php). Everything is scoped to .bp_page / #bp_* so other pages are unaffected. */
+.bp_page{
+    --bp-line:#e3e6eb; --bp-line-strong:#cccccc; --bp-muted:#5f6b7a; --bp-soft:#f7f8fa;
+    --bp-brand:#1f4e8c; --bp-brand-soft:#eaf1fb;
+    --bp-paid:#157a43; --bp-paid-soft:#e6f5ec; --bp-partial:#a65b00; --bp-partial-soft:#fff3df;
+    --bp-unpaid:#b42318; --bp-unpaid-soft:#fdecea; --bp-deposit:#1d5fbf; --bp-deposit-soft:#e7f0fc; --bp-onhand:#c26a00;
+    --bp-shadow:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.07);
+    max-width:1400px; margin:0 auto; padding:14px 6px 40px; font-size:14px;
+}
+.bp_page .amt{font-variant-numeric:tabular-nums;white-space:nowrap}
+.bp_page .wrap-any,#bp_bmodal .wrap-any,#bp_modal .wrap-any{overflow-wrap:anywhere;word-break:break-word;min-width:0}
+.bp_page .muted,#bp_bmodal .muted,#bp_modal .muted{color:#5f6b7a}
+
+.bp_head{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 16px;margin-bottom:14px}
+.bp_head h2{margin:0;font-weight:700}
+.bp_head .sub{color:var(--bp-muted);font-size:13px}
+.bp_head .actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+
+/* KPI cards */
+.bp_kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.bp_kpi{background:#fff;border:1px solid var(--bp-line);border-radius:14px;padding:12px 14px;box-shadow:var(--bp-shadow);position:relative;overflow:hidden;min-width:0;display:flex;flex-direction:column}
+.bp_kpi .body{flex:1;display:flex;flex-direction:column;justify-content:center}  /* centre the amount when Outstanding makes the row taller */
+.bp_kpi::after{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--acc,#94a3b8)}
+.bp_kpi .k{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--bp-muted);text-transform:uppercase;letter-spacing:.03em}
+.bp_kpi .k i{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--acc-soft,#eef1f5);color:var(--acc,#475569);font-size:14px;flex:none}
+.bp_kpi .v{font-size:clamp(20px,2.2vw,28px);font-weight:800;margin-top:6px;line-height:1.2}
+.bp_kpi .s{font-size:13.5px;color:var(--bp-muted)}
+.bp_kpi.k-sales{--acc:#334155}
+.bp_kpi.k-col{--acc:var(--bp-paid);--acc-soft:var(--bp-paid-soft)}
+.bp_kpi.k-hand{--acc:var(--bp-onhand);--acc-soft:var(--bp-partial-soft)}
+.bp_kpi.k-ret{--acc:var(--bp-unpaid);--acc-soft:var(--bp-unpaid-soft)}
+.bp_kpi.k-out{--acc:var(--bp-brand);--acc-soft:var(--bp-brand-soft)}
+.bp_kpi .bp_kpi_sep{margin:8px 0;border:0;border-top:1px solid var(--bp-line);opacity:1}
+
+/* list card */
+.bp_board{background:#fff;border-radius:.75rem;box-shadow:var(--bp-shadow);border:1px solid var(--bp-line);overflow:hidden;margin-bottom:12px}
+.bp_toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 14px;border-bottom:3px solid var(--bp-line-strong)}
+.bp_search{position:relative;flex:1 1 240px;min-width:0}
+.bp_search i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#8b95a3}
+.bp_search input{padding-left:34px}
+.bp_seg{display:inline-flex;background:var(--bp-soft);border:1px solid var(--bp-line);border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap}
+.bp_seg button{border:0;background:transparent;border-radius:8px;padding:5px 11px;font-weight:600;font-size:13px;color:var(--bp-muted);min-height:34px}
+.bp_seg button[aria-pressed="true"]{background:#fff;color:#18202b;box-shadow:var(--bp-shadow)}
+.bp_seg .cnt{font-size:11px;background:#e7ebf0;border-radius:999px;padding:0 6px;margin-left:4px}
+.bp_sort{max-width:210px}
+
+.bp_tbl{width:100%;border-collapse:collapse}
+.bp_tbl th{font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--bp-muted);background:var(--bp-soft);padding:9px 12px;border-bottom:1px solid var(--bp-line);white-space:nowrap}
+.bp_tbl td{padding:9px 12px;border-bottom:1px solid #eef0f3;vertical-align:middle}
+.bp_tbl .r{text-align:right}
+.bp_name{font-weight:700}
+.bp_acct{font-size:12px;color:var(--bp-muted)}
+.bp_meter{height:8px;background:#e9edf2;border-radius:999px;overflow:hidden;width:110px}
+.bp_meter span{display:block;height:100%;background:var(--bp-paid)}
+.bp_empty{padding:30px 14px;text-align:center;color:var(--bp-muted)}
+
+/* badges: colour + icon + text */
+.bp_badge{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap;border:1px solid transparent}
+.bp_badge.s-Paid,.bp_badge.s-CLEARED,.bp_badge.s-paid{color:var(--bp-paid);background:var(--bp-paid-soft);border-color:#bfe5cf}
+.bp_badge.s-Partial,.bp_badge.s-HOLD,.bp_badge.s-partial{color:var(--bp-partial);background:var(--bp-partial-soft);border-color:#f6d9a8}
+.bp_badge.s-Unpaid,.bp_badge.s-BOUNCED,.bp_badge.s-CLOSED_ACCOUNT,.bp_badge.s-unpaid{color:var(--bp-unpaid);background:var(--bp-unpaid-soft);border-color:#f5c2bd}
+.bp_badge.s-FOR_DEPOSIT{color:var(--bp-deposit);background:var(--bp-deposit-soft);border-color:#c2d8f6}
+.bp_badge.s-RECEIVED,.bp_badge.s-no_amount{color:#3b4a5c;background:#eef1f5;border-color:#dde2e9}
+.bp_badge.s-credit{color:#5b3cc4;background:#f0ecfd;border-color:#d8cdf8}
+.amt-col{color:var(--bp-paid)} .amt-hand{color:var(--bp-onhand)} .amt-due{color:var(--bp-unpaid)}
+.amt-ret{color:var(--bp-unpaid);text-decoration:line-through}
+
+/* buyer pop-up */
+#bp_bmodal .modal-content{border-radius:16px}
+#bp_bmodal .modal-header{border-bottom:3px solid #cccccc;align-items:flex-start}
+#bp_bmodal .bp_tbl{font-size:14px}
+#bp_bmodal .bp_tbl tfoot td{border-top:2px solid #2b3a55;background:#f7f8fa}
+.bp_tabs .nav-link{font-weight:700;color:#5f6b7a}
+.bp_tabs .nav-link.active{color:#1f4e8c}
+.bp_tabs + .tab-content{padding-top:10px}
+.bp_dr_tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.bp_dr_tools .bp_search{max-width:320px}
+/* DR pager: same look as main.css #previous_pager / #next_pager / #txt_pager_pageno */
+.bp_dr_pager .page-item,.bp_pv_pager .page-item{cursor:pointer}
+.bp_dr_pager .pagination,.bp_pv_pager .pagination{margin-bottom:4px}
+.bp_dr_pager .bp_prev,.bp_dr_pager .bp_next,.bp_pv_pager .bp_prev,.bp_pv_pager .bp_next{background-color:#0d6efd;text-shadow:0 0 0 white;color:white;border:2px solid white;border-left:none;border-right:none;font-family:arial}
+.bp_dr_pager .bp_pgno,.bp_pv_pager .bp_pgno{background-color:#0d6efd;border:2px solid white;color:white}
+/* payment pop-up pager: same shape, black instead of blue */
+.bp_pv_pager .bp_prev,.bp_pv_pager .bp_next,.bp_pv_pager .bp_pgno{background-color:#212529}
+.bp_tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.bp_tile{border:1px solid #e3e6eb;border-radius:12px;padding:9px 12px;min-width:0}
+.bp_tile .k{font-size:12px;font-weight:700;color:#5f6b7a}
+.bp_tile .v{font-size:17px;font-weight:800}
+.bp_tile.big{background:#f7f8fa}
+.bp_tile.big .v{font-size:20px}
+.bp_sec{font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#5f6b7a;margin:16px 0 6px;display:flex;align-items:center;gap:8px}
+.bp_sec::after{content:"";flex:1;height:1px;background:#e3e6eb}
+.bp_dr{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #eef0f3;font-size:13px}
+
+/* payment modal */
+#bp_modal .modal-content{border-radius:16px}
+#bp_modal .modal-header{border-bottom:3px solid #cccccc}
+#bp_modal .form-label{font-weight:700;font-size:13px;margin-bottom:3px}
+#bp_modal .form-control,#bp_modal .form-select{min-height:42px;font-size:16px}
+#bp_modal .req{color:#dc3545}
+#bp_modal [data-for]{display:none}
+#bp_modal.m-CASH [data-for~="CASH"],#bp_modal.m-GCASH [data-for~="GCASH"],#bp_modal.m-CHEQUE [data-for~="CHEQUE"],#bp_modal.m-BANK [data-for~="BANK"]{display:block}
+#bp_modal .ferr{display:none;color:#b42318;font-size:12.5px;margin-top:3px}
+#bp_modal .has-err .form-control,#bp_modal .has-err .form-select{border-color:#b42318}
+#bp_modal .has-err .ferr{display:block}
+#bp_modal .amount_input{font-size:20px;font-weight:700}
+.bp_combo{position:relative}
+.bp_combo_list{position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid #e3e6eb;border-radius:10px;box-shadow:0 8px 24px rgba(16,24,40,.12);max-height:250px;overflow:auto;z-index:5;padding:4px;display:none}
+.bp_combo_list.open{display:block}
+.bp_combo_list [role="option"]{padding:8px 10px;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;gap:8px}
+.bp_combo_list [role="option"][aria-selected="true"],.bp_combo_list [role="option"]:hover{background:#eaf1fb}
+.bp_picked{background:#f7f8fa;border:1px solid #e3e6eb;border-radius:10px;padding:7px 12px;margin-top:6px;font-size:13px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+/* payment form: DR panel on the right (same table format as the buyer pop-up) */
+.bp_preview{font-size:14px}
+.bp_pv_head{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:15px;padding-bottom:8px;border-bottom:3px solid #cccccc}
+.bp_pv_note{background:#eaf1fb;border-radius:10px;padding:8px 12px;margin:10px 0;font-size:13px}
+.bp_pv_note.ok{background:#e6f5ec}
+.bp_pv_list{overflow:auto;border:1px solid #dee2e6;border-radius:10px}
+#bp_modal .bp_tbl th,#bp_bmodal .bp_tbl th{background:#f7f8fa;color:#5f6b7a}
+.bp_pv_list .bp_tbl tfoot td{background:#f8f9fa;border-top:2px solid #212529;font-weight:700}
+/* sales record rows: green = paid, yellow = partly paid, red = unpaid (text in the same colour) */
+/* used by the Add Payment panel (#bp_preview) and the History pop-up's Sales records tab (#bp_pane_drs) */
+#bp_preview tr.pv-paid td,#bp_pane_drs tr.pv-paid td{background:#e6f5ec;color:#157a43}
+#bp_preview tr.pv-partial td,#bp_pane_drs tr.pv-partial td{background:#fff3df;color:#a65b00}
+#bp_preview tr.pv-unpaid td,#bp_pane_drs tr.pv-unpaid td{background:#fdecea;color:#b42318}
+#bp_preview tr[class^="pv-"] .muted,#bp_pane_drs tr[class^="pv-"] .muted{color:inherit!important;opacity:.8}
+#bp_pane_drs tr[class^="pv-"] .bp_badge{color:inherit;background:#fff;border-color:currentColor}
+/* panel is black / gray / white; only the "will be paid" highlights above keep a soft colour */
+.bp_pv_tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.bp_pv_tools .bp_search{flex:1 1 180px}
+#bp_preview .bp_seg{background:#f8f9fa;border-color:#dee2e6}
+#bp_preview .bp_seg button{color:#6c757d}
+#bp_preview .bp_seg button[aria-pressed="true"]{background:#212529;color:#fff;box-shadow:none}
+#bp_preview .bp_seg button[aria-pressed="true"] .cnt{background:#495057;color:#fff}
+#bp_preview .bp_seg .cnt{background:#e9ecef;color:#212529}
+#bp_preview .bp_tbl th{background:#f8f9fa;color:#495057}
+#bp_preview .bp_tbl td{border-bottom-color:#e9ecef}
+#bp_preview .bp_tbl tbody .bp_badge{color:inherit;background:#fff;border-color:currentColor}   /* badge takes the row colour */
+#bp_preview .bp_badge.s-no_amount{color:#6c757d;background:#fff;border-color:#dee2e6}
+#bp_preview .bp_pv_note{background:#f8f9fa;border:1px solid #e9ecef}
+#bp_preview .bp_pv_note.ok{background:#e6f5ec;border-color:#bfe5cf}
+/* buyer pop-up Payments tab (History): same black / gray / white look */
+#bp_pane_pays .bp_seg{background:#f8f9fa;border-color:#dee2e6}
+#bp_pane_pays .bp_seg button{color:#6c757d}
+#bp_pane_pays .bp_seg button[aria-pressed="true"]{background:#212529;color:#fff;box-shadow:none}
+#bp_pane_pays .bp_seg button[aria-pressed="true"] .cnt{background:#495057;color:#fff}
+#bp_pane_pays .bp_seg .cnt{background:#e9ecef;color:#212529}
+#bp_pane_pays .bp_tbl th{background:#f8f9fa;color:#495057}
+#bp_pane_pays .bp_tbl td{border-bottom-color:#e9ecef}
+#bp_pane_pays .bp_tbl tfoot td{background:#f8f9fa;border-top:2px solid #212529;font-weight:700}
+#bp_pane_pays .bp_badge{color:#212529;background:#e9ecef;border-color:#ced4da}
+#bp_pane_pays .bp_badge.s-BOUNCED,#bp_pane_pays .bp_badge.s-CLOSED_ACCOUNT{background:#fff;border-color:#212529}
+#bp_pane_pays .py_status select{min-width:140px;font-size:13px}
+.bp_py_list{overflow-x:auto;border:1px solid #dee2e6;border-radius:10px}
+.bp_row_acts{display:flex;gap:6px;justify-content:flex-end;flex-wrap:nowrap}
+.bp_pv_pager .pagination{flex-wrap:wrap}
+.bp_pv_pager .page-link{display:flex;justify-content:center;align-items:center;height:3em}
+/* first / last arrows: black like Previous / Next (beats main.css .page-item:first-child .page-link blue) */
+.bp_pv_pager .page-item .page-link.bp_end{width:3em;background-color:#212529;color:#fff;text-shadow:0 0 0 #fff}
+.bp_pv_pager .bp_prev,.bp_pv_pager .bp_next{width:7em}
+.bp_pv_pager .bp_pgno{width:60px;text-align:center;font-weight:bold}
+
+/* toast */
+.bp_toasts{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:3000;display:flex;flex-direction:column;gap:8px;width:min(92vw,420px);pointer-events:none}
+.bp_toast{background:#18202b;color:#fff;border-radius:12px;padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.2);font-size:14px;display:flex;gap:8px;transition:opacity .2s}
+.bp_toast.err{background:#7f1d1d}
+
+@media (max-width: 1199.98px){
+    .bp_kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .bp_hide_md{display:none}
+}
+@media (max-width: 767.98px){
+    .bp_kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .bp_kpi.k-out{grid-column:1 / -1}
+    .bp_tbl thead{display:none}
+    .bp_tbl,.bp_tbl tbody,.bp_tbl tr,.bp_tbl td{display:block;width:100%}
+    .bp_tbl tbody tr[data-id]{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;padding:10px 14px;border-bottom:1px solid #e3e6eb}
+    .bp_tbl td{border:0;padding:0}
+    .bp_tbl td[data-label]::before{content:attr(data-label);display:block;font-size:11px;font-weight:700;color:#5f6b7a;text-transform:uppercase}
+    .bp_tbl .c_main,.bp_tbl .c_status,.bp_tbl .c_act{grid-column:1 / -1}
+    .bp_tbl .c_main::before{display:none!important}
+    .bp_tbl .r{text-align:left}
+    .bp_tbl .c_act .btn{width:100%}
+    .bp_sort{max-width:none;flex:1 1 100%}
+    .bp_seg{width:100%}.bp_seg button{flex:1}
+    .bp_tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+    /* sales records (Add Payment panel + History > Sales records): one small card per record (record + status, then date + amount) */
+    #bp_preview .bp_tbl tbody tr,#bp_pane_drs .bp_tbl tbody tr{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:9px 12px;border-bottom:1px solid #e9ecef}
+    #bp_preview .bp_tbl tbody tr td[colspan],#bp_pane_drs .bp_tbl tbody tr td[colspan]{grid-column:1 / -1}
+    #bp_preview .bp_tbl .pv_doc,#bp_pane_drs .bp_tbl .pv_doc{order:1}
+    #bp_preview .bp_tbl .pv_st,#bp_pane_drs .bp_tbl .pv_st{order:2;text-align:right}
+    #bp_preview .bp_tbl tbody td[data-label="Date"],#bp_pane_drs .bp_tbl tbody td[data-label="Date"]{order:3}
+    #bp_preview .bp_tbl tbody td[data-label="Amount"],#bp_pane_drs .bp_tbl tbody td[data-label="Amount"]{order:4;text-align:right}
+    #bp_preview .bp_tbl tbody td[data-label]::before,#bp_pane_drs .bp_tbl tbody td[data-label]::before{display:inline;margin-right:6px;color:inherit;opacity:.75}
+    #bp_preview .bp_tbl tfoot tr,#bp_pane_drs .bp_tbl tfoot tr{display:flex;justify-content:space-between;padding:8px 12px;background:#f8f9fa;border-top:2px solid #212529}
+    #bp_preview .bp_tbl tfoot td,#bp_pane_drs .bp_tbl tfoot td{width:auto;border:0;background:transparent}
+    #bp_preview .bp_tbl tfoot td:empty,#bp_pane_drs .bp_tbl tfoot td:empty{display:none}
+    /* coloured cards: tint the whole card, not just the cells (no white stripes between them) */
+    #bp_preview tr.pv-paid,#bp_pane_drs tr.pv-paid{background:#e6f5ec}
+    #bp_preview tr.pv-partial,#bp_pane_drs tr.pv-partial{background:#fff3df}
+    #bp_preview tr.pv-unpaid,#bp_pane_drs tr.pv-unpaid{background:#fdecea}
+
+    /* pagers fit a 320px screen (inline widths from the shared pager markup need !important) */
+    .bp_page #pager .pagination,.bp_pv_pager .pagination,.bp_dr_pager .pagination{justify-content:center;flex-wrap:nowrap}
+    .bp_page #pager .page-link,.bp_pv_pager .page-link,.bp_dr_pager .page-link{width:2.75em!important}
+    .bp_page #pager #previous_pager,.bp_page #pager #next_pager,
+    .bp_pv_pager .page-link.bp_prev,.bp_pv_pager .page-link.bp_next,
+    .bp_dr_pager .page-link.bp_prev,.bp_dr_pager .page-link.bp_next{width:5.5em!important}
+    .bp_page #txt_pager_pageno,.bp_pv_pager .bp_pgno,.bp_dr_pager .bp_pgno{width:48px!important}
+
+    /* touch targets */
+    .bp_page .btn-sm,#bp_modal .btn-sm,#bp_bmodal .btn-sm,#bp_bmodal .form-select-sm{min-height:40px}
+    .bp_seg button{min-height:40px}
+    .bp_tbl .c_act .btn{min-height:44px}
+    .bp_head .actions{width:100%}
+    #bp_btn_add{width:100%;min-height:44px}
+    #bp_modal .modal-footer,#bp_bmodal .modal-footer{flex-wrap:nowrap}
+    #bp_modal .modal-footer .btn,#bp_bmodal .modal-footer .btn{flex:1;min-height:44px}
+
+    /* History pop-up */
+    .bp_dr_tools .bp_search{max-width:none;flex:1 1 100%}
+    .bp_tiles .bp_tile:last-child{grid-column:1 / -1}
+    /* main list: Pay + History share the row width */
+    .bp_tbl .c_act .bp_row_acts .btn{flex:1}
+    /* History tab: one card per payment (method + amount, date + status, details, buttons) */
+    .bp_py_list{overflow:visible}
+    #bp_pane_pays .bp_tbl tbody tr{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:10px 12px;border-bottom:1px solid #e9ecef}
+    #bp_pane_pays .bp_tbl tbody tr td[colspan]{grid-column:1 / -1}
+    #bp_pane_pays .py_method{order:1}
+    #bp_pane_pays .py_amt{order:2;text-align:right}
+    #bp_pane_pays .py_amt::before{display:none!important}
+    #bp_pane_pays .py_date{order:3}
+    #bp_pane_pays .py_date::before{display:inline!important;margin-right:6px}
+    #bp_pane_pays .py_status{order:4;text-align:right}
+    #bp_pane_pays .py_detail{order:5;grid-column:1 / -1}
+    #bp_pane_pays .py_acts{order:6;grid-column:1 / -1}
+    #bp_pane_pays .py_acts .bp_row_acts .btn{flex:1}
+    #bp_pane_pays .bp_tbl tfoot tr{display:flex;justify-content:space-between;padding:8px 12px;background:#f8f9fa;border-top:2px solid #212529}
+    #bp_pane_pays .bp_tbl tfoot td{width:auto;border:0;background:transparent}
+    #bp_pane_pays .bp_tbl tfoot td:empty{display:none}
+}
+@media (prefers-reduced-motion: reduce){
+    .bp_page *,#bp_bmodal *,#bp_modal *{transition:none!important;animation:none!important}
+}
+
+/* cheque status date: hidden for Hold */
+#bp_modal .bp_off{display:none!important}
+/* cheque status date pop-up (History tab), drawn over the shop pop-up */
+.bp_dlg{position:fixed;inset:0;z-index:1065;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(16,24,40,.45)}
+.bp_dlg[hidden]{display:none}
+.bp_dlg_box{background:#fff;border-radius:12px;padding:20px;width:min(100%,380px);box-shadow:0 16px 40px rgba(16,24,40,.25)}

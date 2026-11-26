@@ -1,5 +1,12 @@
 # Latest
 
+## 2026-04-16
+- Updated `stock_transfer_transaction_file2.php` stock-transfer stock lookup behavior:
+  - `Current Stock` in the add/edit modal now always uses today's date as the stock snapshot date
+  - save-time insufficiency validation now also uses today's stock snapshot date
+  - the transfer header `Tran. Date` still saves to the transaction record, but it no longer controls the current-stock balance lookup
+  - this fixes cases where older transfer dates showed outdated stock like `2.00 pcs` even though today's actual available stock was higher
+
 ## 2026-03-23
 - Corrected the new sales warehouse validation to match inventory adjustments:
   - add mode now blocks blank `Warehouse` and `Warehouse Floor`

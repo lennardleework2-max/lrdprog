@@ -144,7 +144,39 @@ while($rs_staff = $stmt_staff->fetch()){
     );
 }
 
+// Fetch all Unit of Measure options
+$uom_options = array();
+$stmt_uom = $link->prepare("SELECT unmcde, unmdsc FROM itemunitmeasurefile ORDER BY unmdsc ASC");
+$stmt_uom->execute();
+while($rs_uom = $stmt_uom->fetch()){
+    $uom_options[] = array(
+        'unmcde' => $rs_uom['unmcde'],
+        'unmdsc' => $rs_uom['unmdsc']
+    );
+}
+$default_uom_code = '';
+$default_uom_desc = '';
+$ordered_uom_options = array();
+foreach($uom_options as $uom_option){
+    $uom_code = trim((string)$uom_option['unmcde']);
+    $uom_desc = strtolower(trim((string)$uom_option['unmdsc']));
+    if($default_uom_code === '' && ($uom_desc === 'pcs' || strtolower($uom_code) === 'pcs')){
+        $default_uom_code = $uom_code;
+        $default_uom_desc = trim((string)$uom_option['unmdsc']);
+        array_unshift($ordered_uom_options, $uom_option);
+        continue;
+    }
 
+    $ordered_uom_options[] = $uom_option;
+}
+
+if($default_uom_desc === '' && !empty($ordered_uom_options)){
+    $default_uom_desc = trim((string)$ordered_uom_options[0]['unmdsc']);
+}
+
+$base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uom_desc;
+// DEBUG: Uncomment to see what's being fetched
+// echo "<pre>UOM Options: "; print_r($uom_options); echo "</pre>"; exit;
 
 ?>
 
@@ -381,7 +413,21 @@ while($rs_staff = $stmt_staff->fetch()){
 
                             <div class="row m-3">
                                 <div class="col-12">
-                                    <label for="">Price</label>
+                                    <label for="">Unit of Measure</label>
+                                    <select name="unmcde_add" id="unmcde_add" class="form-select" disabled>
+                                        <?php if($default_uom_code === ''): ?>
+                                            <option value="">Select Unit of Measure</option>
+                                        <?php endif; ?>
+                                        <?php foreach($ordered_uom_options as $uom_option): ?>
+                                            <option value="<?php echo htmlspecialchars($uom_option['unmcde'], ENT_QUOTES); ?>" data-default-label="<?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?>" <?php echo ($default_uom_code !== '' && $uom_option['unmcde'] === $default_uom_code) ? 'selected' : ''; ?>><?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="">Price per unit</label>
                                     <input type="text" name="price_add" id="price_add" class="form-control" autocomplete="off" oninput="calcTotal('add')">
                                 </div>
                             </div>
@@ -471,7 +517,21 @@ while($rs_staff = $stmt_staff->fetch()){
 
                             <div class="row m-3">
                                 <div class="col-12">
-                                    <label for="">Price</label>
+                                    <label for="">Unit of Measure</label>
+                                    <select name="unmcde_edit" id="unmcde_edit" class="form-select" disabled>
+                                        <?php if($default_uom_code === ''): ?>
+                                            <option value="">Select Unit of Measure</option>
+                                        <?php endif; ?>
+                                        <?php foreach($ordered_uom_options as $uom_option): ?>
+                                            <option value="<?php echo htmlspecialchars($uom_option['unmcde'], ENT_QUOTES); ?>" data-default-label="<?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?>" <?php echo ($default_uom_code !== '' && $uom_option['unmcde'] === $default_uom_code) ? 'selected' : ''; ?>><?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="">Price per unit</label>
                                     <input type="text" name="price_edit" id="price_edit" class="form-control" autocomplete="off" oninput="calcTotal('edit')">
                                 </div>
                             </div>
@@ -567,6 +627,9 @@ while($rs_staff = $stmt_staff->fetch()){
             <input type="hidden" name="xevent_itmsearch_hidden" id="xevent_itmsearch_hidden">
 
 
+            <input type="hidden" name="base_item_price_add_hidden" id="base_item_price_add_hidden">
+            <input type="hidden" name="base_item_price_edit_hidden" id="base_item_price_edit_hidden">
+
             <input type='hidden' name='txt_pager_totalrec' id='txt_pager_totalrec'  value="<?php if(isset($_POST['txt_pager_totalrec'])){echo $_POST['txt_pager_totalrec'];}?>">
             <input type='hidden' name='txt_pager_maxpage' id='txt_pager_maxpage'  value="<?php if(isset($_POST['txt_pager_maxpage'])){echo $_POST['txt_pager_maxpage'];}?>" >
             <input type='hidden' name='txt_pager_pageno_h' id='txt_pager_pageno_h'  value="<?php if(isset($_POST['txt_pager_pageno_h'])){echo $_POST['txt_pager_pageno_h'];}?>">
@@ -593,6 +656,8 @@ while($rs_staff = $stmt_staff->fetch()){
 
         var trncde = $("#trncde_hidden").val();
         var warehouseFloorMap = <?php echo json_encode($warehouse_floor_map); ?>;
+        var defaultUomCode = <?php echo json_encode($default_uom_code); ?>;
+        var baseUomDisplay = <?php echo json_encode($base_uom_display); ?>;
 
         function rebuildFloorOptions(selectId, warcde, selectedFloorId, allowNone){
             var $select = $("#" + selectId);
@@ -634,7 +699,216 @@ while($rs_staff = $stmt_staff->fetch()){
             $("#warcde_edit").on("change", function(){
                 rebuildFloorOptions("warehouse_floor_id_edit", $(this).val(), "", $(this).find("option:selected").text() === "None");
             });
+
+            $("#unmcde_add").on("change", function(){
+                refreshItemPrice("add");
+            });
+
+            $("#unmcde_edit").on("change", function(){
+                refreshItemPrice("edit");
+            });
         });
+
+        function formatUomConversionValue(conversion){
+            var numericConversion = Number(conversion);
+
+            if(!isFinite(numericConversion)){
+                return "";
+            }
+
+            return numericConversion.toString();
+        }
+
+        function parseNumericInput(value){
+            if(value === null || typeof value === "undefined"){
+                return null;
+            }
+
+            if(typeof value === "number"){
+                return isFinite(value) ? value : null;
+            }
+
+            var normalizedValue = value.toString().replaceAll(",", "").trim();
+            if(normalizedValue === ""){
+                return null;
+            }
+
+            var numericValue = Number(normalizedValue);
+            return isFinite(numericValue) ? numericValue : null;
+        }
+
+        function formatPriceInputValue(value){
+            var numericValue = parseNumericInput(value);
+
+            if(numericValue === null){
+                return "";
+            }
+
+            return numericValue.toFixed(2);
+        }
+
+        function buildItemUomMap(uoms){
+            var uomMap = {};
+
+            if(!uoms || !uoms.length){
+                return uomMap;
+            }
+
+            for(var i = 0; i < uoms.length; i++){
+                if(uoms[i] && uoms[i].unmcde){
+                    uomMap[uoms[i].unmcde] = {
+                        conversion: parseNumericInput(uoms[i].conversion),
+                        unmdsc: uoms[i].unmdsc || uoms[i].unmcde
+                    };
+                }
+            }
+
+            return uomMap;
+        }
+
+        function resetUomOptionLabels(selectSelector){
+            $(selectSelector).find("option").each(function(){
+                var defaultLabel = $(this).data("default-label");
+                if(typeof defaultLabel !== "undefined"){
+                    $(this).text(defaultLabel);
+                }
+                $(this).show();
+            });
+        }
+
+        function applyItemUomLabels(selectSelector, uoms, filterByItem){
+            resetUomOptionLabels(selectSelector);
+
+            var uomMap = {};
+            if(uoms && uoms.length){
+                for(var i = 0; i < uoms.length; i++){
+                    if(uoms[i] && uoms[i].unmcde){
+                        uomMap[uoms[i].unmcde] = uoms[i];
+                    }
+                }
+            }
+
+            $(selectSelector).find("option").each(function(){
+                var optionValue = $(this).val();
+                var defaultLabel = $(this).data("default-label");
+
+                if(typeof defaultLabel === "undefined" || optionValue === ""){
+                    return;
+                }
+
+                // If filtering by item, hide options not in uomMap (but always show pcs)
+                if(filterByItem){
+                    if(optionValue === defaultUomCode){
+                        $(this).show();
+                    } else if(!uomMap[optionValue]){
+                        $(this).hide();
+                        return;
+                    } else {
+                        $(this).show();
+                    }
+                }
+
+                if(
+                    uomMap[optionValue] &&
+                    uomMap[optionValue].conversion !== null &&
+                    uomMap[optionValue].conversion !== ""
+                ){
+                    var formattedConversion = formatUomConversionValue(uomMap[optionValue].conversion);
+                    if(formattedConversion !== ""){
+                        $(this).text(defaultLabel + " (" + formattedConversion + " " + baseUomDisplay + ")");
+                    }
+                }
+            });
+        }
+
+        function updateItemUomDropdown(selectSelector, itmcde, selectedUomCode, onComplete, preserveSelectedUom){
+            var $select = $(selectSelector);
+            var strictEditSelection = preserveSelectedUom === true;
+            var normalizedSelectedUomCode = $.trim(selectedUomCode || "");
+
+            $select.data("current-itmcde", itmcde || "");
+            $select.data("uom-map", {});
+            resetUomOptionLabels(selectSelector);
+            $select.find("option").show();
+
+            if(typeof selectedUomCode !== "undefined"){
+                $select.val(strictEditSelection ? normalizedSelectedUomCode : (normalizedSelectedUomCode || defaultUomCode || ""));
+            }else{
+                $select.val(defaultUomCode || "");
+            }
+
+            $select.prop("disabled", !itmcde);
+
+            if(!itmcde){
+                if(typeof onComplete === "function"){
+                    onComplete();
+                }
+                return;
+            }
+
+            $.ajax({
+                data: {
+                    event_action: "get_item_uoms",
+                    itmcde: itmcde
+                },
+                dataType: "json",
+                type: "post",
+                url: "trn_invadjfile2_ajax.php",
+                success: function(xdata){
+                    if($select.data("current-itmcde") !== itmcde){
+                        return;
+                    }
+
+                    var uoms = xdata["uoms"] || [];
+                    $select.data("uom-map", buildItemUomMap(uoms));
+                    applyItemUomLabels(selectSelector, uoms, true);
+
+                    var nextUomCode = "";
+                    if(strictEditSelection){
+                        $select.find("option").each(function(){
+                            if($.trim($(this).val()) === normalizedSelectedUomCode){
+                                nextUomCode = normalizedSelectedUomCode;
+                                return false;
+                            }
+                        });
+                    }else{
+                        $select.find("option:visible").each(function(){
+                            if($(this).val() !== ""){
+                                nextUomCode = $(this).val();
+                                return false;
+                            }
+                        });
+                    }
+                    var finalUomCode = strictEditSelection ? nextUomCode : (nextUomCode || defaultUomCode || "");
+                    $select.find("option").prop("selected", false);
+                    (strictEditSelection ? $select.find("option") : $select.find("option:visible")).each(function(){
+                        if($.trim($(this).val()) === $.trim(finalUomCode)){
+                            $(this).prop("selected", true);
+                            return false;
+                        }
+                    });
+                    if(finalUomCode !== ""){
+                        $select.val(finalUomCode).trigger("change");
+                    }
+                    $select.prop("disabled", false);
+
+                    if(typeof onComplete === "function"){
+                        onComplete();
+                    }
+                }
+            });
+        }
+
+        function setInitialUomDropdownState(selectSelector){
+            var $select = $(selectSelector);
+
+            $select.data("current-itmcde", "");
+            $select.data("uom-map", {});
+            resetUomOptionLabels(selectSelector);
+            $select.find("option").show();
+            $select.val(defaultUomCode || "");
+            $select.prop("disabled", true);
+        }
 
         function setEditNoneOption(selectId, placeholderText, selectedValue, allowNone){
             var $select = $("#" + selectId);
@@ -653,8 +927,91 @@ while($rs_staff = $stmt_staff->fetch()){
             $select.val(selectedValue);
         }
 
-        function calcTotal(event){
+        function getSelectedUomConversion(selectSelector){
+            var $select = $(selectSelector);
+            var selectedUomCode = $select.val();
+            var uomMap = $select.data("uom-map") || {};
 
+            if(selectedUomCode === "" || selectedUomCode === defaultUomCode){
+                return 1;
+            }
+
+            if(
+                uomMap[selectedUomCode] &&
+                uomMap[selectedUomCode].conversion !== null &&
+                uomMap[selectedUomCode].conversion > 0
+            ){
+                return uomMap[selectedUomCode].conversion;
+            }
+
+            return 1;
+        }
+
+        function setBaseItemPrice(mode, basePrice){
+            var hiddenSelector = mode === "edit" ? "#base_item_price_edit_hidden" : "#base_item_price_add_hidden";
+            var numericBasePrice = parseNumericInput(basePrice);
+
+            if(numericBasePrice === null){
+                $(hiddenSelector).val("");
+                return;
+            }
+
+            $(hiddenSelector).val(numericBasePrice);
+        }
+
+        function getBaseItemPrice(mode){
+            var hiddenSelector = mode === "edit" ? "#base_item_price_edit_hidden" : "#base_item_price_add_hidden";
+            return parseNumericInput($(hiddenSelector).val());
+        }
+
+        function applyConvertedItemPrice(mode, basePrice){
+            var priceSelector = mode === "edit" ? "#price_edit" : "#price_add";
+            var selectSelector = mode === "edit" ? "#unmcde_edit" : "#unmcde_add";
+            var numericBasePrice = parseNumericInput(basePrice);
+
+            setBaseItemPrice(mode, basePrice);
+
+            if(numericBasePrice === null){
+                $(priceSelector).val("");
+                calcTotal(mode);
+                return;
+            }
+
+            var conversion = getSelectedUomConversion(selectSelector);
+            var convertedPrice = numericBasePrice * conversion;
+
+            $(priceSelector).val(formatPriceInputValue(convertedPrice));
+            calcTotal(mode);
+        }
+
+        function refreshItemPrice(mode, basePrice){
+            var itmcdeSelector = mode === "edit" ? "#itmcde_edit_hidden" : "#itmcde_add_hidden";
+            var itmcde = $(itmcdeSelector).val();
+
+            if(!itmcde){
+                return;
+            }
+
+            if(typeof basePrice !== "undefined"){
+                applyConvertedItemPrice(mode, basePrice);
+                return;
+            }
+
+            $.ajax({
+                data: {
+                    event_action: "change_itmprice",
+                    xitmcde: itmcde
+                },
+                dataType: "json",
+                type: "post",
+                url: "trn_invadjfile2_ajax.php",
+                success: function(xdata){
+                    applyConvertedItemPrice(mode, xdata["retEdit"] ? xdata["retEdit"]["xprice"] : "");
+                }
+            });
+        }
+
+        function calcTotal(event){
             if(event == "add"){
                 var price=$("#price_add").val();
                 var qty=$("#itmqty_add").val();
@@ -676,7 +1033,6 @@ while($rs_staff = $stmt_staff->fetch()){
             if(event == "edit"){
                 $("#amount_edit").val(amount);
             }
-            
         }
 
         function print_pdf(){
@@ -746,7 +1102,7 @@ while($rs_staff = $stmt_staff->fetch()){
         //     })  
         // });         
 
-        function select_item_modal(xitmcde, xitmdsc, xuntprc, xevent_action){
+        function select_item_modal(xitmcde, xitmdsc, xevent_action, xnew_itm, xuntprc){
 
             if(xevent_action == 'add'){
 
@@ -755,10 +1111,9 @@ while($rs_staff = $stmt_staff->fetch()){
                 $("#itmcde_add_hidden").val(xitmcde);
                 $("#itmcde_add").val(xitmdsc);
 
-                $("#price_add").val(xuntprc);
-                var xqty = $("#itmqty_add").val();
-                var xtotal = xqty * xuntprc;
-                $("#amount_add").val(xtotal);
+                updateItemUomDropdown("#unmcde_add", xitmcde, $("#unmcde_add").val() || defaultUomCode, function(){
+                    refreshItemPrice("add", xuntprc);
+                });
 
                 $("#view_itm_search").modal("hide");
                 $("#itmcde_add").prop("readonly", true);
@@ -770,18 +1125,17 @@ while($rs_staff = $stmt_staff->fetch()){
                 $("#itmcde_edit_hidden").val(xitmcde);
                 $("#itmcde_edit").val(xitmdsc);
 
-                $("#price_edit").val(xuntprc);
-                var xqty = $("#itmqty_edit").val();
-                var xtotal = xqty * xuntprc;
-                $("#amount_edit").val(xtotal);
+                updateItemUomDropdown("#unmcde_edit", xitmcde, $("#unmcde_edit").val() || defaultUomCode, function(){
+                    refreshItemPrice("edit", xuntprc);
+                });
 
                 $("#view_itm_search").modal("hide");
-                $("#edit_modal_sales").modal("show");   
+                $("#edit_modal_sales").modal("show");
             }
 
             $(".error_msg_itm_view").html("");
 
-    
+
         }
 
         function back_from_view_func(xevent){
@@ -911,6 +1265,7 @@ while($rs_staff = $stmt_staff->fetch()){
                     break;
                 case "open_add":
                     $("#itmcde_add").prop("readonly", false);
+                    $("#base_item_price_add_hidden").val('');
                     $("#price_add").val('');
                     $("#amount_add").val('');
                     $("#itmqty_add").val('');
@@ -918,6 +1273,7 @@ while($rs_staff = $stmt_staff->fetch()){
                     $("#itmcde_add_hidden").val('');
                     $("#warcde_add").val('');
                     $("#warehouse_staff_id_add").val('');
+                    setInitialUomDropdownState("#unmcde_add");
                     rebuildFloorOptions("warehouse_floor_id_add", "", "");
                     $(".error_msg_add_modal").html('');
                     $("#insert_modal_sales").modal("show");
@@ -944,6 +1300,7 @@ while($rs_staff = $stmt_staff->fetch()){
                     var xdata  = $("#edit_modal_sales *").serialize()+"&event_action="+event+"&docnum="+docnum+"&recid="+recid+"&xtrndte_1="+trndte_1_val;
                 break;
                 case "getEdit": 
+                    $("#base_item_price_edit_hidden").val('');
                     var xdata = "event_action=getEdit&recid="+xrecid+"&docnum="+docnum;
                     break;
                 case "delete":
@@ -1056,18 +1413,15 @@ while($rs_staff = $stmt_staff->fetch()){
                             setEditNoneOption("warcde_edit", "Select Warehouse", xdata["retEdit"]["warcde"], allowEmptyLocation);
                             rebuildFloorOptions("warehouse_floor_id_edit", xdata["retEdit"]["warcde"], xdata["retEdit"]["warehouse_floor_id"], allowEmptyLocation);
                             setEditNoneOption("warehouse_staff_id_edit", "Select Warehouse Staff", xdata["retEdit"]["warehouse_staff_id"], false);
-                            // $("#itmcde_edit option[text=" + xdata["retEdit"]["itmdsc"] +"]").prop("selected", true);
-                            // $("#itmcde_edit option:contains("+xdata["retEdit"]["itmdsc"]+")").prop("selected", true);
-                            // var optionsThatContainValue = $("#itmcde_edit").find('option').filter(function() {
-                            //     return $(this).text().trim() === xdata["retEdit"]["itmdsc"];
-                            // });
 
-                            // optionsThatContainValue.prop("selected", true);
+                            // Set the UOM value
+                            updateItemUomDropdown("#unmcde_edit", xdata["retEdit"]["itmcde"], xdata["retEdit"]["unmcde"], undefined, true);
+
                             $(".error_msg_edit_modal").html('');
-                            
+
                             $("#salesfile2_recid_hidden").val(xdata["retEdit"]["recid"]);
                             $("#edit_modal_sales").modal("show");
-                            
+
                         }
                         if(xdata["msg"] == "submitEdit"){
                             $("#edit_modal_sales").modal("hide");

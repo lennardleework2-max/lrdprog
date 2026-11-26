@@ -8,6 +8,62 @@
     require_once('ezpdfclass/class/class.ezpdf.php');
     require_once('resources/func_pdf2tab.php');
 
+    function sales_upload_pdf_order_results($records){
+        if(!is_array($records)){
+            return array();
+        }
+
+        $records = array_values($records);
+        $failed = array();
+        $successful = array();
+
+        foreach($records as $record){
+            if(!is_array($record)){
+                continue;
+            }
+
+            $ordernum = isset($record['ordernum']) ? trim((string)$record['ordernum']) : '';
+            if($ordernum === ''){
+                continue;
+            }
+
+            $is_success = isset($record['success']) && $record['success'] === true;
+            $normalized_record = array(
+                'ordernum' => $ordernum,
+                'success' => $is_success,
+                'status_label' => isset($record['status_label']) && trim((string)$record['status_label']) !== ''
+                    ? trim((string)$record['status_label'])
+                    : ($is_success ? 'Success' : 'Duplicate Records')
+            );
+
+            if($is_success){
+                $successful[] = $normalized_record;
+            }else{
+                $failed[] = $normalized_record;
+            }
+        }
+
+        return array_merge($failed, $successful);
+    }
+
+    function sales_upload_pdf_get_results(){
+        if(isset($_SESSION['sales_upload_result_summary']) && is_array($_SESSION['sales_upload_result_summary'])){
+            $session_results = sales_upload_pdf_order_results($_SESSION['sales_upload_result_summary']);
+            if(!empty($session_results)){
+                return $session_results;
+            }
+        }
+
+        if(isset($_POST['hiddenUploadData']) && trim((string)$_POST['hiddenUploadData']) !== ''){
+            $decoded = json_decode($_POST['hiddenUploadData'], true);
+            if(is_array($decoded)){
+                return sales_upload_pdf_order_results($decoded);
+            }
+        }
+
+        return array();
+    }
+
     // Log export activity
     $username_session = isset($_SESSION['userdesc']) ? $_SESSION['userdesc'] : '';
     $username_full_name = '';
@@ -28,7 +84,7 @@
 
     ob_start();
 
-    $xreport_title = "List of items";
+    $xreport_title = "Upload Result Summary";
 		
 
     if ($_POST['txt_output_type']=='tab')
@@ -61,15 +117,15 @@
 		$xheader = $pdf->openObject();
         $pdf->saveState();
         
-        if($_POST['txt_output_type'] == 'tab'){
-            $pdf->ezPlaceData($xleft, $xtop, '', 10, 'left' );
-        }else{
-            $pdf->ezPlaceData($xleft, $xtop,"<b>Uploaded Sales</b>", 15, 'left' );
-            $xtop   -= 15;
-            $pdf->ezPlaceData($xleft, $xtop,"<b>Pdf Report by: ".$_SESSION['userdesc']."</b>", 9, 'left' );
-            $xtop   -= 15;
-            $pdf->ezPlaceData($xleft, $xtop, 'Date Printed : '.$date_printed, 10, 'left' );
-            $xtop   -= 20;
+	        if($_POST['txt_output_type'] == 'tab'){
+	            $pdf->ezPlaceData($xleft, $xtop, '', 10, 'left' );
+	        }else{
+	            $pdf->ezPlaceData($xleft, $xtop,"<b>Upload Result Summary</b>", 15, 'left' );
+	            $xtop   -= 15;
+	            $pdf->ezPlaceData($xleft, $xtop,"<b>Pdf Report by: ".$_SESSION['userdesc']."</b>", 9, 'left' );
+	            $xtop   -= 15;
+	            $pdf->ezPlaceData($xleft, $xtop, 'Date Printed : '.$date_printed, 10, 'left' );
+	            $xtop   -= 20;
         }
 
         $pdf->restoreState();
@@ -90,14 +146,14 @@
             $pdf->ezPlaceData($xleft+=75,$xtop,$date_uploaded_format,10,'left');
             $xtop -=20;
               
-        }else{
+	        }else{
 
-            echo "Uploaded Sales\t\n"; // Use \t for column separation and \n for new rows
-            echo "Pdf Report by: " . $_SESSION['userdesc'] . "\t\n";
-            echo "Date Printed : " . $date_printed . "\t\n";
-            echo "\n"; // Blank line for spacing
+	            echo "Upload Result Summary\t\n"; // Use \t for column separation and \n for new rows
+	            echo "Pdf Report by: " . $_SESSION['userdesc'] . "\t\n";
+	            echo "Date Printed : " . $date_printed . "\t\n";
+	            echo "\n"; // Blank line for spacing
 
-            // if(isset($_POST['output_with_filter']) &&
+	            // if(isset($_POST['output_with_filter']) &&
             // $_POST['output_with_filter'] == 'true'){
                 echo "FILTER:\n"; // Use \t for column separation and \n for new rows
                 echo "Date Uploaded: ".$date_uploaded_format."\t\n";
@@ -130,65 +186,74 @@
         $pdf->addObject($xheader_first_page, 'add');
 
 
-    if (isset($_POST['hiddenUploadData'])) {
-        $jsonData = $_POST['hiddenUploadData'];
-    
-        // Step 2: Decode the JSON data into a PHP array
-        $decodedData = json_decode($jsonData, true);
-
-        // Sort array to show matched (true) first, then unmatched (false)
-        usort($decodedData, function ($a, $b) {
-            // Sort true (1) first, then false (0)
-            return ($b['success'] === true) - ($a['success'] === true);
-        });
-
-        //loop through it 
-        foreach ($decodedData as $number => $value) {
-
-            $xleft = 25;
-
-            if($value['success'] == true){
-                $status =  'matched';
-            }else{
-                $status =  'unmatched';
-            }
-            
-            $pdf->ezPlaceData($xleft,$xtop,$value['ordernum'],9,"left");
-            $pdf->ezPlaceData($xleft+=140,$xtop,$status,9,"left");
-
-            $xtop -= 15;
-
-            if($xtop <= 60)
-            {
-                $pdf->ezNewPage();
-                $xtop = 505;
-    
-                $xfields_heaeder_counter = 0;
-    
-                if($_POST['txt_output_type'] !='tab' && $xheader_check == false){
-    
-                    $xheader = $pdf->openObject();
-                    $pdf->saveState();
-        
-                    $xleft =25;
-                    $pdf->setLineStyle(.5);
-                    $pdf->line($xleft, $xtop+10+20, 770, $xtop+10+20);
-                    $pdf->line($xleft, $xtop-14+30, 770, $xtop-14+30);
-                    
-                    $pdf->ezPlaceData($xleft,$xtop+20,"<b>Order Number</b>",10,'left');
-                    $pdf->ezPlaceData($xleft+=140,$xtop+20,"<b>Status</b>",10,'left');
-            
-                    $pdf->restoreState();
-                    $pdf->closeObject();
-                    $pdf->addObject($xheader,'all');   
-    
-                    $xheader_check = true;
-                }
-                // $xtop -= 10;
+	    $decodedData = sales_upload_pdf_get_results();
+        $failed_count = 0;
+        foreach($decodedData as $value){
+            if(isset($value['success']) && $value['success'] === false){
+                $failed_count++;
             }
         }
- 
-    }
+        $success_count = count($decodedData) - $failed_count;
+
+        if($_POST['txt_output_type'] != 'tab'){
+            $pdf->ezPlaceData(25, $xtop, "Failed: ".$failed_count."    Success: ".$success_count."    Total: ".count($decodedData), 9, 'left');
+            $xtop -= 20;
+        }else{
+            echo "Failed: ".$failed_count."\t\n";
+            echo "Success: ".$success_count."\t\n";
+            echo "Total: ".count($decodedData)."\t\n";
+            echo "\n";
+        }
+
+        if(empty($decodedData)){
+            if($_POST['txt_output_type'] != 'tab'){
+                $pdf->ezPlaceData(25, $xtop, 'No upload results available.', 9, 'left');
+            }else{
+                echo "No upload results available.\t\n";
+            }
+        }else{
+            foreach ($decodedData as $value) {
+                $xleft = 25;
+                $status = isset($value['status_label']) ? $value['status_label'] : ((isset($value['success']) && $value['success'] === true) ? 'Success' : 'Duplicate Records');
+
+                if($_POST['txt_output_type'] == 'tab'){
+                    echo $value['ordernum']."\t".$status."\t\n";
+                }else{
+                    $pdf->ezPlaceData($xleft,$xtop,$value['ordernum'],9,"left");
+                    $pdf->ezPlaceData($xleft+=140,$xtop,$status,9,"left");
+                }
+
+                $xtop -= 15;
+
+                if($xtop <= 60)
+                {
+                    $pdf->ezNewPage();
+                    $xtop = 505;
+
+                    $xfields_heaeder_counter = 0;
+
+                    if($_POST['txt_output_type'] !='tab' && $xheader_check == false){
+
+                        $xheader = $pdf->openObject();
+                        $pdf->saveState();
+
+                        $xleft =25;
+                        $pdf->setLineStyle(.5);
+                        $pdf->line($xleft, $xtop+10+20, 770, $xtop+10+20);
+                        $pdf->line($xleft, $xtop-14+30, 770, $xtop-14+30);
+
+                        $pdf->ezPlaceData($xleft,$xtop+20,"<b>Order Number</b>",10,'left');
+                        $pdf->ezPlaceData($xleft+=140,$xtop+20,"<b>Status</b>",10,'left');
+
+                        $pdf->restoreState();
+                        $pdf->closeObject();
+                        $pdf->addObject($xheader,'all');
+
+                        $xheader_check = true;
+                    }
+                }
+            }
+        }
 
    
     $pdf->line(25, $xtop-10, 770, $xtop-10); 

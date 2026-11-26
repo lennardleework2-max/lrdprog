@@ -186,6 +186,8 @@ $current_datetime = date("Y-m-d H:i:s");
             </div>
         </div>
 
+        <?php include "includes/module_bar.php"; ?>
+
         <div class="container-fluid">
             <div class='row bg-light' style="height:2.188rem;">
                 <div class="col-1 pe-0">
@@ -265,6 +267,67 @@ $current_datetime = date("Y-m-d H:i:s");
             margin-top: 10px;
             font-size: 16px;
             color: #555;
+        }
+
+        /* paid-upload progress bar (copied/adapted from gen_dashboard.php's simulated loading bar) */
+        .paidupload-loading{
+            display: none;
+            margin: 15px auto 0;
+            width: 95%;
+            background: #ffffff;
+            border: 1px solid rgba(33, 37, 41, 0.1);
+            border-radius: 0.95rem;
+            padding: 0.9rem 1rem;
+            box-shadow: 0 12px 24px rgba(33, 37, 41, 0.08);
+        }
+
+        .paidupload-loading.active{
+            display: block;
+        }
+
+        .paidupload-loading-label{
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            font-weight: 700;
+            color: #212529;
+        }
+
+        .paidupload-loading-bar{
+            height: 0.5rem;
+            border-radius: 999px;
+            overflow: hidden;
+            background: #e5e7eb;
+            margin-top: 0.55rem;
+            position: relative;
+        }
+
+        .paidupload-loading-bar span{
+            display: block;
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #198754 0%, #20c997 100%);
+            border-radius: 999px;
+            transition: width 0.15s ease-out;
+        }
+
+        .paidupload-loading-percent{
+            display: inline-block;
+            min-width: 3rem;
+            text-align: right;
+            font-weight: 700;
+            color: #198754;
+            font-size: 0.95rem;
+            margin-left: 0.5rem;
+        }
+
+        .paidupload-loading-message{
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+            color: #6b7280;
+            font-weight: 500;
+            min-height: 1.2em;
+            transition: opacity 0.3s ease;
         }
 
     </style>
@@ -347,10 +410,20 @@ $current_datetime = date("Y-m-d H:i:s");
                                                 <input type="text" class='form-control' name='insurance_process' id='insurance_process' style='width:60%'> -->
                                                 <button class='btn btn-primary' onclick='upload_waybill()' style='width:150px;font-weight:bold;font-size:19px' type='button'>Upload</button>
                                             </div>
-                        
+
+                                            <div class="paidupload-loading" id="paidUploadLoading">
+                                                <div class="paidupload-loading-label">
+                                                    <i class="fas fa-sync-alt fa-spin"></i>
+                                                    Uploading and processing file...
+                                                    <span class="paidupload-loading-percent" id="paidUploadLoadingPercent">0%</span>
+                                                </div>
+                                                <div class="paidupload-loading-bar"><span id="paidUploadLoadingBarFill"></span></div>
+                                                <div class="paidupload-loading-message" id="paidUploadLoadingMessage">Preparing your file...</div>
+                                            </div>
+
                                         </div>
-                                    </div>  
-                                </div>  
+                                    </div>
+                                </div>
 
                                 <!-- <div class='m-2 d-flex align-items-center col-12 col-sm-4 shadow rounded-3' style='background-color:white;flex-direction:column'>
                                     <h3 style='font-size:25px;margin-top:30px'>Order Management Settings(Export Settings)</h3>
@@ -486,6 +559,116 @@ $current_datetime = date("Y-m-d H:i:s");
     }  
 
 
+    // paid-upload progress bar (copied/adapted from gen_dashboard.php's simulated loading bar)
+    var paidUploadLoadingBox = document.getElementById('paidUploadLoading');
+    var paidUploadLoadingBarFill = document.getElementById('paidUploadLoadingBarFill');
+    var paidUploadLoadingPercentText = document.getElementById('paidUploadLoadingPercent');
+    var paidUploadLoadingMessageElement = document.getElementById('paidUploadLoadingMessage');
+    var paidUploadLoadingProgress = 0;
+    var paidUploadLoadingProgressInterval = null;
+    var paidUploadLoadingMessageInterval = null;
+    var paidUploadLoadingMessageIndex = 0;
+    var paidUploadLoadingMessages = [
+        'Preparing your file...',
+        'Uploading your file...',
+        'Reading the spreadsheet...',
+        'Matching order numbers...',
+        'Almost ready...',
+        'Just a little more...'
+    ];
+
+    function updatePaidUploadProgress(percent){
+        paidUploadLoadingProgress = Math.min(100, Math.max(0, percent));
+        paidUploadLoadingBarFill.style.width = paidUploadLoadingProgress + '%';
+        paidUploadLoadingPercentText.textContent = Math.round(paidUploadLoadingProgress) + '%';
+    }
+
+    function startPaidUploadProgress(){
+        paidUploadLoadingProgress = 0;
+        updatePaidUploadProgress(0);
+        paidUploadLoadingBox.classList.add('active');
+
+        if(paidUploadLoadingProgressInterval){
+            clearInterval(paidUploadLoadingProgressInterval);
+        }
+
+        paidUploadLoadingMessageIndex = 0;
+        paidUploadLoadingMessageElement.textContent = paidUploadLoadingMessages[0];
+
+        if(paidUploadLoadingMessageInterval){
+            clearInterval(paidUploadLoadingMessageInterval);
+        }
+
+        paidUploadLoadingMessageInterval = setInterval(function(){
+            paidUploadLoadingMessageIndex = (paidUploadLoadingMessageIndex + 1) % paidUploadLoadingMessages.length;
+            paidUploadLoadingMessageElement.style.opacity = '0';
+            setTimeout(function(){
+                paidUploadLoadingMessageElement.textContent = paidUploadLoadingMessages[paidUploadLoadingMessageIndex];
+                paidUploadLoadingMessageElement.style.opacity = '1';
+            }, 150);
+        }, 3000);
+
+        // Smooth incremental progress distributed evenly across the loading duration
+        paidUploadLoadingProgressInterval = setInterval(function(){
+            if(paidUploadLoadingProgress < 20){
+                paidUploadLoadingProgress += 0.8;
+            }else if(paidUploadLoadingProgress < 40){
+                paidUploadLoadingProgress += 0.6;
+            }else if(paidUploadLoadingProgress < 60){
+                paidUploadLoadingProgress += 0.5;
+            }else if(paidUploadLoadingProgress < 75){
+                paidUploadLoadingProgress += 0.4;
+            }else if(paidUploadLoadingProgress < 85){
+                paidUploadLoadingProgress += 0.3;
+            }else if(paidUploadLoadingProgress < 95){
+                paidUploadLoadingProgress += 0.15;
+            }else if(paidUploadLoadingProgress < 98){
+                paidUploadLoadingProgress += 0.08;
+            }
+            if(paidUploadLoadingProgress >= 98){
+                paidUploadLoadingProgress = 98;
+            }
+            updatePaidUploadProgress(paidUploadLoadingProgress);
+        }, 100);
+    }
+
+    function completePaidUploadProgress(){
+        if(paidUploadLoadingProgressInterval){
+            clearInterval(paidUploadLoadingProgressInterval);
+            paidUploadLoadingProgressInterval = null;
+        }
+
+        if(paidUploadLoadingMessageInterval){
+            clearInterval(paidUploadLoadingMessageInterval);
+            paidUploadLoadingMessageInterval = null;
+        }
+
+        updatePaidUploadProgress(100);
+        paidUploadLoadingMessageElement.textContent = 'Done!';
+
+        setTimeout(function(){
+            paidUploadLoadingBox.classList.remove('active');
+            paidUploadLoadingProgress = 0;
+            updatePaidUploadProgress(0);
+            paidUploadLoadingMessageElement.textContent = paidUploadLoadingMessages[0];
+        }, 400);
+    }
+
+    function resetPaidUploadProgress(){
+        if(paidUploadLoadingProgressInterval){
+            clearInterval(paidUploadLoadingProgressInterval);
+            paidUploadLoadingProgressInterval = null;
+        }
+        if(paidUploadLoadingMessageInterval){
+            clearInterval(paidUploadLoadingMessageInterval);
+            paidUploadLoadingMessageInterval = null;
+        }
+        paidUploadLoadingProgress = 0;
+        updatePaidUploadProgress(0);
+        paidUploadLoadingMessageElement.textContent = paidUploadLoadingMessages[0];
+        paidUploadLoadingBox.classList.remove('active');
+    }
+
     function upload_waybill(){
 
         var platform_name = $("#platform_name").val();
@@ -500,19 +683,42 @@ $current_datetime = date("Y-m-d H:i:s");
         // var policynum = $("#policynum_hidden_upload").val();
         var xdata = new FormData();
         var files = $('#xfile')[0].files;
+
+        console.log('[PAID_UPLOAD] upload_waybill called', {platform_name: platform_name, chk_manual: isChecked, fileCount: files.length, fileName: files.length ? files[0].name : null});
+
+        if(!files.length){
+            console.error('[PAID_UPLOAD] no file selected - aborting before ajax call');
+            alert('Please choose a file to upload first.');
+            return;
+        }
+
         xdata.append('xfile',files[0]);
         xdata.append('event_action', 'process_file');
         xdata.append('platform_name', platform_name);
         xdata.append('chk_manual', isChecked);
 
-        jQuery.ajax({    
+        resetPaidUploadProgress();
+        startPaidUploadProgress();
+
+        jQuery.ajax({
         data:xdata,
         contentType: false,
         processData: false,
         type:"post",
         dataType: 'json',  // Expect JSON response
-        url:"sales_filepaidupload_ajax.php", 
-            success: function(xret){ 
+        global: false, // suppress the site-wide loading spinner - this page shows its own progress bar
+        url:"sales_filepaidupload_ajax.php",
+            error: function(jqXHR, textStatus, errorThrown){
+                console.error('[PAID_UPLOAD] ajax request failed', {textStatus: textStatus, errorThrown: errorThrown, httpStatus: jqXHR.status, responseText: jqXHR.responseText});
+                alert('Upload failed (' + textStatus + '). Check the browser console for details.');
+            },
+            complete: function(){
+                console.log('[PAID_UPLOAD] ajax complete');
+                completePaidUploadProgress();
+            },
+            success: function(xret){
+
+                console.log('[PAID_UPLOAD] ajax success', {status: xret['status'], errorMsg: xret['errorMsg'], noMatchCount: xret['noMatchFile2'] ? Object.keys(xret['noMatchFile2']).length : 0});
 
                 if(xret['status'] == 0){
                     alert(xret["errorMsg"]);

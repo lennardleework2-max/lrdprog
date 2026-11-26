@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Customer Accounts</title>
+<link rel="shortcut icon" href="../images/logo_only.png">
+<link rel="stylesheet" href="../bootstrap/css/bootstrap.min.css">
+<link rel="stylesheet" href="../css/all.min.css">
+<link rel="stylesheet" href="../bootstrap/icons/font/bootstrap-icons.css">
+<link rel="stylesheet" href="payments-mock.css">
+</head>
+<body>
+
+<div class="mock_bar">
+    <b>MOCKUP</b><span>Option 3 &middot; Customer Accounts</span>
+    <a href="payments-option-1.html">Option 1</a><a href="payments-option-2.html">Option 2</a><a href="payments-option-3.html" class="on">Option 3</a>
+</div>
+
+<!-- app shell (unchanged system header) -->
+<div class="container-fluid">
+    <div class="row app_top">
+        <div class="col-2 pe-0"><img src="../images/logo_horizontal.png" style="height:50px;width:100px;"></div>
+        <div class="col-10 text-white text-end"><div style="font-family:arial;font-weight:bold">LRD SYSTEM</div><div style="font-size:.8rem">v1.0</div></div>
+    </div>
+    <div class="row app_sub align-items-center">
+        <div class="col-1"><i class="fas fa-long-arrow-alt-right" style="font-size:24px"></i></div>
+        <div class="col-11 text-end" style="font-size:13px"><b>admin</b> <i class="far fa-user-circle mx-2"></i> <a href="#" class="text-dark fw-bold text-decoration-none"><i class="bi bi-box-arrow-right"></i> Logout</a></div>
+    </div>
+</div>
+
+<div class="page">
+
+    <div class="page_head">
+        <div>
+            <h1>Customer Accounts</h1>
+            <p>Select a customer to see their open DRs, payments and checks on hand.</p>
+        </div>
+        <div class="actions">
+            <button class="btn btn-light"><i class="bi bi-file-earmark-pdf me-1"></i> All balances (PDF)</button>
+        </div>
+    </div>
+
+    <div class="split">
+
+        <!-- customer list -->
+        <div class="card_x">
+            <div class="p-3 border-bottom">
+                <div class="search mb-2" style="max-width:none"><i class="bi bi-search"></i><input class="form-control" placeholder="Search customer"></div>
+                <div class="d-flex gap-2">
+                    <select class="form-select form-select-sm"><option>All routes</option><option>Route A - North</option></select>
+                    <select class="form-select form-select-sm" style="width:130px"><option>With balance</option><option>All</option></select>
+                </div>
+            </div>
+            <div class="cust_list">
+                <div class="cust_item on"><span class="avatar">JS</span><div class="meta"><div class="name">Juan's Sari-Sari Store</div><div class="small_muted">Route A - North</div></div><div class="num amt_due">25,200.00</div></div>
+                <div class="cust_item"><span class="avatar">DC</span><div class="meta"><div class="name">Dela Cruz Trading</div><div class="small_muted">Route B - South</div></div><div class="num amt_due">60,750.00</div></div>
+                <div class="cust_item"><span class="avatar">SM</span><div class="meta"><div class="name">Santos Mini Mart</div><div class="small_muted">Route C - East</div></div><div class="num amt_due">17,000.00</div></div>
+                <div class="cust_item"><span class="avatar">MG</span><div class="meta"><div class="name">Maria Grocery</div><div class="small_muted">Route A - North</div></div><div class="num amt_due">8,500.00</div></div>
+                <div class="cust_item"><span class="avatar">RS</span><div class="meta"><div class="name">Reyes Store</div><div class="small_muted">Route B - South</div></div><div class="num amt_ok">0.00</div></div>
+            </div>
+            <div class="d-flex justify-content-between px-3 py-3 border-top" style="background:#f9fafb;border-radius:0 0 12px 12px">
+                <span class="fw-semibold">All customers</span><span class="num amt_due">₱111,450.00</span>
+            </div>
+        </div>
+
+        <!-- account detail -->
+        <div>
+            <div class="card_x p-4 mb-3">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="avatar lg">JS</span>
+                    <div class="me-auto">
+                        <div style="font-size:19px;font-weight:600">Juan's Sari-Sari Store</div>
+                        <div class="small_muted"><i class="bi bi-geo-alt me-1"></i>Route A - North <span class="mx-2">&middot;</span><i class="bi bi-person me-1"></i>Pedro Santos</div>
+                    </div>
+                    <button class="btn btn-light"><i class="bi bi-file-earmark-text me-1"></i> Statement</button>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#payModal"><i class="bi bi-plus-lg me-1"></i> Record Payment</button>
+                </div>
+            </div>
+
+            <div class="kpis">
+                <div class="card_x kpi"><div class="label">Total sales</div><div class="value">₱45,200.00</div><div class="hint">3 DRs</div></div>
+                <div class="card_x kpi"><div class="label"><span class="dot" style="background:#15803d"></span>Paid</div><div class="value">₱20,000.00</div><div class="hint">cleared</div></div>
+                <div class="card_x kpi"><div class="label"><span class="dot" style="background:#b45309"></span>Checks on hand</div><div class="value">₱10,000.00</div><div class="hint">1 check</div></div>
+                <div class="card_x kpi" style="border-color:#fecaca;background:#fffafa"><div class="label"><span class="dot" style="background:#b91c1c"></span>Balance</div><div class="value" style="color:#b91c1c">₱25,200.00</div><div class="hint">oldest DR: 47 days</div></div>
+            </div>
+
+            <div class="card_x">
+                <div class="tabs_x">
+                    <a href="#" class="active" data-tab="t1">Open DRs<span class="count">2</span></a>
+                    <a href="#" data-tab="t2">Payment history<span class="count">2</span></a>
+                    <a href="#" data-tab="t3">Checks on hand<span class="count">1</span></a>
+                </div>
+
+                <div class="tab_x" id="t1">
+                    <table class="tbl">
+                        <thead><tr><th>DR #</th><th>Date</th><th class="num">Amount</th><th class="num">Paid</th><th class="num">Balance</th><th>Age</th></tr></thead>
+                        <tbody>
+                            <tr><td class="name">DR-10388</td><td>Aug 14, 2026</td><td class="num">18,000.00</td><td class="num">4,800.00</td><td class="num amt_due">13,200.00</td><td><span class="pill due">47 days</span></td></tr>
+                            <tr><td class="name">DR-10502</td><td>Sep 10, 2026</td><td class="num">12,000.00</td><td class="num muted">&mdash;</td><td class="num amt_due">12,000.00</td><td><span class="pill neutral">20 days</span></td></tr>
+                        </tbody>
+                        <tfoot><tr><td colspan="4">Open balance</td><td class="num amt_due">25,200.00</td><td></td></tr></tfoot>
+                    </table>
+                    <div class="px-3 py-2"><div class="form-check"><input class="form-check-input" type="checkbox" id="show_paid"><label class="form-check-label small_muted" for="show_paid">Include fully paid DRs</label></div></div>
+                </div>
+
+                <div class="tab_x" id="t2" style="display:none">
+                    <table class="tbl">
+                        <thead><tr><th>Date</th><th>Method</th><th>Applied to</th><th class="num">Amount</th><th>Status</th><th></th></tr></thead>
+                        <tbody>
+                            <tr><td>Sep 15, 2026</td><td>Check <span class="small_muted">&middot; BDO 004512</span></td><td class="small_muted">DR-10388</td><td class="num fw-semibold">10,000.00</td><td><span class="pill wait">Deposit Nov 15</span></td>
+                                <td class="text-end"><div class="dropdown d-inline-block"><button class="btn btn-ghost" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></button><ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item" href="#"><i class="bi bi-pencil"></i> Edit</a></li><li><a class="dropdown-item text-danger" href="#"><i class="bi bi-trash"></i> Delete</a></li></ul></div></td></tr>
+                            <tr><td>Aug 01, 2026</td><td>Cash</td><td class="small_muted">DR-10231, DR-10388</td><td class="num fw-semibold">20,000.00</td><td><span class="pill ok">Cleared</span></td>
+                                <td class="text-end"><div class="dropdown d-inline-block"><button class="btn btn-ghost" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></button><ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item" href="#"><i class="bi bi-pencil"></i> Edit</a></li><li><a class="dropdown-item text-danger" href="#"><i class="bi bi-trash"></i> Delete</a></li></ul></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="tab_x" id="t3" style="display:none">
+                    <table class="tbl">
+                        <thead><tr><th>Check #</th><th>Bank</th><th>Received</th><th>Deposit on</th><th class="num">Amount</th><th></th></tr></thead>
+                        <tbody>
+                            <tr><td class="name">004512</td><td>BDO</td><td>Sep 15, 2026</td><td>Nov 15, 2026 <span class="small_muted">&middot; in 46 days</span></td><td class="num fw-semibold">10,000.00</td>
+                                <td class="text-end"><button class="btn btn-sm btn-soft-success"><i class="bi bi-check2 me-1"></i>Mark deposited</button></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- RECORD PAYMENT MODAL -->
+<div class="modal fade" id="payModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div><h5 class="modal-title">Record Payment</h5><div class="small_muted">Juan's Sari-Sari Store &middot; Balance ₱25,200.00</div></div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="section_title">Payment details</p>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6"><label class="f_label">Date received</label><input class="form-control" value="09/30/2026"></div>
+                    <div class="col-md-6"><label class="f_label">Amount</label><input class="form-control text-end" value="15,000.00"></div>
+                </div>
+                <label class="f_label">Method</label>
+                <div class="type_group mb-3">
+                    <input type="radio" name="ptype" id="t_cash"><label for="t_cash"><i class="bi bi-cash-stack"></i>Cash</label>
+                    <input type="radio" name="ptype" id="t_check" checked><label for="t_check"><i class="bi bi-journal-check"></i>Check</label>
+                    <input type="radio" name="ptype" id="t_bank"><label for="t_bank"><i class="bi bi-bank"></i>Bank transfer</label>
+                </div>
+                <div class="check_box row g-3 mx-0 mb-3">
+                    <div class="col-md-4"><label class="f_label">Check number</label><input class="form-control" value="004513"></div>
+                    <div class="col-md-4"><label class="f_label">Bank</label><input class="form-control" value="BDO"></div>
+                    <div class="col-md-4"><label class="f_label">Check date (deposit on)</label><input class="form-control" value="11/30/2026"></div>
+                </div>
+                <div class="mb-4"><label class="f_label">Remarks <span class="small_muted">(optional)</span></label><input class="form-control" placeholder="e.g. Collected by Pedro"></div>
+
+                <div class="d-flex align-items-center mb-2">
+                    <p class="section_title mb-0">Apply to DRs</p>
+                    <span class="small_muted ms-2">Filled oldest first &mdash; you can adjust</span>
+                </div>
+                <table class="mini">
+                    <thead><tr><th>DR #</th><th>Date</th><th class="num">Balance</th><th class="num" style="width:160px">Apply</th></tr></thead>
+                    <tbody>
+                        <tr><td>DR-10388</td><td>Aug 14, 2026</td><td class="num">13,200.00</td><td><input class="form-control" value="13,200.00"></td></tr>
+                        <tr><td>DR-10502</td><td>Sep 10, 2026</td><td class="num">12,000.00</td><td><input class="form-control" value="1,800.00"></td></tr>
+                    </tbody>
+                </table>
+                <div class="alloc_sum">
+                    <div><small>Payment</small><b>₱15,000.00</b></div>
+                    <div><small>Applied</small><b>₱15,000.00</b></div>
+                    <div><small>Unapplied</small><b class="amt_ok">₱0.00</b></div>
+                    <div><small>New balance</small><b class="amt_due">₱10,200.00</b></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary">Save payment</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="../js/jquery-3.5.1.min.js"></script>
+<script src="../bootstrap/js/bootstrap.bundle.min.js"></script>
+<script>
+    $(".tabs_x a").on("click", function(e){
+        e.preventDefault();
+        $(".tabs_x a").removeClass("active");
+        $(this).addClass("active");
+        $(".tab_x").hide();
+        $("#" + $(this).data("tab")).show();
+    });
+    $(".cust_item").on("click", function(){
+        $(".cust_item").removeClass("on");
+        $(this).addClass("on");
+    });
+</script>
+</body>
+</html>

@@ -209,6 +209,54 @@ while($rs_staff = $stmt_staff->fetch()){
     );
 }
 
+$salesprice_type_options = array();
+$stmt_salesprice_type = $link->prepare("SELECT salesprice_id, salesprice_desc FROM mf_salespricetype ORDER BY salesprice_id ASC");
+$stmt_salesprice_type->execute();
+while($rs_salesprice_type = $stmt_salesprice_type->fetch()){
+    if($rs_salesprice_type['salesprice_id'] === 'SID-00002' && $hide_cost_price_crud){
+        continue;
+    }
+    if($rs_salesprice_type['salesprice_id'] === 'SID-00001' && $hide_distri_price_crud){
+        continue;
+    }
+    $salesprice_type_options[] = array(
+        'salesprice_id' => $rs_salesprice_type['salesprice_id'],
+        'salesprice_desc' => $rs_salesprice_type['salesprice_desc']
+    );
+}
+$default_salesprice_id = 'SID-00003';
+
+// Fetch all Unit of Measure options
+$uom_options = array();
+$stmt_uom = $link->prepare("SELECT unmcde, unmdsc FROM itemunitmeasurefile ORDER BY unmdsc ASC");
+$stmt_uom->execute();
+while($rs_uom = $stmt_uom->fetch()){
+    $uom_options[] = array(
+        'unmcde' => $rs_uom['unmcde'],
+        'unmdsc' => $rs_uom['unmdsc']
+    );
+}
+$default_uom_code = '';
+$default_uom_desc = '';
+$ordered_uom_options = array();
+foreach($uom_options as $uom_option){
+    $uom_code = trim((string)$uom_option['unmcde']);
+    $uom_desc = strtolower(trim((string)$uom_option['unmdsc']));
+    if($default_uom_code === '' && ($uom_desc === 'pcs' || strtolower($uom_code) === 'pcs')){
+        $default_uom_code = $uom_code;
+        $default_uom_desc = trim((string)$uom_option['unmdsc']);
+        array_unshift($ordered_uom_options, $uom_option);
+        continue;
+    }
+
+    $ordered_uom_options[] = $uom_option;
+}
+
+if($default_uom_desc === '' && !empty($ordered_uom_options)){
+    $default_uom_desc = trim((string)$ordered_uom_options[0]['unmdsc']);
+}
+
+$base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uom_desc;
 
 
 ?>
@@ -591,28 +639,6 @@ while($rs_staff = $stmt_staff->fetch()){
                                         </td>                                    
                                     </tr>                                    
 
-                                    <!-- Partial Payment Section -->
-                                    <tr class="m-1 edit_row salesfile1" style="border-bottom:3px solid #cccccc ">
-                                        <td>
-                                            <div class="row px-2">
-                                                <div class="col-12 p-3">
-                                                    <div class="d-flex align-items-center">
-                                                        <label style="font-weight:bold" class="me-3">Partial Payments</label>
-                                                        <button type="button" class="btn btn-success btn-sm fw-bold" onclick="openPartialPaymentModal()">
-                                                            <i class="fas fa-plus"></i> Add Partial Payment
-                                                        </button>
-                                                    </div>
-                                                    <div id="partial_payment_list" class="mt-2">
-                                                        <!-- Partial payments will be loaded here -->
-                                                    </div>
-                                                    <div id="partial_payment_total" class="mt-2 fw-bold" style="display:none;">
-                                                        Total Paid: <span id="total_partial_amount">0.00</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                    </tr>
-
                                     <tr class="m-1 edit_row salesfile1" style="border-bottom:3px solid #cccccc ">
                                         <td>
                                             <div class="row px-2">
@@ -826,7 +852,33 @@ while($rs_staff = $stmt_staff->fetch()){
 
                             <div class="row m-3">
                                 <div class="col-12">
-                                    <label for="">Price</label>
+                                    <label for="">Unit of Measure</label>
+                                    <select name="unmcde_add" id="unmcde_add" class="form-select" disabled>
+                                        <?php if($default_uom_code === ''): ?>
+                                            <option value="">Select Unit of Measure</option>
+                                        <?php endif; ?>
+                                        <?php foreach($ordered_uom_options as $uom_option): ?>
+                                            <option value="<?php echo htmlspecialchars($uom_option['unmcde'], ENT_QUOTES); ?>" data-default-label="<?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?>" <?php echo ($default_uom_code !== '' && $uom_option['unmcde'] === $default_uom_code) ? 'selected' : ''; ?>><?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="">Select Pricing</label>
+                                    <select name="salesprice_id_add" id="salesprice_id_add" class="form-select">
+                                        <option value="">Select Pricing</option>
+                                        <?php foreach($salesprice_type_options as $salesprice_type_option): ?>
+                                            <option value="<?php echo htmlspecialchars($salesprice_type_option['salesprice_id'], ENT_QUOTES); ?>" <?php echo ($salesprice_type_option['salesprice_id'] === $default_salesprice_id) ? 'selected' : ''; ?>><?php echo htmlspecialchars($salesprice_type_option['salesprice_desc'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="">Price per unit</label>
                                     <input type="text" name="price_add" id="price_add" class="form-control" autocomplete="off" oninput="calcTotal('add')">
                                 </div>
                             </div>
@@ -980,7 +1032,33 @@ while($rs_staff = $stmt_staff->fetch()){
 
                             <div class="row m-3">
                                 <div class="col-12">
-                                    <label for="">Price</label>
+                                    <label for="">Unit of Measure</label>
+                                    <select name="unmcde_edit" id="unmcde_edit" class="form-select" disabled>
+                                        <?php if($default_uom_code === ''): ?>
+                                            <option value="">Select Unit of Measure</option>
+                                        <?php endif; ?>
+                                        <?php foreach($ordered_uom_options as $uom_option): ?>
+                                            <option value="<?php echo htmlspecialchars($uom_option['unmcde'], ENT_QUOTES); ?>" data-default-label="<?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?>" <?php echo ($default_uom_code !== '' && $uom_option['unmcde'] === $default_uom_code) ? 'selected' : ''; ?>><?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="">Select Pricing</label>
+                                    <select name="salesprice_id_edit" id="salesprice_id_edit" class="form-select">
+                                        <option value="">Select Pricing</option>
+                                        <?php foreach($salesprice_type_options as $salesprice_type_option): ?>
+                                            <option value="<?php echo htmlspecialchars($salesprice_type_option['salesprice_id'], ENT_QUOTES); ?>"><?php echo htmlspecialchars($salesprice_type_option['salesprice_desc'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="">Price per unit</label>
                                     <input type="text" name="price_edit" id="price_edit" class="form-control" autocomplete="off" oninput="calcTotal('edit')">
                                 </div>
                             </div>
@@ -1073,61 +1151,6 @@ while($rs_staff = $stmt_staff->fetch()){
 
 
                 <input type="hidden" name="salesfile2_recid_hidden" id="salesfile2_recid_hidden">
-            </div>
-
-            <!-- Partial Payment Modal -->
-            <div class="modal fade" id="partial_payment_modal" tabindex="-1" aria-labelledby="partialPaymentModalLabel" aria-hidden="true">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="partialPaymentModalLabel">Add Partial Payment</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="row m-3">
-                                <div class="col-12">
-                                    <label for="">Amount</label>
-                                    <input type="number" step="0.01" name="partial_amount" id="partial_amount" class="form-control" autocomplete="off" placeholder="Enter payment amount" oninput="updateRemainingAmount()">
-                                </div>
-                            </div>
-
-                            <div class="row m-3">
-                                <div class="col-12">
-                                    <label for="">Check Number</label>
-                                    <input type="text" name="partial_check_number" id="partial_check_number" class="form-control" autocomplete="off" placeholder="Enter check number (optional)">
-                                </div>
-                            </div>
-
-                            <div class="row m-3">
-                                <div class="col-12">
-                                    <label for="">Date Paid</label>
-                                    <input type="text" name="partial_date_paid" id="partial_date_paid" class="form-control date_picker" autocomplete="off" readonly>
-                                </div>
-                            </div>
-
-                            <div class="row m-3">
-                                <div class="col-12">
-                                    <div class="alert alert-info" id="partial_payment_info">
-                                        <strong>Total Amount:</strong> <span id="pp_trntot">0.00</span><br>
-                                        <strong>Already Paid:</strong> <span id="pp_already_paid">0.00</span><br>
-                                        <strong>Remaining:</strong> <span id="pp_remaining">0.00</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <input type="hidden" name="partial_payment_recid" id="partial_payment_recid" value="">
-                            <input type="hidden" name="pp_trntot_hidden" id="pp_trntot_hidden" value="0">
-                            <input type="hidden" name="pp_already_paid_hidden" id="pp_already_paid_hidden" value="0">
-                            <div class="row m-2">
-                                <div class="error_msg_partial_payment text-danger"></div>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-primary" onclick="savePartialPayment()">Save</button>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <div class="modal fade view_itm_search" id="view_itm_search" tabindex="-1">
@@ -1228,6 +1251,7 @@ while($rs_staff = $stmt_staff->fetch()){
         <script>
 
         // Handle preview of the selected image and reset modal state.
+
         const uploadImageInput = document.getElementById('xfile_sal');
         const uploadImagePreview = document.getElementById('uploadImagePreview');
         const uploadImageError = document.getElementById('uploadImageError');
@@ -1293,6 +1317,10 @@ while($rs_staff = $stmt_staff->fetch()){
 
         var trncde = $("#trncde_hidden").val();
         var warehouseFloorMap = <?php echo json_encode($warehouse_floor_map); ?>;
+        var defaultUomCode = <?php echo json_encode($default_uom_code); ?>;
+        var baseUomDisplay = <?php echo json_encode($base_uom_display); ?>;
+        var defaultSalesPriceId = <?php echo json_encode($default_salesprice_id); ?>;
+        var editPriceIsRestricted = false;
 
         function rebuildFloorOptions(selectId, warcde, selectedFloorId, allowNone){
             var $select = $("#" + selectId);
@@ -1329,6 +1357,187 @@ while($rs_staff = $stmt_staff->fetch()){
             $select.val(selectedValue);
         }
 
+        function formatUomConversionValue(conversion){
+            var numericConversion = Number(conversion);
+
+            if(!isFinite(numericConversion)){
+                return "";
+            }
+
+            return numericConversion.toString();
+        }
+
+        function resetUomOptionLabels(selectSelector){
+            $(selectSelector).find("option").each(function(){
+                var defaultLabel = $(this).data("default-label");
+                if(typeof defaultLabel !== "undefined"){
+                    $(this).text(defaultLabel);
+                }
+                $(this).show();
+            });
+        }
+
+        function applyItemUomLabels(selectSelector, uoms, filterByItem){
+            resetUomOptionLabels(selectSelector);
+
+            var uomMap = {};
+            if(uoms && uoms.length){
+                for(var i = 0; i < uoms.length; i++){
+                    if(uoms[i] && uoms[i].unmcde){
+                        uomMap[uoms[i].unmcde] = uoms[i];
+                    }
+                }
+            }
+
+            $(selectSelector).find("option").each(function(){
+                var optionValue = $(this).val();
+                var defaultLabel = $(this).data("default-label");
+
+                if(typeof defaultLabel === "undefined" || optionValue === ""){
+                    return;
+                }
+
+                // If filtering by item, hide options not in uomMap (but always show pcs)
+                if(filterByItem){
+                    if(optionValue === defaultUomCode){
+                        $(this).show();
+                    } else if(!uomMap[optionValue]){
+                        $(this).hide();
+                        return;
+                    } else {
+                        $(this).show();
+                    }
+                }
+
+                if(
+                    uomMap[optionValue] &&
+                    uomMap[optionValue].conversion !== null &&
+                    uomMap[optionValue].conversion !== ""
+                ){
+                    var formattedConversion = formatUomConversionValue(uomMap[optionValue].conversion);
+                    if(formattedConversion !== ""){
+                        $(this).text(defaultLabel + " (" + formattedConversion + " " + baseUomDisplay + ")");
+                    }
+                }
+            });
+        }
+
+        function updateItemUomDropdown(selectSelector, itmcde, selectedUomCode, preserveSelectedUom){
+            var $select = $(selectSelector);
+            var strictEditSelection = preserveSelectedUom === true;
+            var normalizedSelectedUomCode = $.trim(selectedUomCode || "");
+
+            $select.data("current-itmcde", itmcde || "");
+            resetUomOptionLabels(selectSelector);
+            $select.find("option").show();
+
+            if(typeof selectedUomCode !== "undefined"){
+                $select.val(strictEditSelection ? normalizedSelectedUomCode : (normalizedSelectedUomCode || defaultUomCode || ""));
+            }else{
+                $select.val(defaultUomCode || "");
+            }
+
+            syncMatchedSalesOrderUomState(selectSelector === "#unmcde_edit" ? "edit" : "add");
+
+            if(!itmcde){
+                return;
+            }
+
+            $.ajax({
+                data: {
+                    event_action: "get_item_uoms",
+                    itmcde: itmcde
+                },
+                dataType: "json",
+                type: "post",
+                url: "trn_salesfile2_ajax.php",
+                success: function(xdata){
+                    if($select.data("current-itmcde") !== itmcde){
+                        return;
+                    }
+
+                    var uoms = xdata["uoms"] || [];
+                    applyItemUomLabels(selectSelector, uoms, true);
+
+                    var nextUomCode = "";
+                    if(strictEditSelection){
+                        $select.find("option").each(function(){
+                            if($.trim($(this).val()) === normalizedSelectedUomCode){
+                                nextUomCode = normalizedSelectedUomCode;
+                                return false;
+                            }
+                        });
+                    }else{
+                        $select.find("option:visible").each(function(){
+                            if($(this).val() !== ""){
+                                nextUomCode = $(this).val();
+                                return false;
+                            }
+                        });
+                    }
+                    var finalUomCode = strictEditSelection ? nextUomCode : (nextUomCode || defaultUomCode || "");
+                    $select.find("option").prop("selected", false);
+                    (strictEditSelection ? $select.find("option") : $select.find("option:visible")).each(function(){
+                        if($.trim($(this).val()) === $.trim(finalUomCode)){
+                            $(this).prop("selected", true);
+                            return false;
+                        }
+                    });
+                    if(finalUomCode !== ""){
+                        $select.val(finalUomCode).trigger("change");
+                    }
+                    syncMatchedSalesOrderUomState(selectSelector === "#unmcde_edit" ? "edit" : "add");
+                }
+            });
+        }
+
+        function setInitialUomDropdownState(selectSelector){
+            var $select = $(selectSelector);
+
+            $select.data("current-itmcde", "");
+            resetUomOptionLabels(selectSelector);
+            $select.find("option").show();
+            $select.val(defaultUomCode || "");
+            $select.prop("disabled", true);
+        }
+
+        function updateItemSalesPrice(mode){
+            var priceSelector = mode === "edit" ? "#price_edit" : "#price_add";
+            var itmcdeSelector = mode === "edit" ? "#itmcde_edit_hidden" : "#itmcde_add_hidden";
+            var salespriceSelector = mode === "edit" ? "#salesprice_id_edit" : "#salesprice_id_add";
+
+            var itmcde = $.trim($(itmcdeSelector).val() || "");
+            var salespriceId = $.trim($(salespriceSelector).val() || "");
+
+            if(itmcde === "" || salespriceId === ""){
+                return;
+            }
+
+            $.ajax({
+                data: {
+                    event_action: "get_item_sales_price",
+                    itmcde: itmcde,
+                    salesprice_id: salespriceId
+                },
+                dataType: "json",
+                type: "post",
+                url: "trn_salesfile2_ajax.php",
+                success: function(xdata){
+                    if($.trim($(itmcdeSelector).val() || "") !== itmcde){
+                        return;
+                    }
+                    if($.trim($(salespriceSelector).val() || "") !== salespriceId){
+                        return;
+                    }
+                    if(xdata["price"] === null || typeof xdata["price"] === "undefined"){
+                        return;
+                    }
+                    $(priceSelector).val(xdata["price"]);
+                    calcTotal(mode);
+                }
+            });
+        }
+
         $(document).ready(function(){
             var docnum = $("#docnum_hidden").val();
             xdata = "docnum="+docnum+"&trncde="+trncde;
@@ -1353,6 +1562,14 @@ while($rs_staff = $stmt_staff->fetch()){
             $("#warcde_edit").on("change", function(){
                 rebuildFloorOptions("warehouse_floor_id_edit", $(this).val(), "", $(this).find("option:selected").text() === "None");
             });
+
+            $("#salesprice_id_add").on("change", function(){
+                updateItemSalesPrice("add");
+            });
+
+            $("#salesprice_id_edit").on("change", function(){
+                updateItemSalesPrice("edit");
+            });
         });
 
         function return_po(){
@@ -1367,6 +1584,27 @@ while($rs_staff = $stmt_staff->fetch()){
             $("#insert_modal_sales_po").modal("hide");
             $("#edit_modal_sales").modal("show");
 
+        }
+
+        function hasMatchedSalesOrder(mode){
+            var matchDocSelector = mode === "edit" ? "#so_edit" : "#so_add";
+            return $.trim($(matchDocSelector).val() || "") !== "";
+        }
+
+        function syncMatchedSalesOrderUomState(mode){
+            var selector = mode === "edit" ? "#unmcde_edit" : "#unmcde_add";
+            var itemSelector = mode === "edit" ? "#itmcde_edit_hidden" : "#itmcde_add_hidden";
+            var hasItem = $.trim($(itemSelector).val() || "") !== "";
+
+            $(selector).prop("disabled", !hasItem || hasMatchedSalesOrder(mode));
+        }
+
+        function setMatchedSalesOrderUomState(mode, isLocked){
+            var selector = mode === "edit" ? "#unmcde_edit" : "#unmcde_add";
+            var itemSelector = mode === "edit" ? "#itmcde_edit_hidden" : "#itmcde_add_hidden";
+            var hasItem = $.trim($(itemSelector).val() || "") !== "";
+
+            $(selector).prop("disabled", !hasItem || !!isLocked);
         }
 
         function print_dr(){
@@ -1387,6 +1625,10 @@ while($rs_staff = $stmt_staff->fetch()){
                 $("#itmcde_add").val(xitmdsc);
                 $("#wholesaleprc_add").val(wholesale_prc);
                 $("#current_stock_add").val(current_stock);
+                updateItemUomDropdown("#unmcde_add", xitmcde, $("#unmcde_add").val() || defaultUomCode);
+
+                $("#salesprice_id_add").val(defaultSalesPriceId);
+                updateItemSalesPrice("add");
 
                 //$("#price_add").val(xuntprc);
                 var xqty = $("#itmqty_add").val();
@@ -1403,6 +1645,9 @@ while($rs_staff = $stmt_staff->fetch()){
                 $("#itmcde_edit_hidden").val(xitmcde);
                 $("#wholesaleprc_edit").val(wholesale_prc);
                 $("#itmcde_edit").val(xitmdsc);
+                updateItemUomDropdown("#unmcde_edit", xitmcde, $("#unmcde_edit").val() || defaultUomCode);
+                $("#salesprice_id_edit").val(defaultSalesPriceId);
+                updateItemSalesPrice("edit");
 
                 //$("#price_edit").val(xuntprc);
                 var xqty = $("#itmqty_edit").val();
@@ -1412,6 +1657,7 @@ while($rs_staff = $stmt_staff->fetch()){
                 if(xitmdsc != xnew_itm){
                     $("#so_edit").val('');
                     $("#recid_so_hidden").val('');
+                    setMatchedSalesOrderUomState("edit", false);
                 }
 
                 $("#view_itm_search").modal("hide");
@@ -1637,12 +1883,21 @@ while($rs_staff = $stmt_staff->fetch()){
             }
             var orderby_1 = document.getElementById("orderby_1").value;
 
+            var shouldRelockAddUomForSearch = $("#unmcde_add").is(':disabled');
+            if(shouldRelockAddUomForSearch){
+                $("#unmcde_add").prop('disabled', false);
+            }
+
             if($('#itmcde_add').is(':disabled')){
                 $("#itmcde_add").attr("disabled", false);
-                var xdata = $("#insert_modal_sales *").serialize("")+"&cuscde="+cuscde_val+"&event_action="+xevent_action+"&orderby_1="+orderby_1;
+                var xdata = $("#insert_modal_sales *").serialize("")+"&cuscde="+cuscde_val+"&event_action="+xevent_action+"&orderby_1="+orderby_1+"&trndte_1="+encodeURIComponent($("#trndte_1").val() || "");
                 $("#itmcde_add").attr("disabled", true);
             }else{
-                var xdata = $("#insert_modal_sales *").serialize("")+"&cuscde="+cuscde_val+"&event_action="+xevent_action+"&orderby_1="+orderby_1;    
+                var xdata = $("#insert_modal_sales *").serialize("")+"&cuscde="+cuscde_val+"&event_action="+xevent_action+"&orderby_1="+orderby_1+"&trndte_1="+encodeURIComponent($("#trndte_1").val() || "");    
+            }
+
+            if(shouldRelockAddUomForSearch){
+                $("#unmcde_add").prop('disabled', true);
             }
 
             jQuery.ajax({    
@@ -1669,6 +1924,7 @@ while($rs_staff = $stmt_staff->fetch()){
                             $('#itmcde_add').attr("disabled", true); 
                             $("#itmqty_add").prop('readonly', true);
                             $("#price_add").prop('readonly', true);
+                            setMatchedSalesOrderUomState("add", true);
                             $('.btn_search_item').addClass('disabled');
                         }
 
@@ -1750,11 +2006,13 @@ while($rs_staff = $stmt_staff->fetch()){
                 var recid_so_hidden_val = $("#recid_so_hidden").val();
             }
 
-            if($('#itmcde_edit').is(':disabled')){
-                //enable the itcde para mapass yung data
-                var xdata = $("#edit_modal_sales *").serialize("")+"&cuscde="+cuscde_val+"&event_action="+xevent_action+"&selected_po="+selected_po+"&tranfile2_recid_hidden="+recid_tranfile2_hidden+"&recid_so_hidden="+recid_so_hidden_val+"&orderby_1="+orderby_1;
-            }else{
-                var xdata = $("#edit_modal_sales *").serialize("")+"&cuscde="+cuscde_val+"&event_action="+xevent_action+"&selected_po="+selected_po+"&tranfile2_recid_hidden="+recid_tranfile2_hidden+"&recid_so_hidden="+recid_so_hidden_val+"&orderby_1="+orderby_1;
+            var shouldRelockEditUom = $("#unmcde_edit").is(':disabled');
+            if(shouldRelockEditUom){
+                $("#unmcde_edit").prop('disabled', false);
+            }
+            var xdata = $("#edit_modal_sales *").serialize("")+"&cuscde="+cuscde_val+"&event_action="+xevent_action+"&selected_po="+selected_po+"&tranfile2_recid_hidden="+recid_tranfile2_hidden+"&recid_so_hidden="+recid_so_hidden_val+"&orderby_1="+orderby_1+"&trndte_1="+encodeURIComponent($("#trndte_1").val() || "");
+            if(shouldRelockEditUom){
+                $("#unmcde_edit").prop('disabled', true);
             }
 
             jQuery.ajax({    
@@ -1776,9 +2034,11 @@ while($rs_staff = $stmt_staff->fetch()){
                             if(xevent_action == 'selectData_edit'){
                                 $("#so_edit").val(xdocnum);
                                 $("#recid_so_hidden").val(xrecid);
+                                setMatchedSalesOrderUomState("edit", true);
                             }else{
                                 $("#so_edit").val('');
                                 $("#recid_so_hidden").val('');
+                                setMatchedSalesOrderUomState("edit", false);
                             }
                             
                             $("#insert_modal_sales_po").modal("hide");
@@ -1795,6 +2055,10 @@ while($rs_staff = $stmt_staff->fetch()){
         }           
 
         function calcTotal(event){
+
+            if(event == "edit" && editPriceIsRestricted){
+                return;
+            }
 
             if(event == "add"){
                 var price=$("#price_add").val();
@@ -1897,7 +2161,6 @@ while($rs_staff = $stmt_staff->fetch()){
 
             switch(event){
                 case "save_exit":
-             
                     var xdata = $(".salesfile1 *").serialize()+"&event_action=save_exit&docnum="+docnum+"&ordernum_hidden_val="+ordernum_hidden_val;
                     break;
                 case "save_new":
@@ -1910,11 +2173,14 @@ while($rs_staff = $stmt_staff->fetch()){
 
                     $("#itmqty_add").prop('readonly', false);
                     $("#price_add").prop('readonly', false);
+                    setMatchedSalesOrderUomState("add", false);
                     $('.btn_search_item').removeClass('disabled');
 
                     $("#price_add").val('');
                     $("#amount_add").val('');
                     $("#itmqty_add").val('');
+                    setInitialUomDropdownState("#unmcde_add");
+                    $("#salesprice_id_add").val(defaultSalesPriceId);
                     $("#itmcde_add").val('');
                     $("#so_add").val('');
                     $("#recid_so_hidden").val('');
@@ -1943,8 +2209,15 @@ while($rs_staff = $stmt_staff->fetch()){
                 break;
                 case "insert":
                     $("#itmcde_add").attr("disabled", false);
+                    var shouldRelockAddUom = $("#unmcde_add").is(':disabled');
+                    if(shouldRelockAddUom){
+                        $("#unmcde_add").prop('disabled', false);
+                    }
                     var xdata  = $("#insert_modal_sales *").serialize()+"&event_action="+event+"&docnum="+docnum+"&"+$(".salesfile1 *").serialize();
                     $('#itmcde_add').attr("disabled", true); 
+                    if(shouldRelockAddUom){
+                        $("#unmcde_add").prop('disabled', true);
+                    }
                 break;
                 case "submitEdit":
 
@@ -1956,12 +2229,23 @@ while($rs_staff = $stmt_staff->fetch()){
                     var waybill_num1 = $("#waybill_num1").val();
                     var hidden_itmcde_edit = $("#prev_itmcde_hidden_edit").val();
                     var hidden_itmqty_edit = $("#prev_itmqty_hidden_edit").val();
+                    var shouldRelockEditUomForSubmit = $("#unmcde_edit").is(':disabled');
+                    if(shouldRelockEditUomForSubmit){
+                        $("#unmcde_edit").prop('disabled', false);
+                    }
                     var xdata  = $("#edit_modal_sales *").serialize()+"&event_action="+event+"&cusname_1="+cusname_1+"&docnum="+docnum+"&recid="+recid+"&orderby_1="+orderby_1+"&xtrndte_1="+trndte_1_val+"&hidden_itmcde_edit="+hidden_itmcde_edit+"&hidden_itmqty_edit="+hidden_itmqty_edit+"&"+$(".salesfile1 *").serialize();
+                    if(editPriceIsRestricted){
+                        xdata += "&price_edit=__RESTRICTED__&amount_edit=__RESTRICTED__";
+                    }
+                    if(shouldRelockEditUomForSubmit){
+                        $("#unmcde_edit").prop('disabled', true);
+                    }
                 break;
                 case "getEdit": 
                     $('.btn_search_item').removeClass('disabled');
                     $("#itmqty_edit").prop('readonly', false);
                     $("#price_edit").prop('readonly', false);
+                    setMatchedSalesOrderUomState("edit", false);
 
                     $("#prev_itmcde_hidden_edit").val(xitmcde);
                     $("#prev_itmqty_hidden_edit").val(xitmqty);
@@ -2091,10 +2375,20 @@ while($rs_staff = $stmt_staff->fetch()){
 
                             $("#itmcde_edit_hidden").val(xdata["retEdit"]["itmcde"]);
                             $("#itmcde_edit").val(xdata["retEdit"]["itmdsc"]);
-                            $("#price_edit").val(xdata["retEdit"]["untprc"]);
-                            $("#amount_edit").val(xdata["retEdit"]["extprc"]);
+                            editPriceIsRestricted = xdata["retEdit"]["untprc"] === "__RESTRICTED__";
+                            $("#price_edit").val(editPriceIsRestricted ? "Restricted" : xdata["retEdit"]["untprc"]);
+                            $("#price_edit").prop('readonly', editPriceIsRestricted);
+                            $("#amount_edit").val(editPriceIsRestricted ? "Restricted" : xdata["retEdit"]["extprc"]);
                             $("#itmqty_edit").val(xdata["retEdit"]["itmqty"]);
                             $("#wholesaleprc_edit").val(xdata["retEdit"]["wholesaleprc"]);
+                            var editSalesPriceId = xdata["retEdit"]["salesprice_id"] || defaultSalesPriceId;
+                            if(editSalesPriceId === "__RESTRICTED__"){
+                                $("#salesprice_id_edit option[value='__RESTRICTED__']").remove();
+                                $("#salesprice_id_edit").prepend("<option value='__RESTRICTED__'>Restricted pricing — current unit price retained</option>");
+                            }
+                            $("#salesprice_id_edit").val(editSalesPriceId);
+                            updateItemUomDropdown("#unmcde_edit", xdata["retEdit"]["itmcde"], xdata["retEdit"]["unmcde"], true);
+                            setMatchedSalesOrderUomState("edit", !!xdata["retEdit"]["so_recid"]);
                             $("#allow_empty_location_edit").val(xdata["retEdit"]["allow_empty_location"] || "0");
                             var allowEmptyLocation = (xdata["retEdit"]["allow_empty_location"] || "0") === "1";
                             setEditNoneOption("warcde_edit", "Select Warehouse", xdata["retEdit"]["warcde"], allowEmptyLocation);
@@ -2142,9 +2436,6 @@ while($rs_staff = $stmt_staff->fetch()){
                             if($.trim($("#txt_com_pay").val()) === ''){
                                 fetchSalesmanDetails();
                             }
-                        }
-                        if(typeof loadPartialPayments === "function"){
-                            loadPartialPayments();
                         }
                 }
             })
@@ -2195,294 +2486,9 @@ while($rs_staff = $stmt_staff->fetch()){
 
         }
 
-        // ==================== PARTIAL PAYMENT FUNCTIONS ====================
-
-        // Load partial payments on page load
-        $(document).ready(function() {
-            loadPartialPayments();
-
-            // Initialize date picker for partial payment
-            $('#partial_date_paid').datepicker({
-                dateFormat: 'mm/dd/yy',
-                changeMonth: true,
-                changeYear: true
-            });
-        });
-
-        function loadPartialPayments() {
-            var docnum = $.trim($("#docnum_1").val());
-            if (!docnum || docnum == '') {
-                $("#partial_payment_list").html('<span class="text-muted">Save the transaction first to add partial payments.</span>');
-                $("#partial_payment_total").hide();
-                return;
-            }
-
-            $.ajax({
-                url: "partial_payment_ajax.php",
-                type: "POST",
-                dataType: "json",
-                data: {
-                    event_action: "getList",
-                    docnum: docnum
-                },
-                success: function(data) {
-                    if (data.status == 1) {
-                        renderPartialPaymentList(data.payments, data.total_paid);
-                    } else {
-                        $("#partial_payment_list").html('<span class="text-danger">' + data.msg + '</span>');
-                        $("#partial_payment_total").hide();
-                    }
-                },
-                error: function(error) {
-                    console.error("Error loading partial payments: " + error);
-                    $("#partial_payment_list").html('<span class="text-danger">Unable to load partial payments.</span>');
-                    $("#partial_payment_total").hide();
-                }
-            });
-        }
-
-        function renderPartialPaymentList(payments, totalPaid) {
-            var html = '';
-            if (payments.length > 0) {
-                html += '<table class="table table-sm table-bordered">';
-                html += '<thead><tr><th>Date Paid</th><th>Check #</th><th>Amount</th><th>Action</th></tr></thead>';
-                html += '<tbody>';
-                for (var i = 0; i < payments.length; i++) {
-                    var payment = payments[i];
-                    html += '<tr>';
-                    html += '<td>' + payment.date_paid_formatted + '</td>';
-                    html += '<td>' + escapeHtml(payment.check_number || '-') + '</td>';
-                    html += '<td class="text-end">' + parseFloat(payment.amount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</td>';
-                    html += '<td class="text-center">';
-                    html += '<button type="button" class="btn btn-warning btn-sm me-1" onclick="editPartialPayment(' + payment.recid + ')"><i class="fas fa-edit"></i></button>';
-                    html += '<button type="button" class="btn btn-danger btn-sm" onclick="deletePartialPayment(' + payment.recid + ')"><i class="fas fa-trash"></i></button>';
-                    html += '</td>';
-                    html += '</tr>';
-                }
-                html += '</tbody>';
-                html += '</table>';
-                $("#partial_payment_total").show();
-                $("#total_partial_amount").text(parseFloat(totalPaid).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
-            } else {
-                html = '<span class="text-muted">No partial payments yet.</span>';
-                $("#partial_payment_total").hide();
-            }
-            $("#partial_payment_list").html(html);
-        }
-
-        function parseAmountValue(value) {
-            var normalized = (value || '').toString().replace(/,/g, '').trim();
-            var parsed = parseFloat(normalized);
-            return isNaN(parsed) ? 0 : parsed;
-        }
-
-        function escapeHtml(value) {
-            return (value || '').toString()
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
-        }
-
-        function setPartialPaymentInfo(trntot, alreadyPaid) {
-            var totalAmount = parseAmountValue(trntot);
-            var paidAmount = parseAmountValue(alreadyPaid);
-            var initialRemaining = totalAmount - paidAmount;
-
-            $("#pp_trntot_hidden").val(totalAmount);
-            $("#pp_already_paid_hidden").val(paidAmount);
-            $("#pp_trntot").text(totalAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
-            $("#pp_already_paid").text(paidAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
-            $("#pp_remaining").text(initialRemaining.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
-            updateRemainingAmount();
-        }
-
-        function updateRemainingAmount() {
-            var totalAmount = parseAmountValue($("#pp_trntot_hidden").val());
-            var paidAmount = parseAmountValue($("#pp_already_paid_hidden").val());
-            var currentInput = parseAmountValue($("#partial_amount").val());
-            var remaining = totalAmount - paidAmount - currentInput;
-
-            $("#pp_remaining").text(remaining.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
-            if (remaining < 0) {
-                $("#pp_remaining").addClass("text-danger");
-            } else {
-                $("#pp_remaining").removeClass("text-danger");
-            }
-        }
-
-        function openPartialPaymentModal() {
-            var docnum = $.trim($("#docnum_1").val());
-            var trntot = parseAmountValue($("#trntot_1").val());
-
-            // Reset form
-            $("#partial_amount").val('');
-            $("#partial_check_number").val('');
-            $("#partial_payment_recid").val('');
-            $(".error_msg_partial_payment").html('');
-            $("#partialPaymentModalLabel").text('Add Partial Payment');
-            $("#pp_remaining").removeClass("text-danger");
-
-            // Set today's date as default
-            var today = new Date();
-            var month = String(today.getMonth() + 1).padStart(2, '0');
-            var day = String(today.getDate()).padStart(2, '0');
-            var year = today.getFullYear();
-            $("#partial_date_paid").val(month + '/' + day + '/' + year);
-
-            // Get already paid amount
-            $.ajax({
-                url: "partial_payment_ajax.php",
-                type: "POST",
-                dataType: "json",
-                data: {
-                    event_action: "getTotalPaid",
-                    docnum: docnum
-                },
-                success: function(data) {
-                    var alreadyPaid = parseFloat(data.total_paid) || 0;
-                    setPartialPaymentInfo(trntot, alreadyPaid);
-
-                    $("#partial_payment_modal").modal("show");
-                },
-                error: function(error) {
-                    console.error("Error: " + error);
-                    setPartialPaymentInfo(trntot, 0);
-                    $("#partial_payment_modal").modal("show");
-                }
-            });
-        }
-
-        function editPartialPayment(recid) {
-            var docnum = $.trim($("#docnum_1").val());
-            var trntot = parseAmountValue($("#trntot_1").val());
-
-            $.ajax({
-                url: "partial_payment_ajax.php",
-                type: "POST",
-                dataType: "json",
-                data: {
-                    event_action: "getOne",
-                    recid: recid
-                },
-                success: function(data) {
-                    if (data.status == 1) {
-                        $("#partial_amount").val(data.payment.amount);
-                        $("#partial_check_number").val(data.payment.check_number || '');
-                        $("#partial_date_paid").val(data.payment.date_paid_formatted);
-                        $("#partial_payment_recid").val(data.payment.recid);
-                        $("#partialPaymentModalLabel").text('Edit Partial Payment');
-                        $(".error_msg_partial_payment").html('');
-
-                        // Get already paid (excluding current payment)
-                        var alreadyPaid = parseFloat(data.total_paid_excluding) || 0;
-                        $("#pp_remaining").removeClass("text-danger");
-                        setPartialPaymentInfo(trntot, alreadyPaid);
-
-                        $("#partial_payment_modal").modal("show");
-                    } else {
-                        alert(data.msg || "Unable to load partial payment details.");
-                    }
-                },
-                error: function(error) {
-                    console.error("Error: " + error);
-                }
-            });
-        }
-
-        function savePartialPayment() {
-            var docnum = $.trim($("#docnum_1").val());
-            var amount = parseAmountValue($("#partial_amount").val());
-            var checkNumber = $.trim($("#partial_check_number").val());
-            var datePaid = $("#partial_date_paid").val();
-            var recid = $("#partial_payment_recid").val();
-            var trntot = parseAmountValue($("#pp_trntot_hidden").val()) || parseAmountValue($("#trntot_1").val());
-            var alreadyPaid = parseAmountValue($("#pp_already_paid_hidden").val());
-
-            // Validation
-            if (!docnum || docnum == '') {
-                $(".error_msg_partial_payment").html('<b>Please save the transaction first before adding partial payments.</b>');
-                return;
-            }
-
-            if (amount <= 0) {
-                $(".error_msg_partial_payment").html('<b>Amount must be greater than 0.</b>');
-                return;
-            }
-
-            if (!datePaid || datePaid == '') {
-                $(".error_msg_partial_payment").html('<b>Date Paid is required.</b>');
-                return;
-            }
-
-            if (trntot > 0 && (alreadyPaid + amount) > trntot) {
-                $(".error_msg_partial_payment").html('<b>Total partial payments cannot exceed the transaction total.</b>');
-                return;
-            }
-
-            var eventAction = recid ? "update" : "insert";
-
-            $.ajax({
-                url: "partial_payment_ajax.php",
-                type: "POST",
-                dataType: "json",
-                data: {
-                    event_action: eventAction,
-                    recid: recid,
-                    docnum: docnum,
-                    amount: amount,
-                    check_number: checkNumber,
-                    date_paid: datePaid,
-                    trntot: trntot
-                },
-                success: function(data) {
-                    if (data.status == 1) {
-                        $("#partial_payment_modal").modal("hide");
-                        loadPartialPayments();
-                    } else {
-                        $(".error_msg_partial_payment").html('<b>' + data.msg + '</b>');
-                    }
-                },
-                error: function(error) {
-                    console.error("Error: " + error);
-                    $(".error_msg_partial_payment").html('<b>An error occurred. Please try again.</b>');
-                }
-            });
-        }
-
-        function deletePartialPayment(recid) {
-            if (!confirm('Are you sure you want to delete this partial payment?')) {
-                return;
-            }
-
-            $.ajax({
-                url: "partial_payment_ajax.php",
-                type: "POST",
-                dataType: "json",
-                data: {
-                    event_action: "delete",
-                    recid: recid
-                },
-                success: function(data) {
-                    if (data.status == 1) {
-                        loadPartialPayments();
-                    } else {
-                        alert(data.msg);
-                    }
-                },
-                error: function(error) {
-                    console.error("Error: " + error);
-                }
-            });
-        }
-
-        // ==================== END PARTIAL PAYMENT FUNCTIONS ====================
-
         </script>
 
 
 <?php
     require "includes/main_footer.php";
 ?>
-

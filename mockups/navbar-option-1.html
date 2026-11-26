@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Navbar Mockup 1</title>
+<link rel="shortcut icon" href="../images/logo_only.png">
+<link rel="stylesheet" href="../bootstrap/css/bootstrap.min.css">
+<link rel="stylesheet" href="../css/all.min.css">
+<link rel="stylesheet" href="../bootstrap/icons/font/bootstrap-icons.css">
+<link rel="stylesheet" href="navbar-mock.css">
+</head>
+<body>
+
+<div class="mock_bar">
+    <b>MOCKUP</b><span>Option 1 &middot; Workflow sidebar + Reports hub</span>
+    <a href="navbar-option-1.html" class="on">Option 1</a><a href="navbar-option-2.html">Option 2</a><a href="navbar-option-3.html">Option 3</a>
+</div>
+
+<!-- app shell (unchanged system header) -->
+<div class="container-fluid">
+    <div class="row app_top">
+        <div class="col-6 pe-0"><img src="../images/logo_horizontal.png" style="height:50px;width:100px;"></div>
+        <div class="col-6 text-white text-end"><div style="font-family:arial;font-weight:bold">LRD SYSTEM</div><div style="font-size:.8rem">v1.0</div></div>
+    </div>
+    <div class="row app_sub align-items-center">
+        <div class="col-2"><button class="nav_toggle" data-nav-toggle><i class="fas fa-bars"></i></button></div>
+        <div class="col-10 text-end" style="font-size:13px"><b>admin</b> <i class="far fa-user-circle mx-2"></i> <a href="#" class="text-dark fw-bold text-decoration-none"><i class="bi bi-box-arrow-right"></i> Logout</a></div>
+    </div>
+</div>
+
+<div class="shell">
+    <aside class="side">
+        <div class="side_search"><div class="box"><i class="fas fa-search"></i><input type="search" placeholder="Search pages…"><kbd>Ctrl K</kbd></div></div>
+        <div id="nav_root"></div>
+        <div class="nav_empty" id="nav_empty" hidden>No pages match your search.</div>
+    </aside>
+    <div class="nav_backdrop" data-nav-toggle></div>
+
+    <main class="main">
+        <div class="crumb" id="crumb"></div>
+        <div class="card_x page_card mb-3">
+            <h1 id="page_title"></h1>
+            <div class="skel" style="width:60%"></div><div class="skel"></div><div class="skel" style="width:85%"></div><div class="skel" style="width:70%"></div>
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-6 col-md-3"><div class="tile"><div class="k">Top-level items</div><div class="v"><s>21</s>8</div></div></div>
+            <div class="col-6 col-md-3"><div class="tile"><div class="k">Places to find reports</div><div class="v"><s>8</s>1</div></div></div>
+            <div class="col-6 col-md-3"><div class="tile"><div class="k">Max menu depth</div><div class="v">3</div></div></div>
+            <div class="col-6 col-md-3"><div class="tile"><div class="k">DB schema change</div><div class="v" style="font-size:16px;padding-top:5px"><span class="pill">None</span></div></div></div>
+        </div>
+
+        <div class="card_x mb-3">
+            <h2 class="sec">How it works</h2>
+            <ul class="how">
+                <li>Pages are grouped by <b>job</b>: Master Files, Purchasing, Sales, Inventory, Expenses. Each group holds only that job's daily pages.</li>
+                <li><b>All reports in one place.</b> Reports → pick the area (Sales, Purchasing, Inventory…) → pick the report.</li>
+                <li>Opening a group closes the others (accordion), so the sidebar never gets long.</li>
+                <li>Search box: type any part of a page name, or a group name like “costing”. <kbd>Enter</kbd> opens the first match. <kbd>Esc</kbd> clears.</li>
+                <li>A group shows only if the user can access at least one page inside it.</li>
+            </ul>
+        </div>
+
+        <div class="card_x">
+            <h2 class="sec">Implied DB changes <span class="pill">data only</span></h2>
+            <p class="text-muted mb-0">No new columns or tables. 3 new group rows, the rest are UPDATEs to <code>mengrp</code> / <code>menidx</code>.
+            Renaming a group's <code>mencap</code> carries over to <code>user_menus</code> through the existing FK (ON UPDATE CASCADE).
+            The menu will read layout from <code>menus</code> and permissions from <code>user_menus</code>, so per-user rows don't need re-syncing.
+            Preview only. You'll get the final SQL with the implementation plan and run it yourself.</p>
+<pre class="sql"><span class="c">-- 1) New group rows</span>
+INSERT INTO menus (mencap, menprogram, menlogo, menidx, mennum, mensub, mengrp, is_removed, is_disabled, has_crud) VALUES
+('Master Files',      '', 'fas fa-folder-open', '1.00', 0.00, 'MASTERFILE-MAIN', '1',        '', '', ''),
+('Sales Uploads',     '', 'fas fa-file-import', 'x',    9.50, 'SAL-UPL',         'SAL-MAIN', '', '', ''),
+('Inventory Reports', '', 'fas fa-file-pdf',    'x',    0.50, 'INV-REP',         'GEN-REP',  '', '', '');
+
+<span class="c">-- 2) Rename / reorder existing groups</span>
+UPDATE menus SET mencap='Purchasing', menidx='2.10' WHERE recid=29;   <span class="c">-- was Purchases</span>
+UPDATE menus SET mencap='Inventory',  menidx='2.25' WHERE recid=233;  <span class="c">-- was Stock Transfer</span>
+UPDATE menus SET menidx='2.40'                      WHERE recid=241;  <span class="c">-- Expenses</span>
+UPDATE menus SET mencap='Admin'                     WHERE recid=3;    <span class="c">-- was Utilities</span>
+
+<span class="c">-- 3) Move pages into their new group</span>
+UPDATE menus SET mengrp='MASTERFILE-MAIN', menidx='x' WHERE recid IN (7,8,35,58,59,62,227,240,248,262);
+UPDATE menus SET mengrp='PUR-MAIN' WHERE recid IN (82,259,260);              <span class="c">-- PO pages</span>
+UPDATE menus SET mengrp='SAL-MAIN' WHERE recid IN (80,23);                   <span class="c">-- SO + Return transactions</span>
+UPDATE menus SET mengrp='SAL-UPL'  WHERE recid IN (225,226,229,231,257,258); <span class="c">-- sales uploads</span>
+UPDATE menus SET mengrp='WAR-MAIN' WHERE recid=40;                           <span class="c">-- Inven. Adjust. Transaction</span>
+UPDATE menus SET mengrp='INV-REP'  WHERE recid IN (36,37,54,56,57,228,256,261,265);
+UPDATE menus SET mengrp='GEN-REP'  WHERE recid IN (88,31,83,14,47,24,41,243); <span class="c">-- every report group</span>
+UPDATE menus SET mengrp='UTL', menidx='x' WHERE recid=249;                   <span class="c">-- View Attendance</span>
+
+<span class="c">-- 4) Hide the now-empty old groups</span>
+UPDATE menus SET is_removed='1' WHERE recid IN (81,221,22,39);
+<span class="c">-- (+ mennum values to set the order inside each group)</span></pre>
+            <p class="text-muted mt-3 mb-0"><b>Code:</b> <code>includes/main_menu.php</code> only (JOIN query, hide empty groups, search box). The User Access screen keeps working because it still has 3 levels.</p>
+        </div>
+    </main>
+</div>
+
+<script src="navbar-mock.js"></script>
+<script>
+initSidebar({tree:[
+    'dash',
+    {g:'Master Files', i:'fas fa-folder-open', c:MASTER},
+    {g:'Purchasing', i:'fas fa-shopping-cart', c:['po_trn','pur_trn','po_up','po_uph']},
+    {g:'Sales', i:'fas fa-coins', c:['so_trn','sal_trn','ret_trn','payout', {g:'Sales Uploads', i:'fas fa-file-import', c:UPLOADS}]},
+    {g:'Inventory', i:'fas fa-warehouse', c:['st_trn','adj_trn','whse','wstaff']},
+    {g:'Expenses', i:'fas fa-credit-card', c:['exp_trn','exp_type']},
+    {g:'Reports', i:'far fa-file-pdf', c:[R.inv, R.por, R.pur, R.sor, R.sal, R.cost, R.ret, R.adj, R.exp]},
+    {g:'Admin', i:'fas fa-cogs', c:['users','pass','log','fixes','attend']}
+]});
+showPage('sal_trn');
+document.querySelectorAll('#nav_root .nav_group').forEach(g => g.classList.toggle('open', !!g.querySelector('.nav_leaf.active')));
+</script>
+</body>
+</html>

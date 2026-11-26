@@ -43,6 +43,7 @@ Class pager extends db_init{
     public $field_dropdown_list_crud = array();
     public $field_dropdown_selected_crud = array();
     public $field_dropdown_orderby_field_crud = array();
+    public $field_dropdown_filter_crud = array();
     public $table_filter_field;
     public $table_filter_value;
     
@@ -641,6 +642,7 @@ Class pager extends db_init{
 
         //for user acces counting crud
         echo "<input type='hidden' name='crud_count' id='crud_count' value='".$value_crud_count."'>";
+        echo "<input type='hidden' name='view_crud_hidden' id='view_crud_hidden' value='".$this->view_crud."'>";
         //check if search is in use
         echo "<input type='hidden' name='show_search' id='show_search' value='".$this->show_search."'>";
 
@@ -718,22 +720,43 @@ Class pager extends db_init{
 
             $btn_header_esc = htmlspecialchars($btn_header, ENT_QUOTES, 'UTF-8');
             $btn_color_esc = htmlspecialchars($btn_color, ENT_QUOTES, 'UTF-8');
-            $btn_logo_esc = htmlspecialchars($btn_logo, ENT_QUOTES, 'UTF-8');
-            $btn_function_esc = htmlspecialchars($btn_function, ENT_QUOTES, 'UTF-8');
+            $btn_logo_attr = str_replace('"', "'", trim((string)$btn_logo));
+            $btn_function_attr = htmlspecialchars((string)$btn_function, ENT_COMPAT, 'UTF-8');
 
             echo "<input 
-                   type='hidden' 
-                   name='".$btn_header_esc."_btn' 
-                   id='".$btn_header_esc."_btn' 
-                   btn-header='".$btn_header_esc."' 
-                   btn-color='".$btn_color_esc."'
-                   btn-logo='".$btn_logo_esc."'
-                   btn-function='".$btn_function_esc."'
+                   type=\"hidden\" 
+                   name=\"".$btn_header_esc."_btn\" 
+                   id=\"".$btn_header_esc."_btn\" 
+                   btn-header=\"".$btn_header_esc."\" 
+                   btn-color=\"".$btn_color_esc."\"
+                   btn-logo=\"".$btn_logo_attr."\"
+                   btn-function=\"".$btn_function_attr."\"
                 >";
         }
         echo "<div>";
 
-    } 
+    }
+
+    //builds the SELECT used to populate a dropdown_custom CRUD field's <option> list
+    public static function build_dropdown_crud_query($field_name, $field_name_value, $tablename, $filter = "", $orderby = ""){
+
+        if($field_name_value == ""){
+            $select = "SELECT ".$field_name." FROM ".$tablename;
+            if($filter != ""){
+                $select = $select . " WHERE ". $filter;
+            }
+        }else{
+            $select = "SELECT ".$field_name.", ".$field_name_value." FROM ".$tablename;
+            if($filter != ""){
+                $select = $select . " WHERE ". $filter;
+            }
+            if($orderby != ""){
+                $select = $select . " ORDER BY ". $orderby;
+            }
+        }
+
+        return $select;
+    }
 
     public function display_modal(){
 
@@ -771,6 +794,9 @@ Class pager extends db_init{
 
                             $data_type = array();
                             $maxlength = '';
+                            $num_scale = null;
+                            $num_pres = null;
+                            $step_limit = null;
 
                             if(isset($_SESSION['db_dbname'])){
                                 $db_check = $_SESSION['db_dbname'];
@@ -985,6 +1011,18 @@ Class pager extends db_init{
                                 }else{
                                     $field_numlimit_crud = '';
                                 }
+
+                                if($num_pres === null || $num_pres === ''){
+                                    if($field_numlimit_crud !== ''){
+                                        $num_pres = (int)$field_numlimit_crud;
+                                    }else{
+                                        $num_pres = 18;
+                                    }
+                                }
+
+                                if($num_scale === null || $num_scale === ''){
+                                    $num_scale = -1;
+                                }
                                 
                                 echo "<div class='row m-3' id='crudModal_values'>";
                                     echo "<div class='col-12'>";
@@ -1135,7 +1173,10 @@ Class pager extends db_init{
                                 $dropdown_tablename_crud       = $this->field_dropdown_tablename_crud[$field_name_crud_key];
 
                                 // orderby
-                                $field_dropdown_orderby_field_crud = (isset($this->field_dropdown_orderby_field_crud[$field_name_crud_key]))?($this->field_dropdown_orderby_field_crud[$field_name_crud_key]) : ""; 
+                                $field_dropdown_orderby_field_crud = (isset($this->field_dropdown_orderby_field_crud[$field_name_crud_key]))?($this->field_dropdown_orderby_field_crud[$field_name_crud_key]) : "";
+
+                                // optional WHERE filter
+                                $field_dropdown_filter_crud = (isset($this->field_dropdown_filter_crud[$field_name_crud_key]))?($this->field_dropdown_filter_crud[$field_name_crud_key]) : "";
 
                                 echo "<div class='row m-3' id='crudModal_values'>";
                                     echo "<div class='col-12'>";
@@ -1157,16 +1198,8 @@ Class pager extends db_init{
                                             echo "<label> ".$fieldheader_crud."</label>";    
                                         }
 
-                                        if($dropdown_field_name_value_crud == ""){
-                                            $select_db_dd_crud ="SELECT ".$dropdown_field_name_crud." FROM ".$dropdown_tablename_crud;
-                                        }else{
-                                            $select_db_dd_crud ="SELECT ".$dropdown_field_name_crud.", ".$dropdown_field_name_value_crud." FROM ".$dropdown_tablename_crud;
-                                            if ($field_dropdown_orderby_field_crud!=""){
-                                                $select_db_dd_crud =$select_db_dd_crud . " ORDER BY ". $field_dropdown_orderby_field_crud;
-                                            }
-                                        }
+                                        $select_db_dd_crud = self::build_dropdown_crud_query($dropdown_field_name_crud, $dropdown_field_name_value_crud, $dropdown_tablename_crud, $field_dropdown_filter_crud, $field_dropdown_orderby_field_crud);
 
-                                        
                                         $stmt_dd_crud	= $this->link->prepare($select_db_dd_crud);
                                         $stmt_dd_crud->execute();
 

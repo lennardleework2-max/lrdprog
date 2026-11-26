@@ -26,6 +26,39 @@ if($itmcde !== ''){
 }
 
 $has_valid_item = ($itmcde !== '' && $itmdsc !== '');
+$item_uom_in_use_recids = array();
+
+if($has_valid_item){
+    $select_db_item_uom_in_use = "SELECT DISTINCT iuf.recid
+                                  FROM itemunitfile iuf
+                                  WHERE iuf.itmcde = ?
+                                    AND (
+                                        EXISTS (
+                                            SELECT 1
+                                            FROM tranfile2 tf
+                                            WHERE tf.itmcde = iuf.itmcde
+                                              AND tf.unmcde = iuf.unmcde
+                                        )
+                                        OR EXISTS (
+                                            SELECT 1
+                                            FROM purchasesorderfile2 pof2
+                                            WHERE pof2.itmcde = iuf.itmcde
+                                              AND pof2.unmcde = iuf.unmcde
+                                        )
+                                        OR EXISTS (
+                                            SELECT 1
+                                            FROM salesorderfile2 sof2
+                                            WHERE sof2.itmcde = iuf.itmcde
+                                              AND sof2.unmcde = iuf.unmcde
+                                        )
+                                    )";
+    $stmt_item_uom_in_use = $link->prepare($select_db_item_uom_in_use);
+    $stmt_item_uom_in_use->execute(array($itmcde));
+
+    while($row_item_uom_in_use = $stmt_item_uom_in_use->fetch(PDO::FETCH_ASSOC)){
+        $item_uom_in_use_recids[] = (string)$row_item_uom_in_use["recid"];
+    }
+}
 ?>
 
     <style>
@@ -124,7 +157,7 @@ $has_valid_item = ($itmcde !== '' && $itmdsc !== '');
                             $table1->exp_pdf = "mf_item_uom_pdf.php";
                             $table1->exp_txt = "mf_item_uom_pdf.php";
 
-                            $table1->alert_del = "N";
+                            $table1->alert_del = "Y";
                             $table1->alert_del_logo_dir = $logo_dir;
                             $table1->alert_del_logo_w = $logo_width;
                             $table1->alert_del_logo_h = $logo_height;
@@ -163,58 +196,135 @@ $has_valid_item = ($itmcde !== '' && $itmdsc !== '');
 <script>
 (function(){
     var itmcde = '<?php echo addslashes($itmcde); ?>';
+    var itemUomInUseRecids = <?php echo json_encode($item_uom_in_use_recids); ?>;
+    var itemUomInUseAlertMessage = 'Cannot modify, item UOM in use';
     var originalAjaxFunc = window.ajaxFunc;
-    var isValidating = false;
+    var isEditMode = false;
 
-    // Override ajaxFunc to add custom unique validation
+    function isItemUomInUse(recid){
+        return itemUomInUseRecids.indexOf(String(recid)) !== -1;
+    }
+
+    function applyItemUomActionState(scopeSelector){
+        var scope = document.querySelector(scopeSelector);
+
+        if(!scope){
+            return;
+        }
+
+        itemUomInUseRecids.forEach(function(recid){
+            var actionMenus = scope.querySelectorAll("[aria-labelledby='dropdownMenuButton1-" + recid + "']");
+
+            actionMenus.forEach(function(menu){
+                menu.querySelectorAll("li").forEach(function(item){
+                    var itemText = item.textContent || "";
+
+                    if(itemText.indexOf('Edit') !== -1 || itemText.indexOf('Delete') !== -1){
+                        item.style.opacity = '0.5';
+                    }
+                });
+            });
+        });
+    }
+
+    // Override ajaxFunc to add custom validation
     window.ajaxFunc = function(event, recid, custom_param){
-        // Intercept submitInsert and submitEdit to check uniqueness
-        if((event === 'submitInsert' || event === 'submitEdit') && !isValidating){
+        if((event === 'getEdit' || event === 'delete') && isItemUomInUse(recid)){
+            alert(itemUomInUseAlertMessage);
+            return false;
+        }
+
+        // Intercept insert and submitEdit
+        if(event === 'insert' || event === 'submitEdit'){
             var unmcde = $('#unmcde_crudModal').val();
+            var conversion = $('#conversion_crudModal').val();
             var currentRecid = (event === 'submitEdit') ? $('#recid_hidden').val() : '';
 
-            // Check uniqueness via synchronous AJAX
-            var isDuplicate = false;
+            // Clear previous error
+            $('.error_msg').html('');
+
+            // For insert: show confirmation dialog first
+            if(event === 'insert'){
+                var confirmed = confirm('Please confirm before saving: the conversion rate will become final and cannot be edited later. Are you sure you want to continue?');
+                if(!confirmed){
+                    return false;
+                }
+            }
+
+            // Validate via AJAX (uniqueness + conversion immutability check)
+            var validationError = null;
+            var ajaxError = false;
+
             $.ajax({
                 url: 'mf_item_uom_ajax.php',
                 type: 'POST',
                 dataType: 'json',
                 data: {
-                    action: 'check_unique',
+                    action: 'validate_save',
                     itmcde: itmcde,
                     unmcde: unmcde,
+                    conversion: conversion,
                     recid: currentRecid
                 },
                 async: false,
                 success: function(response){
-                    if(response && response.exists === true){
-                        isDuplicate = true;
+                    if(response && response.valid === false){
+                        validationError = response.message || 'Validation failed.';
                     }
                 },
                 error: function(xhr, status, error){
-                    console.log('AJAX Error:', error);
-                    isDuplicate = false;
+                    console.error('AJAX Error:', status, error, xhr.responseText);
+                    ajaxError = true;
                 }
             });
 
-            if(isDuplicate){
-                $('.error_msg').html('<div class="alert alert-danger">This Unit of Measure already exists for this item.</div>');
+            if(ajaxError){
+                $('.error_msg').html('<div class="alert alert-danger">Error validating data. Please try again.</div>');
                 return false;
             }
 
-            // Proceed with original function
-            isValidating = true;
-            originalAjaxFunc(event, recid, custom_param);
-            isValidating = false;
-            return;
+            if(validationError){
+                $('.error_msg').html('<div class="alert alert-danger">' + validationError + '</div>');
+                return false;
+            }
+
+            // Validation passed, proceed with original function
+            return originalAjaxFunc(event, recid, custom_param);
+        }
+
+        // For getEdit: track that we're entering edit mode
+        if(event === 'getEdit'){
+            isEditMode = true;
+        }
+
+        // For openInsert: track that we're in insert mode
+        if(event === 'openInsert'){
+            isEditMode = false;
         }
 
         // For all other events, use original function
         return originalAjaxFunc(event, recid, custom_param);
     };
 
-    // Exclude 'pcs' from Unit of Measure dropdown in add/edit modal
+    // Handle modal display for edit mode restrictions
     $(document).ready(function(){
+        applyItemUomActionState('#tbody_main');
+        applyItemUomActionState('#tbody_main_mobile');
+
+        ['tbody_main', 'tbody_main_mobile'].forEach(function(targetId){
+            var target = document.getElementById(targetId);
+
+            if(!target){
+                return;
+            }
+
+            var observer = new MutationObserver(function(){
+                applyItemUomActionState('#' + targetId);
+            });
+
+            observer.observe(target, { childList: true, subtree: true });
+        });
+
         // Listen for modal shown event
         $('#crudModal').on('shown.bs.modal', function(){
             // Find the unmcde dropdown and remove 'pcs' option
@@ -226,6 +336,26 @@ $has_valid_item = ($itmcde !== '' && $itmdsc !== '');
                     }
                 });
             }
+
+            // Make conversion field readonly in edit mode
+            var $conversionField = $('#conversion_crudModal');
+            if($conversionField.length){
+                $conversionField.prop('readonly', false);
+                $conversionField.css('background-color', '');
+                $conversionField.attr('title', '');
+            }
+        });
+
+        // Reset edit mode flag when modal is hidden
+        $('#crudModal').on('hidden.bs.modal', function(){
+            isEditMode = false;
+            // Reset conversion field styling
+            var $conversionField = $('#conversion_crudModal');
+            if($conversionField.length){
+                $conversionField.prop('readonly', false);
+                $conversionField.css('background-color', '');
+                $conversionField.attr('title', '');
+            }
         });
     });
 })();
@@ -234,4 +364,3 @@ $has_valid_item = ($itmcde !== '' && $itmdsc !== '');
 <?php
 require "includes/main_footer.php";
 ?>
-

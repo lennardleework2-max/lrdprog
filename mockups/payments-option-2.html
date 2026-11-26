@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Customer Payments</title>
+<link rel="shortcut icon" href="../images/logo_only.png">
+<link rel="stylesheet" href="../bootstrap/css/bootstrap.min.css">
+<link rel="stylesheet" href="../css/all.min.css">
+<link rel="stylesheet" href="../bootstrap/icons/font/bootstrap-icons.css">
+<link rel="stylesheet" href="payments-mock.css">
+</head>
+<body>
+
+<div class="mock_bar">
+    <b>MOCKUP</b><span>Option 2 &middot; Payments Ledger</span>
+    <a href="payments-option-1.html">Option 1</a><a href="payments-option-2.html" class="on">Option 2</a><a href="payments-option-3.html">Option 3</a>
+</div>
+
+<!-- app shell (unchanged system header) -->
+<div class="container-fluid">
+    <div class="row app_top">
+        <div class="col-2 pe-0"><img src="../images/logo_horizontal.png" style="height:50px;width:100px;"></div>
+        <div class="col-10 text-white text-end"><div style="font-family:arial;font-weight:bold">LRD SYSTEM</div><div style="font-size:.8rem">v1.0</div></div>
+    </div>
+    <div class="row app_sub align-items-center">
+        <div class="col-1"><i class="fas fa-long-arrow-alt-right" style="font-size:24px"></i></div>
+        <div class="col-11 text-end" style="font-size:13px"><b>admin</b> <i class="far fa-user-circle mx-2"></i> <a href="#" class="text-dark fw-bold text-decoration-none"><i class="bi bi-box-arrow-right"></i> Logout</a></div>
+    </div>
+</div>
+
+<div class="page">
+
+    <div class="page_head">
+        <div>
+            <h1>Customer Payments</h1>
+            <p>Every payment received from customers, including post-dated checks awaiting deposit.</p>
+        </div>
+        <div class="actions">
+            <div class="dropdown">
+                <button class="btn btn-light dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-printer me-1"></i> Print</button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="#"><i class="bi bi-file-earmark-pdf"></i> Payments list (PDF)</a></li>
+                    <li><a class="dropdown-item" href="#"><i class="bi bi-file-earmark-text"></i> Customer balances (PDF)</a></li>
+                </ul>
+            </div>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#payModal"><i class="bi bi-plus-lg me-1"></i> Record Payment</button>
+        </div>
+    </div>
+
+    <div class="kpis">
+        <div class="card_x kpi"><div class="label"><span class="dot" style="background:#15803d"></span>Collected (period)</div><div class="value">₱125,000.00</div><div class="hint">5 payments &middot; Sep 1 &ndash; Sep 30</div></div>
+        <div class="card_x kpi"><div class="label"><span class="dot" style="background:#b45309"></span>Checks on hand</div><div class="value">₱40,000.00</div><div class="hint">2 checks not yet deposited</div></div>
+        <div class="card_x kpi"><div class="label"><span class="dot" style="background:#2563eb"></span>Due for deposit (7 days)</div><div class="value">₱0.00</div><div class="hint">Next: Nov 15, 2026</div></div>
+        <div class="card_x kpi"><div class="label"><span class="dot" style="background:#b91c1c"></span>Total outstanding</div><div class="value">₱111,450.00</div><div class="hint">all customers</div></div>
+    </div>
+
+    <div class="card_x">
+        <div class="toolbar">
+            <div class="seg"><a href="#" class="on">All<span class="count">5</span></a><a href="#">Checks on hand<span class="count">2</span></a><a href="#">Cleared<span class="count">3</span></a></div>
+            <div class="search ms-2"><i class="bi bi-search"></i><input class="form-control" placeholder="Search customer, check # or DR #"></div>
+            <div class="ms-auto d-flex gap-2 align-items-center">
+                <input class="form-control" style="width:130px" value="09/01/2026">
+                <span class="muted">to</span>
+                <input class="form-control" style="width:130px" value="09/30/2026">
+                <select class="form-select" style="width:150px"><option>All methods</option><option>Cash</option><option>Check</option><option>Bank transfer</option></select>
+            </div>
+        </div>
+
+        <table class="tbl">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Method</th>
+                    <th>Applied to</th>
+                    <th class="num">Amount</th>
+                    <th>Status</th>
+                    <th class="text-end" style="width:170px"></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="text-nowrap">Sep 28, 2026</td>
+                    <td><div class="name">Dela Cruz Trading</div><div class="small_muted">Route B - South</div></td>
+                    <td><div>Check</div><div class="small_muted">BPI &middot; 004877</div></td>
+                    <td class="small_muted">DR-10411, DR-10455</td>
+                    <td class="num fw-semibold">30,000.00</td>
+                    <td><span class="pill wait">Deposit Nov 28</span></td>
+                    <td class="text-end text-nowrap">
+                        <button class="btn btn-sm btn-soft-success"><i class="bi bi-check2 me-1"></i>Mark deposited</button>
+                        <div class="dropdown d-inline-block"><button class="btn btn-ghost" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></button>
+                            <ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item" href="#"><i class="bi bi-pencil"></i> Edit</a></li><li><a class="dropdown-item text-danger" href="#"><i class="bi bi-trash"></i> Delete</a></li></ul></div>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="text-nowrap">Sep 15, 2026</td>
+                    <td><div class="name">Juan's Sari-Sari Store</div><div class="small_muted">Route A - North</div></td>
+                    <td><div>Check</div><div class="small_muted">BDO &middot; 004512</div></td>
+                    <td class="small_muted">DR-10388</td>
+                    <td class="num fw-semibold">10,000.00</td>
+                    <td><span class="pill wait">Deposit Nov 15</span></td>
+                    <td class="text-end text-nowrap">
+                        <button class="btn btn-sm btn-soft-success"><i class="bi bi-check2 me-1"></i>Mark deposited</button>
+                        <div class="dropdown d-inline-block"><button class="btn btn-ghost" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></button>
+                            <ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item" href="#"><i class="bi bi-pencil"></i> Edit</a></li><li><a class="dropdown-item text-danger" href="#"><i class="bi bi-trash"></i> Delete</a></li></ul></div>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="text-nowrap">Sep 12, 2026</td>
+                    <td><div class="name">Santos Mini Mart</div><div class="small_muted">Route C - East</div></td>
+                    <td><div>Cash</div><div class="small_muted">&nbsp;</div></td>
+                    <td class="small_muted">DR-10299</td>
+                    <td class="num fw-semibold">5,000.00</td>
+                    <td><span class="pill ok">Cleared</span></td>
+                    <td class="text-end"><div class="dropdown d-inline-block"><button class="btn btn-ghost" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></button>
+                        <ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item" href="#"><i class="bi bi-pencil"></i> Edit</a></li><li><a class="dropdown-item text-danger" href="#"><i class="bi bi-trash"></i> Delete</a></li></ul></div></td>
+                </tr>
+                <tr>
+                    <td class="text-nowrap">Sep 05, 2026</td>
+                    <td><div class="name">Dela Cruz Trading</div><div class="small_muted">Route B - South</div></td>
+                    <td><div>Bank transfer</div><div class="small_muted">BDO &middot; Ref 88213</div></td>
+                    <td class="small_muted">DR-10210, DR-10233, DR-10301</td>
+                    <td class="num fw-semibold">60,000.00</td>
+                    <td><span class="pill ok">Cleared</span></td>
+                    <td class="text-end"><div class="dropdown d-inline-block"><button class="btn btn-ghost" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></button>
+                        <ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item" href="#"><i class="bi bi-pencil"></i> Edit</a></li><li><a class="dropdown-item text-danger" href="#"><i class="bi bi-trash"></i> Delete</a></li></ul></div></td>
+                </tr>
+                <tr>
+                    <td class="text-nowrap">Sep 01, 2026</td>
+                    <td><div class="name">Juan's Sari-Sari Store</div><div class="small_muted">Route A - North</div></td>
+                    <td><div>Check</div><div class="small_muted">BDO &middot; 003990</div></td>
+                    <td class="small_muted">DR-10231, DR-10388</td>
+                    <td class="num fw-semibold">20,000.00</td>
+                    <td><span class="pill ok">Deposited Sep 21</span></td>
+                    <td class="text-end"><div class="dropdown d-inline-block"><button class="btn btn-ghost" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></button>
+                        <ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item" href="#"><i class="bi bi-pencil"></i> Edit</a></li><li><a class="dropdown-item text-danger" href="#"><i class="bi bi-trash"></i> Delete</a></li></ul></div></td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr><td colspan="4">Total &middot; 5 payments <span class="muted fw-normal ms-2">(₱40,000.00 in checks on hand)</span></td><td class="num">125,000.00</td><td colspan="2"></td></tr>
+            </tfoot>
+        </table>
+
+        <div class="pager_x">
+            <span>Showing 1&ndash;5 of 5 payments</span>
+            <ul class="pagination"><li class="page-item disabled"><a class="page-link">Prev</a></li><li class="page-item active"><a class="page-link">1</a></li><li class="page-item disabled"><a class="page-link">Next</a></li></ul>
+        </div>
+    </div>
+</div>
+
+<!-- RECORD PAYMENT MODAL -->
+<div class="modal fade" id="payModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div><h5 class="modal-title">Record Payment</h5><div class="small_muted">Choose a customer to load their open DRs</div></div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="section_title">Payment details</p>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6"><label class="f_label">Customer</label><select class="form-select"><option>Juan's Sari-Sari Store</option></select><div class="small_muted mt-1">Current balance <b class="amt_due">₱25,200.00</b></div></div>
+                    <div class="col-md-3"><label class="f_label">Date received</label><input class="form-control" value="09/30/2026"></div>
+                    <div class="col-md-3"><label class="f_label">Amount</label><input class="form-control text-end" value="15,000.00"></div>
+                </div>
+                <label class="f_label">Method</label>
+                <div class="type_group mb-3">
+                    <input type="radio" name="ptype" id="t_cash"><label for="t_cash"><i class="bi bi-cash-stack"></i>Cash</label>
+                    <input type="radio" name="ptype" id="t_check" checked><label for="t_check"><i class="bi bi-journal-check"></i>Check</label>
+                    <input type="radio" name="ptype" id="t_bank"><label for="t_bank"><i class="bi bi-bank"></i>Bank transfer</label>
+                </div>
+                <div class="check_box row g-3 mx-0 mb-3">
+                    <div class="col-md-4"><label class="f_label">Check number</label><input class="form-control" value="004513"></div>
+                    <div class="col-md-4"><label class="f_label">Bank</label><input class="form-control" value="BDO"></div>
+                    <div class="col-md-4"><label class="f_label">Check date (deposit on)</label><input class="form-control" value="11/30/2026"></div>
+                </div>
+                <div class="mb-4"><label class="f_label">Remarks <span class="small_muted">(optional)</span></label><input class="form-control" placeholder="e.g. Collected by Pedro"></div>
+
+                <div class="d-flex align-items-center mb-2">
+                    <p class="section_title mb-0">Apply to DRs</p>
+                    <span class="small_muted ms-2">Filled oldest first &mdash; you can adjust</span>
+                </div>
+                <table class="mini">
+                    <thead><tr><th>DR #</th><th>Date</th><th class="num">Balance</th><th class="num" style="width:160px">Apply</th></tr></thead>
+                    <tbody>
+                        <tr><td>DR-10388</td><td>Aug 14, 2026</td><td class="num">13,200.00</td><td><input class="form-control" value="13,200.00"></td></tr>
+                        <tr><td>DR-10502</td><td>Sep 10, 2026</td><td class="num">12,000.00</td><td><input class="form-control" value="1,800.00"></td></tr>
+                    </tbody>
+                </table>
+                <div class="alloc_sum">
+                    <div><small>Payment</small><b>₱15,000.00</b></div>
+                    <div><small>Applied</small><b>₱15,000.00</b></div>
+                    <div><small>Unapplied</small><b class="amt_ok">₱0.00</b></div>
+                    <div><small>New balance</small><b class="amt_due">₱10,200.00</b></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary">Save payment</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="../js/jquery-3.5.1.min.js"></script>
+<script src="../bootstrap/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

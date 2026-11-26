@@ -55,13 +55,13 @@
 
 
         $xfields_heaeder_counter = 0;
-        // Keep total column width within printable area (x=25 to x=770).
-        $col_docnum = 58;
-        $col_ordernum = 90;
+        // Keep total column width within printable area (x=25 to x=790).
+        $col_docnum = 92;
+        $col_ordernum = 96;
         $col_trndte = 58;
         $col_paydate = 58;
-        $col_customer = 80;
-        $col_shop_item = 136;
+        $col_customer = 92;
+        $col_shop_item = 104;
         $col_qty = 45;
         $col_price = 73;
         $col_cost = 73;
@@ -72,8 +72,8 @@
 
         $header_row1_y = $xtop;
         $header_row2_y = $xtop - 10;
-		$pdf->line($xleft, $header_row1_y+10, 770, $header_row1_y+10);
-        $pdf->line($xleft, $header_row2_y-4, 770, $header_row2_y-4);
+		$pdf->line($xleft, $header_row1_y+10, 790, $header_row1_y+10);
+        $pdf->line($xleft, $header_row2_y-4, 790, $header_row2_y-4);
 
         $xcol = $xleft;
         $pdf->ezPlaceData($xcol,$header_row1_y,"<b>Doc.</b>",10,'left');
@@ -268,6 +268,7 @@
         customerfile.cusdsc as cus_cusdsc,
         tranfile2.recid as t2_recid,
         tranfile2.itmcde as t2_itmcde,
+        tranfile2.unmcde as t2_unmcde,
         tranfile2.itmqty as t2_itmqty,
         tranfile2.extprc as t2_extprc,
         itemfile.itmdsc as itm_itmdsc
@@ -292,63 +293,106 @@
         }
     }
 
-    // OPTIMIZATION: Batch load ALL unit costs in ONE query instead of per-item queries
+    // Unit cost = item's "Cost" price in mf_salesitemprice (price type from mf_salespricetype)
     $cost_cache = array();
+    $pur_cost_cache = array(); // "itmcde|unmcde" => latest purchase untprc
     if(!empty($unique_items)) {
         $item_list = array_keys($unique_items);
         $placeholders = implode(',', array_fill(0, count($item_list), '?'));
 
-        // Get the latest cost for each item (by recid DESC)
-        $cost_query = "SELECT t2.itmcde, t2.untprc, t2.recid, t1.trndte
-            FROM tranfile2 t2
-            INNER JOIN tranfile1 t1 ON t1.docnum = t2.docnum
-            WHERE t2.itmcde IN ($placeholders)
-            AND (t1.trncde='ADJ' OR t1.trncde='PUR')
-            AND t2.stkqty > 0
-            ORDER BY t2.itmcde, t2.recid DESC";
+        $cost_query = "SELECT sip.itmcde, sip.price
+            FROM mf_salesitemprice sip
+            WHERE sip.salesprice_id = (SELECT salesprice_id FROM mf_salespricetype WHERE salesprice_desc = 'Cost' LIMIT 1)
+            AND sip.itmcde IN ($placeholders)";
 
         $stmt_cost = $link->prepare($cost_query);
         $stmt_cost->execute($item_list);
+        $cost_cache = $stmt_cost->fetchAll(PDO::FETCH_KEY_PAIR);
 
-        // Store ALL cost records grouped by item code (for date-based lookup)
-        while($cost_row = $stmt_cost->fetch(PDO::FETCH_ASSOC)) {
-            $itmcde = $cost_row['itmcde'];
-            if(!isset($cost_cache[$itmcde])) {
-                $cost_cache[$itmcde] = array();
+        // Fallback: items with no/zero Cost price use the untprc of their latest purchase (PUR) line
+        // dated <= today with the SAME unit of measure (unmcde) as the sale line
+        $no_cost_items = array();
+        foreach($item_list as $itm) {
+            if(empty($cost_cache[$itm]) || (float)$cost_cache[$itm] == 0) {
+                $no_cost_items[] = $itm;
             }
-            $cost_cache[$itmcde][] = $cost_row;
         }
-    }
-
-    // Function to get unit cost from cache (no database query)
-    function get_cached_unitcost($itmcde, $trndte, $sal_recid, &$cost_cache) {
-        if(!isset($cost_cache[$itmcde]) || empty($cost_cache[$itmcde])) {
-            return 0;
-        }
-
-        $costs = $cost_cache[$itmcde];
-
-        // If we have a date, find cost where trndte <= sale date
-        if(!empty($trndte)) {
-            foreach($costs as $c) {
-                if(!empty($c['trndte']) && $c['trndte'] <= $trndte) {
-                    return $c['untprc'];
+        if(!empty($no_cost_items)) {
+            $pur_placeholders = implode(',', array_fill(0, count($no_cost_items), '?'));
+            // Latest = latest tran date (recid breaks ties); first row per item+UOM wins
+            $pur_cost_query = "SELECT t2.itmcde, t2.unmcde, t2.untprc
+                FROM tranfile2 t2
+                INNER JOIN tranfile1 t1 ON t1.docnum = t2.docnum
+                WHERE t1.trncde = 'PUR' AND t1.trndte <= ? AND t2.itmcde IN ($pur_placeholders)
+                ORDER BY t1.trndte DESC, t2.recid DESC";
+            $stmt_pur_cost = $link->prepare($pur_cost_query);
+            $stmt_pur_cost->execute(array_merge(array(date('Y-m-d')), $no_cost_items));
+            while($pur_row = $stmt_pur_cost->fetch(PDO::FETCH_ASSOC)) {
+                $pur_cost_key = $pur_row['itmcde'].'|'.$pur_row['unmcde'];
+                if(!isset($pur_cost_cache[$pur_cost_key])) {
+                    $pur_cost_cache[$pur_cost_key] = (float)$pur_row['untprc'];
                 }
             }
         }
-
-        // Fallback: find cost where recid < sale recid
-        if(!empty($sal_recid)) {
-            foreach($costs as $c) {
-                if($c['recid'] < $sal_recid) {
-                    return $c['untprc'];
-                }
-            }
-        }
-
-        // Last fallback: return latest cost
-        return $costs[0]['untprc'];
     }
+
+    // Calculate grand total commission (same filters, exclude '-None' salesman)
+    // Filtered docnums come from a subquery with the same joins as the main query (customerfile/tranfile2
+    // are needed by the Shop/Item filters); summing on the outer tranfile1 counts each trntot once.
+    $commission_doc_subquery = "SELECT DISTINCT tranfile1.docnum
+        FROM tranfile1
+        LEFT JOIN customerfile ON tranfile1.cuscde = customerfile.cuscde
+        LEFT JOIN tranfile2 ON tranfile1.docnum = tranfile2.docnum
+        WHERE tranfile1.trncde = ? ".$xfilter;
+    $commission_query = "SELECT COALESCE(SUM(t1c.trntot * COALESCE(mf_salesman.commission, 0) / 100), 0) as total_commission
+        FROM tranfile1 t1c
+        LEFT JOIN mf_salesman ON t1c.salesman_id = mf_salesman.salesman_id
+        WHERE (mf_salesman.salesman_name IS NULL OR mf_salesman.salesman_name != '-None')
+        AND t1c.docnum IN (".$commission_doc_subquery.")";
+    // BEAVER DEBUG: Total Comm = 0 investigation
+    if (!function_exists('beaver_log')) {
+        function beaver_log($step) {
+            file_put_contents(__DIR__.'/debug_beaver_sales_cost.log',
+                date('Y-m-d H:i:s').' | '.$step."\n", FILE_APPEND);
+        }
+    }
+    beaver_log('==== START commission debug ====');
+    beaver_log('[1] trncde_hidden='.(isset($_POST['trncde_hidden']) ? $_POST['trncde_hidden'] : '(unset)'));
+    beaver_log('[1] xfilter='.$xfilter);
+    beaver_log('[1] xfilter_params='.json_encode($xfilter_params));
+    beaver_log('[2] commission_query='.preg_replace('/\s+/', ' ', $commission_query));
+
+    $commission_row = false;
+    try {
+        $stmt_commission = $link->prepare($commission_query);
+        $exec_ok = $stmt_commission->execute(array_merge(array($_POST['trncde_hidden']), $xfilter_params));
+        beaver_log('[3] execute_ok='.var_export($exec_ok, true).' errorInfo='.json_encode($stmt_commission->errorInfo()));
+        $commission_row = $stmt_commission->fetch(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        beaver_log('[3] EXCEPTION: '.$e->getMessage());
+    }
+    beaver_log('[4] commission_row='.str_replace("\n", ' ', var_export($commission_row, true)));
+
+    // [5] Diagnostic breakdown by salesman (same filters/joins as commission query, without -None exclusion)
+    try {
+        $diag_query = "SELECT t1c.salesman_id, mf_salesman.salesman_name, mf_salesman.commission,
+                COUNT(*) AS doc_count, SUM(t1c.trntot) AS sum_trntot,
+                SUM(CASE WHEN t1c.trntot IS NULL OR t1c.trntot = 0 THEN 1 ELSE 0 END) AS zero_trntot_count
+            FROM tranfile1 t1c
+            LEFT JOIN mf_salesman ON t1c.salesman_id = mf_salesman.salesman_id
+            WHERE t1c.docnum IN (".$commission_doc_subquery.")
+            GROUP BY t1c.salesman_id, mf_salesman.salesman_name, mf_salesman.commission";
+        $stmt_diag = $link->prepare($diag_query);
+        $stmt_diag->execute(array_merge(array($_POST['trncde_hidden']), $xfilter_params));
+        while ($diag = $stmt_diag->fetch(PDO::FETCH_ASSOC)) {
+            beaver_log('[5] '.json_encode($diag));
+        }
+    } catch (Exception $e) {
+        beaver_log('[5] EXCEPTION: '.$e->getMessage());
+    }
+
+    $grand_total_commission = $commission_row ? floatval($commission_row['total_commission']) : 0;
+    beaver_log('[6] grand_total_commission='.$grand_total_commission);
 
     // Group data by docnum for rendering
     $grouped_data = array();
@@ -375,6 +419,7 @@
             $grouped_data[$docnum]['items'][] = array(
                 'recid' => $row['t2_recid'],
                 'itmcde' => $row['t2_itmcde'],
+                'unmcde' => $row['t2_unmcde'],
                 'itmqty' => $row['t2_itmqty'],
                 'extprc' => $row['t2_extprc'],
                 'itmdsc' => $row['itm_itmdsc']
@@ -410,37 +455,53 @@
         $shop_name = trim((string)$header["cusdsc"]);
 
         if ($_POST['txt_output_type']=='tab') {
-            $display_buyer_name = $buyer_name;
-            $display_cusdsc = $shop_name;
-            $display_ordernum = $header["ordernum"];
+            $display_docnum = sanitize_tab_text($header["docnum"]);
+            $buyer_lines = array(sanitize_tab_text($buyer_name));
+            $display_cusdsc = sanitize_tab_text($shop_name);
+            $display_ordernum = sanitize_tab_text($header["ordernum"]);
         } else {
-            $display_buyer_name = trim_str($buyer_name, $col_customer - 5, 9);
+            $display_docnum = $header["docnum"];
+            $buyer_lines = wrap_text_limited($buyer_name, $col_customer - 5, 9, 3);
             $display_cusdsc = trim_str($shop_name, $col_shop_item - $shop_item_text_padding, 9);
             $display_ordernum = trim_str($header["ordernum"], $col_ordernum - 5, 9);
         }
 
-        $pdf->ezPlaceData($xleft,$xtop,$header["docnum"],9,"left");
+        $buyer_line_count = count($buyer_lines);
+        $header_row_height = max(12, (($buyer_line_count - 1) * 10) + 12);
+
+        if(($xtop - (($buyer_line_count - 1) * 10)) <= 60){
+            $pdf->ezNewPage();
+            $xtop = 505;
+        }
+
+        $pdf->ezPlaceData($xleft,$xtop,$display_docnum,9,"left");
         $pdf->ezPlaceData($xleft+=$col_docnum,$xtop,$display_ordernum,9,"left");
         $pdf->ezPlaceData($xleft+=$col_ordernum,$xtop,$display_trndte,9,"left");
         $pdf->ezPlaceData($xleft+=$col_trndte,$xtop,$display_paydate,9,"left");
-        $pdf->ezPlaceData($xleft+=$col_paydate,$xtop,$display_buyer_name,9,"left");
-        $pdf->ezPlaceData($xleft+=$col_customer,$xtop,$display_cusdsc,9,"left");
+        $xleft += $col_paydate;
+        $customer_col_x = $xleft;
+        $shop_item_col_x = $customer_col_x + $col_customer;
+        $pdf->ezPlaceData($customer_col_x,$xtop,$buyer_lines[0],9,"left");
+        $pdf->ezPlaceData($shop_item_col_x,$xtop,$display_cusdsc,9,"left");
 
-        if($xtop <= 60){
-            $pdf->ezNewPage();
-            $xtop = 505;
+        if ($_POST['txt_output_type']!='tab') {
+            for($buyer_line_idx = 1; $buyer_line_idx < $buyer_line_count; $buyer_line_idx++) {
+                $pdf->ezPlaceData($customer_col_x, $xtop - ($buyer_line_idx * 10), $buyer_lines[$buyer_line_idx], 9, "left");
+            }
         }
 
         $price_tot = 0;
         $cost_tot = 0;
         $profit_tot = 0;
-        $xtop -= 12;
+        $xtop -= $header_row_height;
 
         // Process items for this document
         foreach($doc['items'] as $item) {
-            // Get unit cost from cache (NO database query)
-            $trndte = (empty($original_trndte)) ? NULL : date("Y-m-d", strtotime($original_trndte));
-            $unit_cost = get_cached_unitcost($item['itmcde'], $trndte, $item['recid'], $cost_cache);
+            $unit_cost = isset($cost_cache[$item['itmcde']]) ? (float)$cost_cache[$item['itmcde']] : 0;
+            $pur_cost_key = $item['itmcde'].'|'.$item['unmcde'];
+            if($unit_cost == 0 && isset($pur_cost_cache[$pur_cost_key])) {
+                $unit_cost = $pur_cost_cache[$pur_cost_key];
+            }
             $cost = $unit_cost * $item["itmqty"];
             $profit = $item["extprc"] - $cost;
 
@@ -454,7 +515,11 @@
 
             // Wrap long item names
             $itm_max_width = $col_shop_item - $shop_item_text_padding;
-            $itm_lines = wrap_text($item["itmdsc"], $itm_max_width, 9);
+            if ($_POST['txt_output_type']=='tab') {
+                $itm_lines = array(sanitize_tab_text($item["itmdsc"]));
+            } else {
+                $itm_lines = wrap_text($item["itmdsc"], $itm_max_width, 9);
+            }
             $itm_line_count = count($itm_lines);
 
             // For first line, output item name in column order
@@ -465,16 +530,22 @@
             $pdf->ezPlaceData($xleft+=$col_cost,$xtop,number_format($profit,"2"),9,"right");  // Profit
 
             // For additional wrapped lines (PDF only), place them below
-            for($idx = 1; $idx < $itm_line_count; $idx++) {
-                $xtop -= 10;
-                $pdf->ezPlaceData($shop_col_x, $xtop, $itm_lines[$idx], 9, "left");
+            if ($_POST['txt_output_type']!='tab') {
+                for($idx = 1; $idx < $itm_line_count; $idx++) {
+                    $xtop -= 10;
+                    $pdf->ezPlaceData($shop_col_x, $xtop, $itm_lines[$idx], 9, "left");
+                }
             }
 
             $price_tot += $item["extprc"];
             $cost_tot += $cost;
             $profit_tot += $profit;
 
-            $xtop -= max(15, $itm_line_count * 10 + 5);
+            if ($_POST['txt_output_type']=='tab') {
+                $xtop -= 15;
+            } else {
+                $xtop -= max(15, $itm_line_count * 10 + 5);
+            }
 
             if($xtop <= 60){
                 $pdf->ezNewPage();
@@ -482,7 +553,7 @@
             }
         }
 
-        $pdf->line(25, $xtop, 770, $xtop);
+        $pdf->line(25, $xtop, 790, $xtop);
         $xtop -= 15;
         // TOTAL row - output in column order
         $xleft = 25;
@@ -496,7 +567,7 @@
         $pdf->ezPlaceData($xleft+=$col_qty,$xtop+5,number_format($price_tot,2),9,"right");
         $pdf->ezPlaceData($xleft+=$col_price,$xtop+5,number_format($cost_tot,2),9,"right");
         $pdf->ezPlaceData($xleft+=$col_cost,$xtop+5,number_format($profit_tot,2),9,"right");
-        $pdf->line(25, $xtop-=5, 770, $xtop);
+        $pdf->line(25, $xtop-=5, 790, $xtop);
         $xtop -= 15;
 
         if($xtop <= 60){
@@ -509,7 +580,7 @@
         $profit_gtot += $profit_tot;
     }
 
-    $pdf->line(25, $xtop, 770, $xtop);
+    $pdf->line(25, $xtop, 790, $xtop);
     $xtop -= 15;
     // GRAND TOTAL row - output in column order
     $xleft = 25;
@@ -523,7 +594,27 @@
     $pdf->ezPlaceData($xleft+=$col_qty,$xtop+5,number_format($price_gtot,2),9,"right");
     $pdf->ezPlaceData($xleft+=$col_price,$xtop+5,number_format($cost_gtot,2),9,"right");
     $pdf->ezPlaceData($xleft+=$col_cost,$xtop+5,number_format($profit_gtot,2),9,"right");
-    $pdf->line(25, $xtop-=5, 770, $xtop);
+    $pdf->line(25, $xtop-=5, 790, $xtop);
+
+    // Total Comm and Net row
+    $net_profit = $profit_gtot - $grand_total_commission;
+    $xtop -= 15;
+    if($xtop <= 60){
+        $pdf->ezNewPage();
+        $xtop = 505;
+    }
+    $xleft = 25;
+    $pdf->ezPlaceData($xleft,$xtop+5,"",9,"left");           // Empty Doc Num
+    $pdf->ezPlaceData($xleft+=$col_docnum,$xtop+5,"",9,"left");       // Empty Order Num
+    $pdf->ezPlaceData($xleft+=$col_ordernum,$xtop+5,"",9,"left");      // Empty Tran Date
+    $pdf->ezPlaceData($xleft+=$col_trndte,$xtop+5,"",9,"left");      // Empty Paydate (Sales)
+    $pdf->ezPlaceData($xleft+=$col_paydate,$xtop+5,"",9,"left");      // Empty Customer Name
+    $pdf->ezPlaceData($xleft+=$col_customer,$xtop+5,"Total Comm:",8,"left");  // Total Comm label
+    $pdf->ezPlaceData($xleft+=$col_shop_item,$xtop+5,"",9,"right");     // Empty Quantity
+    $pdf->ezPlaceData($xleft+=$col_qty,$xtop+5,number_format($grand_total_commission,2),9,"right");  // Commission value under Price column
+    $pdf->ezPlaceData($xleft+=$col_price,$xtop+5,"<b>Net:</b>",8,"right");  // Net label (bold)
+    $pdf->ezPlaceData($xleft+=$col_cost,$xtop+5,"<b>".number_format($net_profit,2)."</b>",9,"right");  // Net value (bold)
+    $pdf->line(25, $xtop-=5, 790, $xtop);
 
 
 	$pdf->addText(30,15,8,"Date Printed : ".date("F j, Y, g:i A"),$angle=0,$wordspaceadjust=1);
@@ -580,6 +671,14 @@
 
     }
 
+    function sanitize_tab_text($string) {
+        $string = (string)$string;
+        $string = str_replace(array("\r\n", "\r", "\n", "\t"), ' ', $string);
+        $string = preg_replace('/[ ]{2,}/', ' ', $string);
+
+        return trim($string);
+    }
+
     // Wrap text to multiple lines based on max width
     function wrap_text($string, $max_wid, $fsize) {
         global $pdf;
@@ -620,6 +719,52 @@
         }
 
         return $lines;
+    }
+
+    function wrap_text_limited($string, $max_wid, $fsize, $max_lines = 3) {
+        global $pdf;
+
+        if(empty($string)) {
+            return array('');
+        }
+
+        $wrapped_lines = array();
+        $base_lines = wrap_text($string, $max_wid, $fsize);
+
+        foreach($base_lines as $base_line) {
+            if($pdf->getTextWidth($fsize, $base_line) <= $max_wid) {
+                $wrapped_lines[] = $base_line;
+                continue;
+            }
+
+            $remaining = $base_line;
+            while($remaining !== '') {
+                $chunk = '';
+                $chars = str_split($remaining);
+
+                foreach($chars as $char) {
+                    if($chunk !== '' && $pdf->getTextWidth($fsize, $chunk . $char) > $max_wid) {
+                        break;
+                    }
+                    $chunk .= $char;
+                }
+
+                if($chunk === '') {
+                    $chunk = substr($remaining, 0, 1);
+                }
+
+                $wrapped_lines[] = rtrim($chunk);
+                $remaining = ltrim(substr($remaining, strlen($chunk)));
+            }
+        }
+
+        if(count($wrapped_lines) > $max_lines) {
+            $overflow_text = implode(' ', array_slice($wrapped_lines, $max_lines - 1));
+            $wrapped_lines = array_slice($wrapped_lines, 0, $max_lines - 1);
+            $wrapped_lines[] = trim_str($overflow_text, $max_wid, $fsize);
+        }
+
+        return empty($wrapped_lines) ? array('') : $wrapped_lines;
     }
 
 

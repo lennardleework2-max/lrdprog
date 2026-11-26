@@ -1,6 +1,27 @@
 <?php
 require "includes/main_header.php";
 $trncde = "PUR";
+$fix_success_message = '';
+$fix_error_message = '';
+
+if(isset($_POST["fix_action"]) && $_POST["fix_action"] === "fix_tranfile2_warehouse"){
+    try{
+        $link->beginTransaction();
+
+        $update_tranfile2 = "UPDATE tranfile2
+                             SET warcde = 'WH-0000001',
+                                 warehouse_floor_id = 'WHFID-0000001'";
+        $stmt_update_tranfile2 = $link->prepare($update_tranfile2);
+        $stmt_update_tranfile2->execute();
+        $link->commit();
+        $fix_success_message = "Tranfile2 warehouse values successfully updated";
+    }catch(Throwable $e){
+        if($link->inTransaction()){
+            $link->rollBack();
+        }
+        $fix_error_message = "Failed to update tranfile2 warehouse values: ".$e->getMessage();
+    }
+}
 ?>
 
 <style>
@@ -73,6 +94,12 @@ $trncde = "PUR";
                                                     </br>
                                                     </br>
                                                     <input type="button" name="flexRadioDefault" id="flexRadioDefault1" class="btn btn-danger" value="Migrate DOCNUM: SAL/SAM to SAL-9digit format" onclick="fix_08()">
+                                                    </br>
+                                                    </br>
+                                                    <input type="button" name="flexRadioDefault" id="flexRadioDefault1" class="btn btn-dark" value="Set all UOM to UNM-00000001" onclick="fix_09()">
+                                                    </br>
+                                                    </br>
+                                                    <input type="button" name="flexRadioDefault" id="flexRadioDefault1" class="btn btn-primary" value="Fix Tranfile2 Warehouse" onclick="fix_10()">
                                                 </div>
                                             </div>
                                      
@@ -87,6 +114,7 @@ $trncde = "PUR";
         </table>
         <input type="hidden" name="trncde_hidden" id="trncde_hidden" value="<?php echo $trncde; ?>">
         <input type="hidden" name="txt_output_type" id="txt_output_type">
+        <input type="hidden" name="fix_action" id="fix_action" value="">
     </form>
 
     <script>
@@ -155,7 +183,40 @@ $trncde = "PUR";
                 document.forms.myforms.submit();
             }
 
+            function fix_09(){
+                if(!confirm('This will update all itemfile.unmcde and tranfile2.unmcde values to UNM-00000001.\n\nProceed?')){
+                    return;
+                }
+                document.forms.myforms.target = "_blank";
+                document.forms.myforms.method = "post";
+                document.forms.myforms.action = "utl_fix_default_uom.php";
+                document.forms.myforms.submit();
+            }
+
+            function fix_10(){
+                if(!confirm('Are you sure you want to update ALL tranfile2 records to default warehouse?')){
+                    return;
+                }
+                $("#fix_action").val("fix_tranfile2_warehouse");
+                document.forms.myforms.target = "_self";
+                document.forms.myforms.method = "post";
+                document.forms.myforms.action = "utl_fixes.php";
+                document.forms.myforms.submit();
+            }
+
     </script>
+
+<?php if($fix_success_message !== ''): ?>
+    <script>
+        alert(<?php echo json_encode($fix_success_message); ?>);
+    </script>
+<?php endif; ?>
+
+<?php if($fix_error_message !== ''): ?>
+    <script>
+        alert(<?php echo json_encode($fix_error_message); ?>);
+    </script>
+<?php endif; ?>
 
 <?php 
 require "includes/main_footer.php";

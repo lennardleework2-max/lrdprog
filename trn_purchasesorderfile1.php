@@ -455,8 +455,106 @@ $prog_name = "Purchases Order";
             })
         }
 
+        function getUniqueMatchedDocnums(docnums){
+            var uniqueDocnums = [];
+
+            for(var i = 0; i < docnums.length; i++){
+                if(uniqueDocnums.indexOf(docnums[i]) === -1){
+                    uniqueDocnums.push(docnums[i]);
+                }
+            }
+
+            return uniqueDocnums;
+        }
+
+        function extractMatchedDocnums(rawText, prefix){
+            var safeText = rawText || "";
+            var regex = new RegExp("\\b" + prefix + "-[A-Z0-9]+\\b", "g");
+            var matches = safeText.match(regex) || [];
+
+            return getUniqueMatchedDocnums(matches);
+        }
+
+        function getFirstMatchedDocnum(rawText, prefix){
+            var matchedDocnums = extractMatchedDocnums(rawText, prefix);
+
+            if(matchedDocnums.length === 0){
+                return "";
+            }
+
+            return matchedDocnums[0];
+        }
+
+        function buildMatchedAlertMessage(porDocnum, purDocnums){
+            if(purDocnums.length === 0){
+                return "";
+            }
+
+            var porLabel = porDocnum || "This purchases order";
+            return "Cannot edit or delete as " + porLabel + " is already matched with " + purDocnums.join(", ");
+        }
+
+        function getPurchasesOrderActionRecid(menuItem){
+            var $menu = $(menuItem).closest("ul[aria-labelledby]");
+            var labelledBy = $menu.attr("aria-labelledby") || "";
+            var matchedRecid = labelledBy.match(/dropdownMenuButton1-(.+)$/);
+
+            if(!matchedRecid || matchedRecid.length < 2){
+                return "";
+            }
+
+            return matchedRecid[1];
+        }
+
+        function normalizePurchasesOrderListActions(){
+            $("#tbody_main li[onclick*='matched_alert'], #tbody_main_mobile li[onclick*='matched_alert']").each(function(){
+                var $menuItem = $(this);
+                var inlineHandler = $menuItem.attr("onclick") || "";
+                var purDocnums = extractMatchedDocnums(inlineHandler, "PUR");
+                var porDocnum = getFirstMatchedDocnum(inlineHandler, "POR");
+                var recid = getPurchasesOrderActionRecid(this);
+
+                $menuItem.off("click.purchasesorderValidation");
+
+                if(purDocnums.length === 0){
+                    $menuItem.removeAttr("style");
+                    $menuItem.removeAttr("onclick");
+                    $menuItem.data("delete-recid", recid);
+                    $menuItem.on("click.purchasesorderValidation", function(evt){
+                        evt.preventDefault();
+                        evt.stopPropagation();
+
+                        var deleteRecid = $(this).data("delete-recid") || "";
+                        if(deleteRecid !== ""){
+                            ajaxFunc2("delete", deleteRecid);
+                        }
+                    });
+                    return;
+                }
+
+                $menuItem.data("blocked-message", buildMatchedAlertMessage(porDocnum, purDocnums));
+                $menuItem.removeAttr("onclick");
+                $menuItem.on("click.purchasesorderValidation", function(evt){
+                    evt.preventDefault();
+                    evt.stopPropagation();
+                    matched_alert($(this).data("blocked-message") || "");
+                });
+            });
+        }
+
         function matched_alert(xmsg){
-            alert(xmsg);
+            var purDocnums = extractMatchedDocnums(xmsg, "PUR");
+
+            if(purDocnums.length === 0){
+                return;
+            }
+
+            var porDocnum = getFirstMatchedDocnum(xmsg, "POR");
+            var alertMessage = buildMatchedAlertMessage(porDocnum, purDocnums);
+
+            if(alertMessage !== ""){
+                alert(alertMessage);
+            }
         }           
 
         function next_page(event){
@@ -572,6 +670,7 @@ $prog_name = "Purchases Order";
 
                     $("#tbody_main").html(xdata["html"]);
                     $("#tbody_main_mobile").html(xdata["html_mobile"]);
+                    normalizePurchasesOrderListActions();
 
                     if(event_action == "search"){
                         $("#xsearch_user").val("search");
@@ -656,6 +755,5 @@ $prog_name = "Purchases Order";
 <?php 
 require "includes/main_footer.php";
 ?>
-
 
 

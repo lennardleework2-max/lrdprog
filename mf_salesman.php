@@ -74,8 +74,6 @@ require "pager/pager_main.class.php";
                             $table1->field_header_dis["commission"] = "Commission in Percent";
 
 
-        
-
                             //FIELDS  CRUD(create,read,update,delete)
                             $table1->field_type_crud["salesman_name"] = "text";
                             $table1->field_name_crud["salesman_name"] = "salesman_name";
@@ -101,7 +99,7 @@ require "pager/pager_main.class.php";
                              $table1->show_search = "Y";
 
                             //alert
-                            $table1->alert_del = "N";
+                            $table1->alert_del = "Y";
                             $table1->alert_del_logo_dir = $logo_dir;
                             
                             $table1->alert_del_logo_w = $logo_width;

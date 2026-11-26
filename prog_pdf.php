@@ -102,8 +102,9 @@
             }
             $xfields_heaeder_counter++;
         }
-        $xleft = 25;
-		$xtop -= 15;
+	        $xleft = 25;
+			$xtop -= 15;
+            $xdata_top = $xtop;
 
 		$pdf->restoreState();
 		$pdf->closeObject();
@@ -228,6 +229,28 @@
     while($rs_main = $stmt_main->fetch()){    
 
         $fields_count_data = 0;
+        $xleft = 25;
+        $row_height = 15;
+        $wrapped_item_lines = array();
+        $enable_item_wrap = false;
+
+        if(get_class($pdf) != 'tab_ezpdf' && isset($_POST["tablename_hidden"]) && $_POST["tablename_hidden"] === "itemfile"){
+            foreach($_POST["fields"] as $row_field_config){
+                if(isset($row_field_config["fname"]) && $row_field_config["fname"] === "itmdsc"){
+                    $item_maxwidth = ($fields_count !== 1) ? 115 : 750;
+                    $wrapped_item_lines = wrap_str_two_lines(normalize_item_text($rs_main["itmdsc"]), $item_maxwidth, 9);
+                    $row_height = 15 + ((max(1, count($wrapped_item_lines)) - 1) * 10);
+                    $enable_item_wrap = true;
+                    break;
+                }
+            }
+        }
+
+	        if(($xtop - $row_height) <= 60)
+	        {
+	            $pdf->ezNewPage();
+	            $xtop = $xdata_top;
+	        }
 
         foreach($_POST["fields"] as $fields_arr => $fields_arr_val){
 
@@ -295,9 +318,17 @@
 
             
             if($fields_count_data == 0){
-                $pdf->ezPlaceData(dynamic_width($fields_arr_val["fheader"],25,$x_add_space,$xalign),$xtop,trim_str($rs_main[$fields_arr_val["fname"]],$xmaxwidth, 9),9,$xalign);
+                $field_x = dynamic_width($fields_arr_val["fheader"],25,$x_add_space,$xalign);
             }else{
-                $pdf->ezPlaceData(dynamic_width($fields_arr_val["fheader"],$xleft+=115,$x_add_space,$xalign),$xtop,trim_str($rs_main[$fields_arr_val["fname"]],$xmaxwidth,9),9,$xalign);
+                $field_x = dynamic_width($fields_arr_val["fheader"],$xleft+=115,$x_add_space,$xalign);
+            }
+
+            if($enable_item_wrap && $fields_arr_val["fname"] === "itmdsc"){
+                foreach($wrapped_item_lines as $item_line_index => $item_line_text){
+                    $pdf->ezPlaceData($field_x, $xtop - ($item_line_index * 10), $item_line_text, 9, $xalign);
+                }
+            }else{
+                $pdf->ezPlaceData($field_x,$xtop,trim_str($rs_main[$fields_arr_val["fname"]],$xmaxwidth,9),9,$xalign);
             }
 
             $fields_count_data++;
@@ -305,13 +336,13 @@
                 $xleft = 25;
             }
         }
-        $xtop -= 15;
+        $xtop -= $row_height;
 
-        if($xtop <= 60)
-        {
-            $pdf->ezNewPage();
-            $xtop = 565;
-        }
+	        if($xtop <= 60)
+	        {
+	            $pdf->ezNewPage();
+	            $xtop = $xdata_top;
+	        }
         
     }
 
@@ -346,6 +377,104 @@
             $xxstr = $xxstr.'...';
         }
         return $xxstr;
+    }
+
+    function wrap_str_two_lines($string,$max_wid,$fsize,$tab_max_chars = 52)
+    {
+        global $pdf;
+
+        $string = trim((string)$string);
+        if($string === ''){
+            return array('');
+        }
+
+        $max_wid -= 5;
+        if($pdf->getTextWidth($fsize, $string) <= $max_wid){
+            return array($string);
+        }
+
+        $wrapped_lines = array();
+        $remaining = $string;
+
+        while($remaining !== ''){
+            if($pdf->getTextWidth($fsize, $remaining) <= $max_wid){
+                $wrapped_lines[] = $remaining;
+                break;
+            }
+
+            $line = fit_text_to_width($remaining, $max_wid, $fsize, false);
+            if($line === ''){
+                $line = substr($remaining, 0, 1);
+            }
+
+            $last_space = strrpos($line, ' ');
+            if($last_space !== false && $last_space > 0){
+                $candidate_line = rtrim(substr($line, 0, $last_space));
+                if($candidate_line !== ''){
+                    $line = $candidate_line;
+                }
+            }
+
+            $wrapped_lines[] = rtrim($line);
+            $remaining = ltrim(substr($remaining, strlen($line)));
+        }
+
+        if(empty($wrapped_lines)){
+            $wrapped_lines[] = $string;
+        }
+
+        return $wrapped_lines;
+    }
+
+    function normalize_item_text($string)
+    {
+        $string = trim((string)$string);
+        if($string === ''){
+            return '';
+        }
+
+        $search = array('Ã¢â‚¬Å“', 'Ã¢â‚¬Â', 'Ã¢â‚¬Ëœ', 'Ã¢â‚¬â„¢', 'Ã¢â‚¬â€œ', 'Ã¢â‚¬â€', 'Ã‚', 'â€œ', 'â€', 'â€˜', 'â€™', 'â€“', 'â€”');
+        $replace = array('"', '"', "'", "'", '-', '-', '', '"', '"', "'", "'", '-', '-');
+        $string = str_replace($search, $replace, $string);
+
+        $string = preg_replace('/\s+/', ' ', $string);
+        return trim($string);
+    }
+
+    function fit_text_to_width($string, $max_wid, $fsize, $add_ellipsis = false)
+    {
+        global $pdf;
+
+        $string = (string)$string;
+        if($string === ''){
+            return '';
+        }
+
+        $limit_wid = $max_wid;
+        if($add_ellipsis){
+            $limit_wid = $max_wid - $pdf->getTextWidth($fsize, '...');
+        }
+        if($limit_wid < 1){
+            $limit_wid = 1;
+        }
+
+        $xarr_str = str_split($string);
+        $xxstr = '';
+        $xcut = false;
+        foreach ($xarr_str as $value) {
+            $xstr_wid = $pdf->getTextWidth($fsize,$xxstr.$value);
+            if($xstr_wid > $limit_wid)
+            {
+                $xcut = true;
+                break;
+            }
+            $xxstr = $xxstr.$value;
+        }
+
+        if($add_ellipsis && $xcut){
+            $xxstr = rtrim($xxstr).'...';
+        }
+        return rtrim($xxstr);
     }
 
     //returns dynamic width

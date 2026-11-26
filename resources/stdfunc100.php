@@ -329,5 +329,36 @@
 
         return $result;
     }
-  
+
+    // Shared "Hide Cost Price" / "Hide Distributor Price" permission check, keyed by mencap
+    // (menu caption). Used by Sales Transaction, Sales Order Transaction, and Items ajax
+    // handlers to avoid maintaining near-identical copies of the same user_menus lookup.
+    function stdfunc_get_price_restrictions($link, $mencap){
+        if(isset($_SESSION['userdesc']) && $_SESSION['userdesc'] === 'admin'){
+            return array(false, false);
+        }
+        $usercode = isset($_SESSION['usercode']) ? trim((string)$_SESSION['usercode']) : '';
+        if($usercode === ''){
+            return array(false, false);
+        }
+        $stmt = $link->prepare("SELECT hide_cost_price, hide_distri_price FROM user_menus WHERE usercode = ? AND mencap = ? LIMIT 1");
+        $stmt->execute(array($usercode, $mencap));
+        $row = $stmt->fetch();
+        $hide_cost_price = $row && isset($row['hide_cost_price']) && (string)$row['hide_cost_price'] === '1';
+        $hide_distri_price = $row && isset($row['hide_distri_price']) && (string)$row['hide_distri_price'] === '1';
+        return array($hide_cost_price, $hide_distri_price);
+    }
+
+    // Single source of truth for "is this salesprice_id currently restricted" given the
+    // two independent flags (SID-00001 = Distributor, SID-00002 = Cost).
+    function stdfunc_is_salesprice_restricted($salesprice_id, $hide_cost_price, $hide_distri_price){
+        if($salesprice_id === 'SID-00002' && $hide_cost_price){
+            return true;
+        }
+        if($salesprice_id === 'SID-00001' && $hide_distri_price){
+            return true;
+        }
+        return false;
+    }
+
 ?>

@@ -39,18 +39,39 @@ $_SESSION["logo_width"]     = $logo_width;
 
 
 $filename = basename($_SERVER['REQUEST_URI'], '?' . $_SERVER['QUERY_STRING']); 
+$permission_filename = $filename;
 
 if($filename == "trn_purchasefile2.php"){
-    $filename = "trn_purchasefile1.php";
+    $permission_filename = "trn_purchasefile1.php";
 }
 
 if($filename == "trn_salesretfile2.php"){
-    $filename = "trn_salesretfile1.php";
+    $permission_filename = "trn_salesretfile1.php";
 }
+
+if($filename == "trn_salesfile2.php"){
+    $permission_filename = "trn_salesfile1.php";
+}
+
+if($filename == "trn_salesorderfile2.php"){
+    $permission_filename = "trn_salesorderfile1.php";
+}
+
+if($filename == "mf_item_uom.php"){
+    $permission_filename = "mf_itemfile.php";
+}
+
+if($filename == "mf_warehouse_floor.php"){
+    $permission_filename = "mf_warehouse.php";
+}
+
+// if($filename == "unpaid_route_customer_pdf_all.php"){
+//     $permission_filename = "unpaid_route_customer_pdf.php";
+// }
 
 $select_db_crud="SELECT * FROM user_menus WHERE usercode=? AND menprogram=?";
 $stmt_crud	= $link->prepare($select_db_crud);
-$stmt_crud->execute(array($_SESSION['usercode'], $filename));
+$stmt_crud->execute(array($_SESSION['usercode'], $permission_filename));
 $rs_crud = $stmt_crud->fetch();
 
 
@@ -61,6 +82,8 @@ if(!empty($rs_crud)){
     $delete_crud    = $rs_crud["delete"];
     $export_crud    = $rs_crud["export"];
     $hide_price_crud    = $rs_crud["hide_price"];
+    $hide_cost_price_crud = isset($rs_crud["hide_cost_price"]) && (string)$rs_crud["hide_cost_price"] === '1';
+    $hide_distri_price_crud = isset($rs_crud["hide_distri_price"]) && (string)$rs_crud["hide_distri_price"] === '1';
 
     $_SESSION["add_crud"]    = $rs_crud["add"];
     $_SESSION["edit_crud"]   = $rs_crud["edit"];
@@ -68,6 +91,8 @@ if(!empty($rs_crud)){
     $_SESSION["delete_crud"] = $rs_crud["delete"];
     $_SESSION["export_crud"] = $rs_crud["export"];
     $_SESSION["hide_price_crud"] = $rs_crud["hide_price"];
+    $_SESSION["hide_cost_price_crud"] = $hide_cost_price_crud ? 1 : 0;
+    $_SESSION["hide_distri_price_crud"] = $hide_distri_price_crud ? 1 : 0;
 
     if($filename == "utl_useractivitylog.php"){
 
@@ -94,6 +119,8 @@ else if($userdesc == "admin"){
     $delete_crud    = 1;
     $export_crud    = 1;
     $hide_price_crud    = 0;
+    $hide_cost_price_crud = false;
+    $hide_distri_price_crud = false;
 
     $_SESSION["add_crud"]    = 1;
     $_SESSION["edit_crud"]   = 1;
@@ -101,6 +128,8 @@ else if($userdesc == "admin"){
     $_SESSION["delete_crud"] = 1;
     $_SESSION["export_crud"] = 1;
     $_SESSION["hide_price_crud"] = 0;
+    $_SESSION["hide_cost_price_crud"] = 0;
+    $_SESSION["hide_distri_price_crud"] = 0;
 }else{
 
     $add_crud       = 0;
@@ -109,6 +138,8 @@ else if($userdesc == "admin"){
     $delete_crud    = 0;
     $export_crud    = 0;
     $hide_price_crud    = 0;
+    $hide_cost_price_crud = false;
+    $hide_distri_price_crud = false;
 
     $_SESSION["add_crud"]    = 0;
     $_SESSION["edit_crud"]   = 0;
@@ -116,7 +147,13 @@ else if($userdesc == "admin"){
     $_SESSION["delete_crud"] = 0;
     $_SESSION["export_crud"] = 0;
     $_SESSION["hide_price_crud"] = 0;
+    $_SESSION["hide_cost_price_crud"] = 0;
+    $_SESSION["hide_distri_price_crud"] = 0;
 }
+
+// navbar: modules for the top bar, their pages for the sidebar (includes/main_menu.php)
+require_once("includes/menu_tree.php");
+$menu_tree = menu_load_tree($link, $_SESSION['usercode'], $userdesc == "admin", $permission_filename);
 
 ?>
 <!doctype html>
@@ -154,6 +191,7 @@ else if($userdesc == "admin"){
 
         <!-- CUSTOM CSS-->
         <link rel="stylesheet" href="css/main.css">
+
     </head>
     
     <body style="height:100%;">
@@ -174,9 +212,11 @@ else if($userdesc == "admin"){
                                 <?php echo $version;?>
                             </li>
                         </ul>
-                </div> 
+                </div>
             </div>
         </div>
+
+        <?php include "includes/module_bar.php"; ?>
 
         <div class="container-fluid">
             <div class='row bg-light' style="height:2.188rem;">

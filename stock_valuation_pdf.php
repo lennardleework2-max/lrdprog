@@ -121,25 +121,79 @@
         }
 
         if(isset($_POST['item']) && !empty($_POST['item'])){
-            $xfilter .= " AND itmcde='".$_POST['item']."'";
+            $xfilter .= " AND itemfile.itmcde='".$_POST['item']."'";
         }
 
-    $select_db = "SELECT * FROM itemfile WHERE true ".$xfilter. " ORDER BY itmdsc ASC";
+    $pcs_unmcde = '';
+    $latest_cost_uom_filter = " AND 1=0";
+    $latest_cost_uom_filter_base = " AND 1=0";
+    $latest_cost_uom_filter_row = " AND 1=0";
+    $select_db_pcs = "SELECT unmcde FROM itemunitmeasurefile WHERE unmdsc = 'pcs' LIMIT 1";
+    $stmt_pcs = $link->prepare($select_db_pcs);
+    $stmt_pcs->execute();
+    $rs_pcs = $stmt_pcs->fetch();
+    if(!empty($rs_pcs['unmcde'])){
+        $pcs_unmcde = $rs_pcs['unmcde'];
+        $latest_cost_uom_filter = " AND tranfile2.unmcde='".$pcs_unmcde."'";
+        $latest_cost_uom_filter_base = " AND cost_base.unmcde='".$pcs_unmcde."'";
+        $latest_cost_uom_filter_row = " AND tranfile2.unmcde='".$pcs_unmcde."'";
+    }
+
+    $latest_cost_join = "
+        LEFT JOIN (
+            SELECT latest_cost_rows.itmcde,
+                   latest_cost_rows.untprc,
+                   latest_cost_rows.po1_trndte
+            FROM (
+                SELECT tranfile2.itmcde,
+                       tranfile2.untprc,
+                       tranfile1.trndte AS po1_trndte,
+                       tranfile2.recid
+                FROM tranfile2
+                INNER JOIN tranfile1 ON tranfile2.docnum = tranfile1.docnum
+                INNER JOIN (
+                    SELECT cost_base.itmcde,
+                           MAX(CONCAT(DATE_FORMAT(cost_head.trndte, '%Y%m%d'), LPAD(cost_base.recid, 12, '0'))) AS latest_key
+                    FROM tranfile2 cost_base
+                    INNER JOIN tranfile1 cost_head ON cost_base.docnum = cost_head.docnum
+                    WHERE cost_head.trncde = 'PUR' ".$latest_cost_uom_filter_base."
+                    GROUP BY cost_base.itmcde
+                ) latest_cost_keys
+                    ON latest_cost_keys.itmcde = tranfile2.itmcde
+                   AND latest_cost_keys.latest_key = CONCAT(DATE_FORMAT(tranfile1.trndte, '%Y%m%d'), LPAD(tranfile2.recid, 12, '0'))
+                WHERE tranfile1.trncde = 'PUR' ".$latest_cost_uom_filter_row."
+            ) latest_cost_rows
+        ) latest_cost_data ON latest_cost_data.itmcde = itemfile.itmcde";
+
+    $select_db = "SELECT itemfile.itmcde,
+            itemfile.itmdsc,
+            balance_data.xsum,
+            latest_cost_data.untprc,
+            latest_cost_data.po1_trndte
+        FROM itemfile
+        LEFT JOIN (
+            SELECT tranfile2.itmcde,
+                SUM(tranfile2.stkqty) AS xsum
+            FROM tranfile2
+            LEFT JOIN tranfile1 ON tranfile1.docnum = tranfile2.docnum
+            WHERE 1=1 ".$xfilter2."
+            GROUP BY tranfile2.itmcde
+        ) balance_data ON balance_data.itmcde = itemfile.itmcde
+        ".$latest_cost_join."
+        WHERE true ".$xfilter." ORDER BY itemfile.itmdsc ASC";
     $stmt_main	= $link->prepare($select_db);
     $stmt_main->execute();
+
     $total_cost = 0;
     while($rs_main = $stmt_main->fetch()){    
 
-        // $select_db2 = "SELECT SUM(stkqty) as xsum FROM tranfile2 LEFT JOIN tranfile1 ON tranfile1.docnum= tranfile2.docnum WHERE itmcde='".$rs_main['itmcde']."'";
-        $select_db2 = "SELECT SUM(stkqty) as xsum, itemfile.itmdsc as itemfile_itmdsc FROM tranfile2 LEFT JOIN tranfile1 ON tranfile1.docnum= tranfile2.docnum LEFT JOIN itemfile ON tranfile2.itmcde = itemfile.itmcde WHERE itemfile.itmcde='".$rs_main['itmcde']."' ".$xfilter2."";
-        $stmt_main2	= $link->prepare($select_db2);
-        $stmt_main2->execute(array());
-        $rs2 = $stmt_main2->fetch();
-
-        $item_total =  $rs2['xsum'];
+        $item_total =  $rs_main['xsum'];
         $item_dsc =  $rs_main['itmdsc'];
 
         
+        // Initialize for both PDF and XLS modes - needed for line 178
+        $xcount_total_itmheight = 0;
+
         if(isset($_POST['txt_output_type']) && $_POST['txt_output_type'] == 'tab'){
             //$pdf->ezPlaceData($xleft+=140,$xtop,$item_dsc,9,"left");
         }else{
@@ -148,8 +202,6 @@
             $fontSize = 9;
 
             $lines = breakTextIntoLines($pdf, $item_dsc, $maxLineWidth, $fontSize);
-
-            $xcount_total_itmheight = 0;
             $xcounter_item_newline = 0;
             $xchecker = false;
             $xchecker_add = 0;
@@ -172,7 +224,7 @@
         $xleft = 25;
         
         if(isset($_POST['txt_output_type']) && $_POST['txt_output_type'] == 'tab'){
-            $pdf->ezPlaceData($xleft,$xtop,$item_dsc,9,"left");
+            $pdf->ezPlaceData($xleft,$xtop,xls_safe_text($item_dsc),9,"left");
         }
 
         $pdf->ezPlaceData($xleft+=300,$xtop+$xcount_total_itmheight,$item_total,9,"right");
@@ -199,22 +251,14 @@
                        WHERE purchasesorderfile2.itmcde='".$rs_main['itmcde']."' ORDER BY purchasesorderfile1.trndte DESC LIMIT 1";
         */
         
-        $select_db3 = "SELECT untprc,tranfile1.trndte as po1_trndte,tranfile1.docnum as xdocnum from tranfile2 LEFT JOIN tranfile1 ON tranfile2.docnum =tranfile1.docnum 
-                       WHERE tranfile2.itmcde='".$rs_main['itmcde']."' AND tranfile1.trncde='PUR'  ORDER BY tranfile1.trndte DESC LIMIT 1";
-
-
-        $stmt_main3	= $link->prepare($select_db3);
-        $stmt_main3->execute();
-        $rs_main3 = $stmt_main3->fetch();
-        
-        if(!empty($rs_main3['po1_trndte'])){
-            $purchase_date = date('m/d/Y', strtotime($rs_main3['po1_trndte']));
+        if(!empty($rs_main['po1_trndte'])){
+            $purchase_date = date('m/d/Y', strtotime($rs_main['po1_trndte']));
         }else{
             $purchase_date = NULL;
         }
         $untprc = 0;
-        if(!empty($rs_main3['untprc'])){
-            $untprc =$rs_main3['untprc'];
+        if(!empty($rs_main['untprc'])){
+            $untprc =$rs_main['untprc'];
         }
      
         $pdf->ezPlaceData($xleft+=80,$xtop+$xcount_total_itmheight,number_format($untprc,2),9,"right");
@@ -321,7 +365,42 @@
         return $lines;
     }
 
-    
+    // XLS-safe text encoding: sanitizes text for tab-separated XLS output
+    // Handles mojibake, special chars, and non-ASCII that can break Excel layout
+    function xls_safe_text($string)
+    {
+        global $pdf;
 
+        $string = (string)$string;
+        if(get_class($pdf) != 'tab_ezpdf'){
+            return $string;
+        }
+
+        // Try to fix encoding issues first
+        if(function_exists('mb_check_encoding') && !mb_check_encoding($string, 'UTF-8')){
+            $string = mb_convert_encoding($string, 'UTF-8', 'UTF-8, Windows-1252, ISO-8859-1');
+        }
+
+        // Transliterate to ASCII to prevent layout-breaking chars in XLS
+        if(function_exists('iconv')){
+            $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $string);
+            if($converted !== false && $converted !== ''){
+                $string = $converted;
+            } else {
+                // Fallback: strip all non-printable-ASCII
+                $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+            }
+        } else {
+            // No iconv available: strip all non-printable-ASCII
+            $string = preg_replace('/[^\x20-\x7E]/', '', $string);
+        }
+
+        // Remove tabs, line breaks, and control chars that break TSV format
+        $string = str_replace(array("\t", "\r", "\n", "\0"), ' ', $string);
+        $string = preg_replace('/[\x00-\x1F\x7F]/', ' ', $string);
+        $string = preg_replace('/\s{2,}/', ' ', $string);
+
+        return trim($string);
+    }
 
 ?>

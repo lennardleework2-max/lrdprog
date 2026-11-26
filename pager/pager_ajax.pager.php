@@ -1,14 +1,223 @@
 <?php
     // ini_set('display_errors', '1');
     // ini_set('display_startup_errors', '1');
-    // error_reporting(E_ALL);     
+    // error_reporting(E_ALL);
 
     session_start();
-    
+
     require_once("../resources/db_init.php");
     require "../resources/connect4.php";
     require "../resources/stdfunc100.php";
     require "../resources/lx2.pdodb.php";
+
+    if(!function_exists('itemfile_in_use')){
+        function itemfile_in_use($link, $itmcde){
+            $itmcde = trim((string)$itmcde);
+            if($itmcde === ''){
+                return false;
+            }
+
+            $tables_to_check = array(
+                'purchasesorderfile2' => 'itmcde',
+                'salesorderfile2' => 'itmcde',
+                'tranfile2' => 'itmcde'
+            );
+
+            foreach($tables_to_check as $table_name => $column_name){
+                $select_check = "SELECT 1 FROM ".$table_name." WHERE ".$column_name." = ? LIMIT 1";
+                $stmt_check = $link->prepare($select_check);
+                $stmt_check->execute(array($itmcde));
+
+                if($stmt_check->fetch()){
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    if(!function_exists('customerfile_in_use')){
+        function customerfile_in_use($link, $cuscde){
+            $cuscde = trim((string)$cuscde);
+            if($cuscde === ''){
+                return false;
+            }
+
+            $select_check = "SELECT 1 FROM salesorderfile1 WHERE cuscde = ? LIMIT 1";
+            $stmt_check = $link->prepare($select_check);
+            $stmt_check->execute(array($cuscde));
+
+            if($stmt_check->fetch()){
+                return true;
+            }
+
+            return false;
+        }
+    }
+
+    if(!function_exists('mf_buyers_in_use')){
+        function mf_buyers_in_use($link, $buyer_id){
+            $buyer_id = trim((string)$buyer_id);
+            if($buyer_id === ''){
+                return false;
+            }
+
+            $select_check = "SELECT 1 FROM tranfile1 WHERE buyer_id = ? LIMIT 1";
+            $stmt_check = $link->prepare($select_check);
+            $stmt_check->execute(array($buyer_id));
+
+            if($stmt_check->fetch()){
+                return true;
+            }
+
+            return false;
+        }
+    }
+
+    if(!function_exists('mf_salesman_in_use')){
+        function mf_salesman_in_use($link, $salesman_id){
+            $salesman_id = trim((string)$salesman_id);
+            if($salesman_id === ''){
+                return false;
+            }
+
+            $select_check = "SELECT 1 FROM tranfile1 WHERE salesman_id = ? LIMIT 1";
+            $stmt_check = $link->prepare($select_check);
+            $stmt_check->execute(array($salesman_id));
+
+            if($stmt_check->fetch()){
+                return true;
+            }
+
+            return false;
+        }
+    }
+
+    if(!function_exists('mf_routes_in_use')){
+        function mf_routes_in_use($link, $route_id){
+            $route_id = trim((string)$route_id);
+            if($route_id === ''){
+                return false;
+            }
+
+            $select_check = "SELECT 1 FROM tranfile1 WHERE route_id = ? LIMIT 1";
+            $stmt_check = $link->prepare($select_check);
+            $stmt_check->execute(array($route_id));
+
+            if($stmt_check->fetch()){
+                return true;
+            }
+
+            return false;
+        }
+    }
+
+    if(!function_exists('supplierfile_in_use')){
+        function supplierfile_in_use($link, $suppcde){
+            $suppcde = trim((string)$suppcde);
+            if($suppcde === ''){
+                return false;
+            }
+
+            $select_check = "SELECT 1 FROM tranfile1 WHERE suppcde = ? LIMIT 1";
+            $stmt_check = $link->prepare($select_check);
+            $stmt_check->execute(array($suppcde));
+
+            if($stmt_check->fetch()){
+                return true;
+            }
+
+            return false;
+        }
+    }
+
+    if(!function_exists('warehouse_in_use')){
+        function warehouse_in_use($link, $warcde){
+            $warcde = trim((string)$warcde);
+            if($warcde === ''){
+                return false;
+            }
+
+            $select_check = "SELECT 1 FROM warehouse_floor WHERE warcde = ? LIMIT 1";
+            $stmt_check = $link->prepare($select_check);
+            $stmt_check->execute(array($warcde));
+
+            if($stmt_check->fetch()){
+                return true;
+            }
+
+            return false;
+        }
+    }
+
+    if(!function_exists('warehouse_floor_in_use')){
+        function warehouse_floor_in_use($link, $warehouse_floor_id){
+            $warehouse_floor_id = trim((string)$warehouse_floor_id);
+            if($warehouse_floor_id === ''){
+                return false;
+            }
+
+            $select_check = "SELECT 1 FROM tranfile2 WHERE warehouse_floor_id = ? LIMIT 1";
+            $stmt_check = $link->prepare($select_check);
+            $stmt_check->execute(array($warehouse_floor_id));
+
+            if($stmt_check->fetch()){
+                return true;
+            }
+
+            return false;
+        }
+    }
+
+    if(!function_exists('expensetypefile_in_use')){
+        function expensetypefile_in_use($link, $expense_cde){
+            $expense_cde = trim((string)$expense_cde);
+            if($expense_cde === ''){
+                return false;
+            }
+
+            $select_check = "SELECT 1 FROM expensefile1 WHERE expense_cde = ? LIMIT 1";
+            $stmt_check = $link->prepare($select_check);
+            $stmt_check->execute(array($expense_cde));
+
+            if($stmt_check->fetch()){
+                return true;
+            }
+
+            return false;
+        }
+    }
+
+    if(!function_exists('pager_current_db_name')){
+        function pager_current_db_name()
+        {
+            if(isset($_SESSION['db_dbname']) && $_SESSION['db_dbname'] !== ''){
+                return $_SESSION['db_dbname'];
+            }
+
+            if(isset(db_init::$dbholder_db_name) && db_init::$dbholder_db_name !== ''){
+                return db_init::$dbholder_db_name;
+            }
+
+            return '';
+        }
+    }
+
+    if(!function_exists('itemunitmeasurefile_in_use')){
+        function itemunitmeasurefile_in_use($link, $unmcde){
+            $unmcde = trim((string)$unmcde);
+            if($unmcde === ''){
+                return false;
+            }
+
+            $select_reference_record = "SELECT 1 FROM itemunitfile WHERE unmcde = ? LIMIT 1";
+            $stmt_reference_record = $link->prepare($select_reference_record);
+            $stmt_reference_record->execute(array($unmcde));
+
+            return (bool)$stmt_reference_record->fetch();
+        }
+    }
 
     if(!function_exists('extract_pager_field_name')){
         function extract_pager_field_name($raw_name){
@@ -96,6 +305,51 @@
 
     if(!in_array("recid", $fields_arr)){
         $fields_arr[] = "recid";
+    }
+
+    // Add itmcde for itemfile table to check if item is in use
+    if($_POST["tablename"] == "itemfile" && !in_array("itmcde", $fields_arr)){
+        $fields_arr[] = "itmcde";
+    }
+
+    // Add cuscde for customerfile table to check if customer is in use
+    if($_POST["tablename"] == "customerfile" && !in_array("cuscde", $fields_arr)){
+        $fields_arr[] = "cuscde";
+    }
+
+    // Add buyer_id for mf_buyers table to check if buyer is in use
+    if($_POST["tablename"] == "mf_buyers" && !in_array("buyer_id", $fields_arr)){
+        $fields_arr[] = "buyer_id";
+    }
+
+    // Add salesman_id for mf_salesman table to check if salesman is in use
+    if($_POST["tablename"] == "mf_salesman" && !in_array("salesman_id", $fields_arr)){
+        $fields_arr[] = "salesman_id";
+    }
+
+    // Add route_id for mf_routes table to check if route is in use
+    if($_POST["tablename"] == "mf_routes" && !in_array("route_id", $fields_arr)){
+        $fields_arr[] = "route_id";
+    }
+
+    // Add suppcde for supplierfile table to check if supplier is in use
+    if($_POST["tablename"] == "supplierfile" && !in_array("suppcde", $fields_arr)){
+        $fields_arr[] = "suppcde";
+    }
+
+    // Add warcde for warehouse table to check if warehouse has floors
+    if($_POST["tablename"] == "warehouse" && !in_array("warcde", $fields_arr)){
+        $fields_arr[] = "warcde";
+    }
+
+    // Add warehouse_floor_id for warehouse_floor table to check if floor is in use
+    if($_POST["tablename"] == "warehouse_floor" && !in_array("warehouse_floor_id", $fields_arr)){
+        $fields_arr[] = "warehouse_floor_id";
+    }
+
+    // Add expense_cde for expensetypefile table to check if expense type is in use
+    if($_POST["tablename"] == "expensetypefile" && !in_array("expense_cde", $fields_arr)){
+        $fields_arr[] = "expense_cde";
     }
 
     $fields = implode(",", $fields_arr);
@@ -413,10 +667,16 @@
 //var_dump($select_db_fields);
     $stmt	= $link->prepare($select_db_fields);
     $stmt->execute();
+
+    $can_view_rows = false;
+    if(isset($_SESSION["view_crud"])){
+        $can_view_rows = ((int)$_SESSION["view_crud"] === 1);
+    }else if(isset($_POST["view_crud"])){
+        $can_view_rows = ((int)$_POST["view_crud"] === 1);
+    }
+
     while($row = $stmt->fetch()){
-    //    echo "<pre>";
-//var_dump($row['itmdsc']);
-        if((int)$_SESSION["view_crud"] == 0){
+        if(!$can_view_rows){
             break;
         }
 
@@ -513,36 +773,92 @@
 
             }
 
-            if(($_POST["display_only"] !== "Y" || empty($_POST["display_only"])) && ((int)$_SESSION["edit_crud"] == 1 || (int)$_SESSION["delete_crud"] == 1)){
+	            if(($_POST["display_only"] !== "Y" || empty($_POST["display_only"])) && ((int)$_SESSION["edit_crud"] == 1 || (int)$_SESSION["delete_crud"] == 1)){
 
-                $xret["html"].= "<td class='text-center align-middle' data-label='Action'>";
-                    $xret["html"].= "<div class='dropdown'>";
-                        $xret["html"].= "<button class='btn btn-primary dropdown-toggle fw-bold' type='button' id='dropdownMenuButton1-".$row['recid']."'  data-bs-toggle='dropdown' aria-expanded='false'>";
-                            $xret["html"].= "Action";
-                        $xret["html"].= "</button>";
+                $uom_record_in_use = false;
+                $uom_edit_in_use_message = "Unit of measure in use, cannot edit";
+                $uom_delete_in_use_message = "Unit of measure in use, cannot delete";
+                if($_POST["tablename"] == "itemunitmeasurefile" && isset($row['unmcde'])){
+                    $uom_record_in_use = itemunitmeasurefile_in_use($link, $row['unmcde']);
+                }
 
-                        $xret["html"].= "<ul class='dropdown-menu main_action_dd' aria-labelledby='dropdownMenuButton1-".$row['recid']."'>";
+	                $xret["html"].= "<td class='text-center align-middle' data-label='Action'>";
+	                    $xret["html"].= "<div class='dropdown'>";
+	                        $xret["html"].= "<button class='btn btn-primary dropdown-toggle fw-bold' type='button' id='dropdownMenuButton1-".$row['recid']."'  data-bs-toggle='dropdown' aria-expanded='false' data-uom-in-use='".($uom_record_in_use ? "1" : "0")."'".($uom_record_in_use ? " style='opacity:0.5;'" : "").">";
+	                            $xret["html"].= "Action";
+	                        $xret["html"].= "</button>";
 
-                            if((int)$_SESSION["edit_crud"] == 1){
-                                if(!empty($_POST["cus_function_name"])){
-                                    $xret["html"].= "<li onclick=\"".$_POST['cus_function_name']."('getEdit' , '".$row['recid']."')\">";
-                                }else{
-                                    $xret["html"].= "<li onclick=\"ajaxFunc('getEdit' , '".$row['recid']."')\">";
+	                        $xret["html"].= "<ul class='dropdown-menu main_action_dd' aria-labelledby='dropdownMenuButton1-".$row['recid']."'>";
+
+		                            if((int)$_SESSION["edit_crud"] == 1){
+		                                if($uom_record_in_use){
+		                                    $xret["html"].= "<li onclick=\"alert('".$uom_edit_in_use_message."')\">";
+		                                        $xret["html"].= "<a class='dropdown-item dd_action' style='color:#008ae6;font-weight:bold;opacity:0.5;pointer-events:none;'><i class='fas fa-pencil-alt'></i><span style='margin-left:7px;font-size:17px;font-family:arial'>Edit</span></a>";
+		                                    $xret["html"].= "</li>";
+		                                }else if(!empty($_POST["cus_function_name"])){
+	                                    $xret["html"].= "<li onclick=\"".$_POST['cus_function_name']."('getEdit' , '".$row['recid']."')\">";
+	                                        $xret["html"].= "<a class='dropdown-item dd_action' style='color:#008ae6;font-weight:bold;'><i class='fas fa-pencil-alt'></i><span style='margin-left:7px;font-size:17px;font-family:arial'>Edit</span></a>";
+	                                    $xret["html"].= "</li>";
+	                                }else{
+	                                    $xret["html"].= "<li onclick=\"ajaxFunc('getEdit' , '".$row['recid']."')\">";
+	                                        $xret["html"].= "<a class='dropdown-item dd_action' style='color:#008ae6;font-weight:bold;'><i class='fas fa-pencil-alt'></i><span style='margin-left:7px;font-size:17px;font-family:arial'>Edit</span></a>";
+	                                    $xret["html"].= "</li>";
+	                                }
+	                            }
+
+		                            if((int)$_SESSION["delete_crud"] == 1){
+		                                // Check if record is in use
+		                                $record_in_use = $uom_record_in_use;
+		                                $in_use_message = $uom_delete_in_use_message;
+
+	                                if(!$record_in_use && $_POST["tablename"] == "itemfile" && isset($row['itmcde'])){
+	                                    $record_in_use = itemfile_in_use($link, $row['itmcde']);
+	                                    $in_use_message = "Cannot delete, item in use";
+	                                }
+	                                if(!$record_in_use && $_POST["tablename"] == "customerfile" && isset($row['cuscde'])){
+	                                    $record_in_use = customerfile_in_use($link, $row['cuscde']);
+	                                    $in_use_message = "Cannot delete, customer in use";
+	                                }
+	                                if(!$record_in_use && $_POST["tablename"] == "mf_buyers" && isset($row['buyer_id'])){
+	                                    $record_in_use = mf_buyers_in_use($link, $row['buyer_id']);
+	                                    $in_use_message = "Cannot delete, buyer in use";
+	                                }
+	                                if(!$record_in_use && $_POST["tablename"] == "mf_salesman" && isset($row['salesman_id'])){
+	                                    $record_in_use = mf_salesman_in_use($link, $row['salesman_id']);
+	                                    $in_use_message = "Cannot delete, salesman in use";
+	                                }
+	                                if(!$record_in_use && $_POST["tablename"] == "mf_routes" && isset($row['route_id'])){
+	                                    $record_in_use = mf_routes_in_use($link, $row['route_id']);
+	                                    $in_use_message = "Cannot delete, route in use";
+	                                }
+	                                if(!$record_in_use && $_POST["tablename"] == "supplierfile" && isset($row['suppcde'])){
+	                                    $record_in_use = supplierfile_in_use($link, $row['suppcde']);
+	                                    $in_use_message = "Cannot delete, supplier in use";
+	                                }
+	                                if(!$record_in_use && $_POST["tablename"] == "warehouse" && isset($row['warcde'])){
+	                                    $record_in_use = warehouse_in_use($link, $row['warcde']);
+	                                    $in_use_message = "Cannot delete, warehouse still has floors";
+	                                }
+	                                if(!$record_in_use && $_POST["tablename"] == "expensetypefile" && isset($row['expense_cde'])){
+	                                    $record_in_use = expensetypefile_in_use($link, $row['expense_cde']);
+	                                    $in_use_message = "Cannot delete, expense type in use";
+	                                }
+
+	                                if($record_in_use){
+	                                    $xret["html"].= "<li onclick=\"alert('".$in_use_message."')\">";
+	                                        $xret["html"].= "<a class='dropdown-item dd_action' style='color:#ff3333;font-weight:bold;opacity:0.5;pointer-events:none;'><i class='fas fa-trash-alt'></i><span style='margin-left:7px;font-size:17px;font-family:arial'>Delete</span></a>";
+	                                    $xret["html"].= "</li>";
+	                                }else{
+                                    if(!empty($_POST["cus_function_name"])){
+                                        $xret["html"].= "<li onclick=\"".$_POST['cus_function_name']."('delete' , '".$row['recid']."')\">";
+                                    }else{
+                                        $xret["html"].= "<li onclick=\"ajaxFunc('delete' , '".$row['recid']."')\">";
+                                    }
+
+                                        $xret["html"].= "<a class='dropdown-item dd_action' style='color:#ff3333;font-weight:bold;'><i class='fas fa-trash-alt'></i><span style='margin-left:7px;font-size:17px;font-family:arial'>Delete</span></a>";
+                                    $xret["html"].= "</li>";
                                 }
-                                    $xret["html"].= "<a class='dropdown-item dd_action' style='color:#008ae6;font-weight:bold;'><i class='fas fa-pencil-alt'></i><span style='margin-left:7px;font-size:17px;font-family:arial'>Edit</span></a>";
-                                $xret["html"].= "</li>";
                             }
-
-                            if((int)$_SESSION["delete_crud"] == 1){
-                                if(!empty($_POST["cus_function_name"])){
-                                    $xret["html"].= "<li onclick=\"".$_POST['cus_function_name']."('delete' , '".$row['recid']."')\">";
-                                }else{
-                                    $xret["html"].= "<li onclick=\"ajaxFunc('delete' , '".$row['recid']."')\">";
-                                }
-                                
-                                    $xret["html"].= "<a class='dropdown-item dd_action' style='color:#ff3333;font-weight:bold;'><i class='fas fa-trash-alt'></i><span style='margin-left:7px;font-size:17px;font-family:arial'>Delete</span></a>";
-                                $xret["html"].= "</li>";
-                            }   
 
                             if(isset($_POST["xdata_btn"])){
                                 foreach($_POST["xdata_btn"] as $xdata_btn_key => $xdata_btn_value){
@@ -670,40 +986,95 @@
 
         }
 
-        if(($_POST["display_only"] !== "Y"|| empty($_POST["display_only"])) && ((int)$_SESSION["edit_crud"] == 1 || (int)$_SESSION["delete_crud"] == 1)){
+	        if(($_POST["display_only"] !== "Y"|| empty($_POST["display_only"])) && ((int)$_SESSION["edit_crud"] == 1 || (int)$_SESSION["delete_crud"] == 1)){
 
-            $xret["html_mobile"] .= "<tr>";
-                $xret["html_mobile"] .= "<td style='font-weight:bold;' class='align-middle'>";
+                $uom_record_in_use_mobile = false;
+                $uom_edit_in_use_message_mobile = "Unit of measure in use, cannot edit";
+                $uom_delete_in_use_message_mobile = "Unit of measure in use, cannot delete";
+                if($_POST["tablename"] == "itemunitmeasurefile" && isset($row['unmcde'])){
+                    $uom_record_in_use_mobile = itemunitmeasurefile_in_use($link, $row['unmcde']);
+                }
+
+	            $xret["html_mobile"] .= "<tr>";
+	                $xret["html_mobile"] .= "<td style='font-weight:bold;' class='align-middle'>";
                     $xret["html_mobile"].= "<span>Action</span>";
                 $xret["html_mobile"] .= "</td>";
 
-                $xret["html_mobile"].= "<td class='text-center align-middle' data-label='Action'>";
-                    $xret["html_mobile"].= "<div class='dropdown'>";
-                        $xret["html_mobile"].= "<button class='btn btn-primary dropdown-toggle fw-bold' type='button' id='dropdownMenuButton1-".$row['recid']."'  data-bs-toggle='dropdown' aria-expanded='false'>";
-                            $xret["html_mobile"].= "Action";
-                        $xret["html_mobile"].= "</button>";
+	                $xret["html_mobile"].= "<td class='text-center align-middle' data-label='Action'>";
+	                    $xret["html_mobile"].= "<div class='dropdown'>";
+	                        $xret["html_mobile"].= "<button class='btn btn-primary dropdown-toggle fw-bold' type='button' id='dropdownMenuButton1-".$row['recid']."'  data-bs-toggle='dropdown' aria-expanded='false' data-uom-in-use='".($uom_record_in_use_mobile ? "1" : "0")."'".($uom_record_in_use_mobile ? " style='opacity:0.5;'" : "").">";
+	                            $xret["html_mobile"].= "Action";
+	                        $xret["html_mobile"].= "</button>";
 
-                        $xret["html_mobile"].= "<ul class='dropdown-menu main_action_dd' aria-labelledby='dropdownMenuButton1-".$row['recid']."'>";
+	                        $xret["html_mobile"].= "<ul class='dropdown-menu main_action_dd' aria-labelledby='dropdownMenuButton1-".$row['recid']."'>";
 
-                            if((int)$_SESSION["edit_crud"] == 1){
-                                if(!empty($_POST["cus_function_name"])){
-                                    $xret["html_mobile"].= "<li onclick=\"".$_POST['cus_function_name']."('getEdit' , '".$row['recid']."')\">";
-                                }else{
-                                    $xret["html_mobile"].= "<li onclick=\"ajaxFunc('getEdit' , '".$row['recid']."')\">";
+		                            if((int)$_SESSION["edit_crud"] == 1){
+		                                if($uom_record_in_use_mobile){
+		                                    $xret["html_mobile"].= "<li onclick=\"alert('".$uom_edit_in_use_message_mobile."')\">";
+		                                        $xret["html_mobile"].= "<a class='dropdown-item dd_action' style='color:#008ae6;font-weight:bold;opacity:0.5;pointer-events:none;'><i class='fas fa-pencil-alt'></i><span style='margin-left:7px;font-size:17px;font-family:arial'>Edit</span></a>";
+		                                    $xret["html_mobile"].= "</li>";
+		                                }else if(!empty($_POST["cus_function_name"])){
+	                                    $xret["html_mobile"].= "<li onclick=\"".$_POST['cus_function_name']."('getEdit' , '".$row['recid']."')\">";
+	                                        $xret["html_mobile"].= "<a class='dropdown-item dd_action' style='color:#008ae6;font-weight:bold;'><i class='fas fa-pencil-alt'></i><span style='margin-left:7px;font-size:17px;font-family:arial'>Edit</span></a>";
+	                                    $xret["html_mobile"].= "</li>";
+	                                }else{
+	                                    $xret["html_mobile"].= "<li onclick=\"ajaxFunc('getEdit' , '".$row['recid']."')\">";
+	                                        $xret["html_mobile"].= "<a class='dropdown-item dd_action' style='color:#008ae6;font-weight:bold;'><i class='fas fa-pencil-alt'></i><span style='margin-left:7px;font-size:17px;font-family:arial'>Edit</span></a>";
+	                                    $xret["html_mobile"].= "</li>";
+	                                }
+	                            }
+		                            if((int)$_SESSION["delete_crud"] == 1){
+		                                // Check if record is in use
+		                                $record_in_use_mobile = $uom_record_in_use_mobile;
+		                                $in_use_message_mobile = $uom_delete_in_use_message_mobile;
+
+	                                if(!$record_in_use_mobile && $_POST["tablename"] == "itemfile" && isset($row['itmcde'])){
+	                                    $record_in_use_mobile = itemfile_in_use($link, $row['itmcde']);
+	                                    $in_use_message_mobile = "Cannot delete, item in use";
+	                                }
+	                                if(!$record_in_use_mobile && $_POST["tablename"] == "customerfile" && isset($row['cuscde'])){
+	                                    $record_in_use_mobile = customerfile_in_use($link, $row['cuscde']);
+	                                    $in_use_message_mobile = "Cannot delete, customer in use";
+	                                }
+	                                if(!$record_in_use_mobile && $_POST["tablename"] == "mf_buyers" && isset($row['buyer_id'])){
+	                                    $record_in_use_mobile = mf_buyers_in_use($link, $row['buyer_id']);
+	                                    $in_use_message_mobile = "Cannot delete, buyer in use";
+	                                }
+	                                if(!$record_in_use_mobile && $_POST["tablename"] == "mf_salesman" && isset($row['salesman_id'])){
+	                                    $record_in_use_mobile = mf_salesman_in_use($link, $row['salesman_id']);
+	                                    $in_use_message_mobile = "Cannot delete, salesman in use";
+	                                }
+	                                if(!$record_in_use_mobile && $_POST["tablename"] == "mf_routes" && isset($row['route_id'])){
+	                                    $record_in_use_mobile = mf_routes_in_use($link, $row['route_id']);
+	                                    $in_use_message_mobile = "Cannot delete, route in use";
+	                                }
+	                                if(!$record_in_use_mobile && $_POST["tablename"] == "supplierfile" && isset($row['suppcde'])){
+	                                    $record_in_use_mobile = supplierfile_in_use($link, $row['suppcde']);
+	                                    $in_use_message_mobile = "Cannot delete, supplier in use";
+	                                }
+	                                if(!$record_in_use_mobile && $_POST["tablename"] == "warehouse" && isset($row['warcde'])){
+	                                    $record_in_use_mobile = warehouse_in_use($link, $row['warcde']);
+	                                    $in_use_message_mobile = "Cannot delete, warehouse still has floors";
+	                                }
+	                                if(!$record_in_use_mobile && $_POST["tablename"] == "expensetypefile" && isset($row['expense_cde'])){
+	                                    $record_in_use_mobile = expensetypefile_in_use($link, $row['expense_cde']);
+	                                    $in_use_message_mobile = "Cannot delete, expense type in use";
+	                                }
+
+	                                if($record_in_use_mobile){
+	                                    $xret["html_mobile"].= "<li onclick=\"alert('".$in_use_message_mobile."')\">";
+	                                        $xret["html_mobile"].= "<a class='dropdown-item dd_action' style='color:#ff3333;font-weight:bold;opacity:0.5;pointer-events:none;'><i class='fas fa-trash-alt'></i><span style='margin-left:7px;font-size:17px;font-family:arial'>Delete</span></a>";
+	                                    $xret["html_mobile"].= "</li>";
+	                                }else{
+                                    if(!empty($_POST["cus_function_name"])){
+                                        $xret["html_mobile"].= "<li onclick=\"".$_POST['cus_function_name']."('delete' , '".$row['recid']."')\">";
+                                    }else{
+                                        $xret["html_mobile"].= "<li onclick=\"ajaxFunc('delete' , '".$row['recid']."')\">";
+                                    }
+
+                                        $xret["html_mobile"].= "<a class='dropdown-item dd_action' style='color:#ff3333;font-weight:bold;'><i class='fas fa-trash-alt'></i><span style='margin-left:7px;font-size:17px;font-family:arial'>Delete</span></a>";
+                                    $xret["html_mobile"].= "</li>";
                                 }
-
-                                    $xret["html_mobile"].= "<a class='dropdown-item dd_action' style='color:#008ae6;font-weight:bold;'><i class='fas fa-pencil-alt'></i><span style='margin-left:7px;font-size:17px;font-family:arial'>Edit</span></a>";
-                                $xret["html_mobile"].= "</li>";
-                            }
-                            if((int)$_SESSION["delete_crud"] == 1){
-                                if(!empty($_POST["cus_function_name"])){
-                                    $xret["html_mobile"].= "<li onclick=\"".$_POST['cus_function_name']."('delete' , '".$row['recid']."')\">";
-                                }else{
-                                    $xret["html_mobile"].= "<li onclick=\"ajaxFunc('delete' , '".$row['recid']."')\">";
-                                }
-                            
-                                    $xret["html_mobile"].= "<a class='dropdown-item dd_action' style='color:#ff3333;font-weight:bold;'><i class='fas fa-trash-alt'></i><span style='margin-left:7px;font-size:17px;font-family:arial'>Delete</span></a>";
-                                $xret["html_mobile"].= "</li>";
                             }
 
                             if(isset($_POST["xdata_btn"])){

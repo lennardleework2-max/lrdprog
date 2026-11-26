@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Design 2 · Customer Ledger Workspace (Mockup)</title>
+<link rel="shortcut icon" href="../../images/logo_short.png">
+<link rel="stylesheet" href="../../bootstrap/css/bootstrap.min.css">
+<link rel="stylesheet" href="../../bootstrap/icons/font/bootstrap-icons.css">
+<link rel="stylesheet" href="bp-base.css">
+<style>
+/* ===== Design 2: accounting ledger workspace ===== */
+body{background:#e9ecf1}
+.ws{display:grid;grid-template-columns:300px minmax(0,1fr);min-height:calc(100vh - 120px)}
+
+/* buyer index (left) */
+.idx{background:#fff;border-right:1px solid var(--line);display:flex;flex-direction:column;min-width:0;position:sticky;top:0;height:100vh;max-height:100vh}
+.idx_head{padding:14px 14px 10px;border-bottom:3px solid var(--line-strong)}
+.idx_head h3{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;display:flex;justify-content:space-between;align-items:center}
+.idx_filters{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:#fff;border-radius:999px;font-size:12px;font-weight:600;padding:4px 10px;min-height:30px;color:var(--muted);transition:all var(--t)}
+.chip[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+.idx_list{flex:1;overflow:auto;padding:6px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.idx_item{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:2px 10px;align-items:center;width:100%;text-align:left;border:0;background:transparent;border-radius:10px;padding:9px 10px;min-height:52px;transition:background var(--t)}
+.idx_item:hover{background:var(--surface-2)}
+.idx_item[aria-current="true"]{background:var(--brand-soft);box-shadow:inset 3px 0 0 var(--brand)}
+.idx_item .dot{width:10px;height:10px;border-radius:50%;grid-row:1 / 3}
+.dot.Paid{background:var(--paid)}.dot.Partial{background:#d98400}.dot.Unpaid{background:var(--unpaid)}
+.idx_item .n{font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.idx_item .a{font-size:12px;color:var(--muted)}
+.idx_item .o{grid-row:1 / 3;grid-column:3;text-align:right;font-size:12.5px;font-weight:700}
+.idx_item .o small{display:block;font-weight:600;font-size:11px;color:var(--muted)}
+.idx_backdrop{display:none}
+.idx_foot{border-top:1px solid var(--line);padding:10px;display:flex;gap:6px;flex-wrap:wrap}
+.idx_foot .btn{flex:1;font-size:12.5px;min-height:36px}
+
+/* statement */
+.main{padding:20px 20px 60px;min-width:0}
+.switcher{display:none}
+.paper{max-width:1080px;margin:0 auto;background:#fff;border-radius:.75rem;box-shadow:0 1px 2px rgba(0,0,0,.05),0 12px 32px rgba(16,24,40,.08);border:1px solid var(--line)}
+.p_head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:18px 22px;border-bottom:3px solid var(--line-strong)}
+.p_head h2{margin:0;font-size:28px;font-weight:600;letter-spacing:-.01em}
+.p_head .actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.p_sec{padding:16px 22px;border-bottom:3px solid var(--line-strong)}
+.acct label{font-weight:700;font-size:13px;margin-bottom:4px;display:block}
+.acct .ro{background:#e9ecef;border:1px solid #ced4da;border-radius:.375rem;padding:8px 12px;min-height:42px;font-weight:700;display:flex;align-items:center;overflow-wrap:anywhere}
+.acct .ro.plain{background:#fff;font-weight:400}
+
+.bal{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.bal .t{border-radius:12px;padding:10px 12px;border:1px solid var(--line);min-width:0}
+.bal .t .k{font-size:12.5px;font-weight:700}
+.bal .t .v{font-size:18px;font-weight:800;margin-top:2px}
+.t.sales{background:#f1f3f6}
+.t.col{background:var(--paid-soft);border-color:#bfe5cf}.t.col .v{color:var(--paid)}
+.t.hand{background:var(--hold-soft);border-color:#f6d9a8}.t.hand .v{color:var(--onhand)}
+.t.ret{background:var(--returned-soft);border-color:#f5c2bd}.t.ret .v{color:var(--returned)}
+.bal2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+.bal2 .t{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:linear-gradient(180deg,#fff,#fafbfc)}
+.bal2 .k{font-weight:800;font-size:13px}
+.bal2 .v{font-size:24px;font-weight:800;color:var(--unpaid)}
+.bal2 .v.zero{color:var(--paid)}
+.bal2 .f{font-size:12px;color:var(--muted);margin-top:4px}
+.note{font-size:12px;color:var(--muted);margin:10px 0 0}
+
+/* tabs */
+.tabs{display:flex;gap:2px;padding:0 16px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none;position:sticky;top:0;background:#fff;z-index:3;border-radius:0}
+.tabs::-webkit-scrollbar{display:none}
+.tabs [role="tab"]{border:0;background:none;padding:12px 14px;font-weight:700;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap;min-height:46px;transition:color var(--t),border-color var(--t)}
+.tabs [role="tab"][aria-selected="true"]{color:var(--brand);border-bottom-color:var(--brand)}
+.tabs .cnt{font-size:11px;background:#eef1f5;border-radius:999px;padding:0 7px;margin-left:4px;color:var(--muted)}
+[role="tabpanel"]{padding:16px 22px 22px;animation:fadeIn .2s var(--ease)}
+[role="tabpanel"][hidden]{display:none}
+.pane_title{display:none}
+
+.ledger td,.ledger th{white-space:nowrap}
+.ledger td.part{white-space:normal;min-width:220px;overflow-wrap:anywhere}
+.ledger tr.k-returned td{background:#fdf1f0}
+.ledger tr.k-returned .dr{color:var(--returned);font-weight:700}
+.ledger tr.k-onhand .cr{color:var(--onhand)}
+.ledger .net,.ledger .out{font-weight:600}
+.ledger .out{background:#f7f8fa}
+.ledger tfoot .net,.ledger tfoot .out{color:var(--unpaid)}
+.ledger tr.new td{animation:flash 1.6s ease-out}
+.lg_tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.swipe{display:none;font-size:12px;color:var(--muted)}
+.sticky1{position:sticky;left:0;background:#fff;z-index:1}
+.ledger thead .sticky1{background:var(--surface-2)}
+.ledger tr.k-returned .sticky1{background:#fdf1f0}
+
+/* inline add-payment panel */
+.addp{border:1px solid #bcd0ee;background:linear-gradient(180deg,#f5f9ff,#fff);border-radius:14px;margin-bottom:16px;overflow:hidden;display:grid;grid-template-rows:0fr;transition:grid-template-rows .25s var(--ease),opacity .2s;opacity:0}
+.addp.open{grid-template-rows:1fr;opacity:1}
+.addp>div{overflow:hidden}
+.addp_in{padding:16px}
+.addp h4{font-size:16px;font-weight:800;margin:0 0 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pills{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px}
+.pills input{position:absolute;opacity:0;pointer-events:none}
+.pills label{border:1.5px solid #cfd5dd;border-radius:12px;padding:10px 8px;text-align:center;font-weight:700;font-size:13px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;min-height:64px;justify-content:center;background:#fff;transition:all var(--t)}
+.pills label i{font-size:20px;color:var(--muted)}
+.pills input:checked+label{border-color:var(--brand);background:var(--brand-soft);color:var(--brand);box-shadow:0 0 0 3px rgba(31,78,140,.12)}
+.pills input:checked+label i{color:var(--brand)}
+.pills input:focus-visible+label{outline:3px solid rgba(47,111,208,.45);outline-offset:2px}
+
+.chq_sum{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.signs{display:none}
+
+/* responsive */
+@media (max-width: 991.98px){
+    .ws{grid-template-columns:minmax(0,1fr)}
+    .idx{position:fixed;inset:0 auto 0 0;width:min(86vw,340px);z-index:1050;transform:translateX(-102%);transition:transform .25s var(--ease);box-shadow:var(--shadow-2);height:100%;max-height:none}
+    .idx.open{transform:none}
+    .idx_backdrop{display:block;position:fixed;inset:0;background:rgba(15,23,42,.4);z-index:1049;opacity:0;pointer-events:none;transition:opacity .2s}
+    .idx_backdrop.open{opacity:1;pointer-events:auto}
+    .switcher{display:flex;gap:10px;align-items:center;max-width:1080px;margin:0 auto 12px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 10px;box-shadow:var(--shadow-1)}
+    .switcher .who{min-width:0;flex:1}
+    .switcher .who b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .bal{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width: 575.98px){
+    .main{padding:12px 10px 60px}
+    .p_head,.p_sec{padding:14px}
+    [role="tabpanel"]{padding:14px}
+    .p_head h2{font-size:23px;width:100%}
+    .p_head .actions{margin-left:0;width:100%;display:grid;grid-template-columns:1fr 1fr}
+    .bal2{grid-template-columns:1fr}
+    .pills{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .swipe{display:block}
+}
+
+/* print: statement only */
+@media print{
+    @page{size:A4;margin:12mm}
+    body{background:#fff;font-size:11px}
+    .ws{display:block}
+    .idx,.idx_backdrop,.switcher,.tabs,.addp,.lg_tools,.p_head .actions,.chq_tools,.no-print{display:none!important}
+    .main{padding:0}
+    .paper{box-shadow:none;border:0;max-width:none}
+    [role="tabpanel"][hidden]{display:block!important}
+    [role="tabpanel"]{padding:8px 0;break-inside:auto}
+    .pane_title{display:block;font-size:14px;font-weight:800;margin:6px 0}
+    .tbl_wrap{overflow:visible}
+    .ledger td.part{min-width:0}
+    .sticky1{position:static}
+    .tbl th,.tbl td{padding:4px 6px}
+    .signs{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:20px}
+    .signs div{border-top:1px solid #333;padding-top:4px;font-weight:700;margin-top:36px}
+    .bal .t,.bal2 .t,.ledger tr.k-returned td{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    #pane-cheques{display:none!important}
+}
+</style>
+</head>
+<body>
+
+<div class="mock_bar no-print">
+    <b>MOCKUP</b><span class="tag">Sample data · nothing is saved</span><span>Design 2 · Customer Ledger Workspace</span>
+    <nav aria-label="Mockup designs">
+        <a href="index.html">Compare</a><a href="design-1-dashboard.html">Design 1</a><a href="design-2-ledger.html" aria-current="page">Design 2</a><a href="design-3-collections.html">Design 3</a>
+    </nav>
+</div>
+<header class="lrd_top"><img src="../../images/logo_horizontal.png" alt="LRD"><div class="sys"><b>LRD SYSTEM</b><small>v1.0 · preview</small></div></header>
+<div class="lrd_sub"><span class="menu_arrow" aria-hidden="true"><i class="bi bi-arrow-right"></i></span><div class="who"><b>demo.user</b><i class="bi bi-person-circle" aria-hidden="true"></i><a href="#" onclick="return false"><i class="bi bi-box-arrow-right"></i> Logout</a></div></div>
+
+<div class="ws">
+    <aside class="idx" id="idx" aria-label="Buyer index">
+        <div class="idx_head">
+            <h3><span>Buyers</span><span id="idx_count" class="fw-normal text-lowercase"></span>
+                <button type="button" class="btn-close d-lg-none" id="idx_close" aria-label="Close buyer list"></button></h3>
+            <label for="idx_q" class="visually-hidden">Search buyers</label>
+            <input type="search" class="form-control" id="idx_q" placeholder="Search name / account…" autocomplete="off">
+            <div class="idx_filters" role="group" aria-label="Filter buyers by status" id="idx_filters">
+                <button type="button" class="chip" data-st="All" aria-pressed="true">All</button>
+                <button type="button" class="chip" data-st="Unpaid" aria-pressed="false">Unpaid</button>
+                <button type="button" class="chip" data-st="Partial" aria-pressed="false">Partial</button>
+                <button type="button" class="chip" data-st="Paid" aria-pressed="false">Paid</button>
+            </div>
+        </div>
+        <div class="idx_list" id="idx_list" role="list"></div>
+        <div class="idx_foot">
+            <button type="button" class="btn btn-ghost" id="btn_bulk"><i class="bi bi-database-add"></i> +300 buyers</button>
+            <button type="button" class="btn btn-ghost text-danger" id="btn_reset"><i class="bi bi-arrow-counterclockwise"></i> Reset demo</button>
+        </div>
+    </aside>
+    <div class="idx_backdrop" id="idx_backdrop"></div>
+
+    <main class="main">
+        <div class="switcher no-print">
+            <div class="who"><small class="muted">Viewing ledger of</small><b id="sw_name"></b></div>
+            <button type="button" class="btn btn-brand" id="sw_open" aria-controls="idx" aria-expanded="false"><i class="bi bi-people"></i> Buyers</button>
+        </div>
+
+        <article class="paper" id="paper" aria-live="off">
+            <div class="p_head">
+                <h2>Customer Ledger</h2>
+                <div class="actions">
+                    <button type="button" class="btn btn-danger" id="btn_back" style="min-width:90px">Back</button>
+                    <button type="button" class="btn btn-info fw-bold" id="btn_print"><i class="bi bi-printer"></i> Print Ledger</button>
+                    <button type="button" class="btn btn-info fw-bold" id="btn_csv"><i class="bi bi-filetype-csv"></i> Export CSV</button>
+                    <button type="button" class="btn btn-pay" id="btn_add"><i class="bi bi-plus-lg"></i> Add Payment</button>
+                </div>
+            </div>
+
+            <section class="p_sec acct" aria-label="Account">
+                <div class="row g-3">
+                    <div class="col-12 col-md-4"><label>Customer:</label><div class="ro" id="a_name"></div></div>
+                    <div class="col-6 col-md-4"><label>Account No.:</label><div class="ro" id="a_acct"></div></div>
+                    <div class="col-6 col-md-4"><label>As of:</label><div class="ro" id="a_asof"></div></div>
+                    <div class="col-6 col-md-4"><label>Contact No.:</label><div class="ro plain" id="a_contact"></div></div>
+                    <div class="col-6 col-md-4"><label>Last Collection:</label><div class="ro plain" id="a_last"></div></div>
+                    <div class="col-12 col-md-4"><label>Status</label><div class="ro" id="a_status"></div></div>
+                </div>
+            </section>
+
+            <section class="p_sec" aria-label="Balances" id="balances"></section>
+
+            <div class="tabs" role="tablist" aria-label="Ledger sections" id="tabs">
+                <button type="button" role="tab" id="tab-ledger" aria-controls="pane-ledger" aria-selected="true">Ledger</button>
+                <button type="button" role="tab" id="tab-dr" aria-controls="pane-dr" aria-selected="false" tabindex="-1">Sales (DR)<span class="cnt" id="c_dr"></span></button>
+                <button type="button" role="tab" id="tab-pay" aria-controls="pane-pay" aria-selected="false" tabindex="-1">Payments<span class="cnt" id="c_pay"></span></button>
+                <button type="button" role="tab" id="tab-cheques" aria-controls="pane-cheques" aria-selected="false" tabindex="-1">Cheques<span class="cnt" id="c_chq"></span></button>
+            </div>
+
+            <section role="tabpanel" id="pane-ledger" aria-labelledby="tab-ledger" tabindex="0">
+                <div class="pane_title">Ledger (Debit / Credit / Running Balance)</div>
+                <div class="lg_tools" role="group" aria-label="Show ledger rows">
+                    <button type="button" class="chip" data-lg="all" aria-pressed="true">All entries</button>
+                    <button type="button" class="chip" data-lg="debit" aria-pressed="false">Debits</button>
+                    <button type="button" class="chip" data-lg="credit" aria-pressed="false">Credits</button>
+                    <button type="button" class="chip" data-lg="cheque" aria-pressed="false">Cheques &amp; returns</button>
+                    <span class="swipe"><i class="bi bi-arrow-left-right"></i> Swipe table sideways</span>
+                </div>
+                <div class="tbl_wrap"><table class="tbl ledger" id="ledger"></table></div>
+                <p class="note">Net deducts Cheques on Hand (Hold / For Deposit, orange). Outstanding counts collected payments only. Returned cheques are added back as a debit. Filtering hides rows but keeps balances running over all entries.</p>
+            </section>
+
+            <section role="tabpanel" id="pane-dr" aria-labelledby="tab-dr" tabindex="0" hidden>
+                <div class="pane_title">All DR (Debit)</div>
+                <div class="tbl_wrap"><table class="tbl" id="drs"></table></div>
+            </section>
+
+            <section role="tabpanel" id="pane-pay" aria-labelledby="tab-pay" tabindex="0" hidden>
+                <div class="addp no-print" id="addp" aria-hidden="true">
+                    <div><form class="addp_in" id="payForm" novalidate>
+                        <h4><i class="bi bi-wallet2"></i> New payment for <span id="addp_for" class="wrap-any"></span></h4>
+                        <div class="pills" role="radiogroup" aria-label="Payment method" data-field="method">
+                            <input type="radio" name="method" id="m_cash" value="cash" checked><label for="m_cash"><i class="bi bi-cash-stack"></i>Cash</label>
+                            <input type="radio" name="method" id="m_gcash" value="gcash"><label for="m_gcash"><i class="bi bi-phone"></i>GCash</label>
+                            <input type="radio" name="method" id="m_cheque" value="cheque"><label for="m_cheque"><i class="bi bi-journal-text"></i>Cheque</label>
+                            <input type="radio" name="method" id="m_bank" value="bank"><label for="m_bank"><i class="bi bi-bank"></i>Bank Transfer / Deposit</label>
+                        </div>
+                        <div id="pf_fields"></div>
+                        <div class="d-flex gap-2 justify-content-end mt-3 flex-wrap">
+                            <button type="button" class="btn btn-ghost" id="pf_cancel">Cancel</button>
+                            <button type="submit" class="btn btn-pay" id="pf_save"><i class="bi bi-check2"></i> Save Payment</button>
+                        </div>
+                    </form></div>
+                </div>
+                <div class="pane_title">All Payments (Credit)</div>
+                <div class="tbl_wrap"><table class="tbl" id="pays"></table></div>
+                <p class="note">Collected = cash / GCash / bank payments received and cleared cheques. Cheques on Hand = Hold and For Deposit. Returned cheques (Bounced / Closed Account) are not counted.</p>
+            </section>
+
+            <section role="tabpanel" id="pane-cheques" aria-labelledby="tab-cheques" tabindex="0" hidden>
+                <div class="chq_sum" id="chq_sum"></div>
+                <div class="tbl_wrap"><table class="tbl" id="chqs"></table></div>
+            </section>
+
+            <div class="p_sec signs" style="border:0"><div>Prepared by:</div><div>Received by (Customer):</div></div>
+        </article>
+    </main>
+</div>
+
+<div class="modal fade" id="csvModal" tabindex="-1" aria-labelledby="csv_title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-fullscreen-sm-down">
+        <div class="modal-content" style="border-radius:16px">
+            <div class="modal-header"><h5 class="modal-title fw-bold" id="csv_title">Export CSV <span class="preview_only"><i class="bi bi-eye"></i> Preview only — no file is created</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <div class="modal-body"><p class="small muted mb-2">This is the content a real export would contain. Cells starting with = + - @ are prefixed to block spreadsheet formulas.</p>
+                <pre id="csv_text" style="white-space:pre-wrap;word-break:break-word;font-size:12.5px;background:var(--surface-2);border-radius:10px;padding:12px;margin:0"></pre></div>
+        </div>
+    </div>
+</div>
+
+<script src="../../bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="bp-core.js"></script>
+<script src="bp-ui.js"></script>
+<script src="design-2.js"></script>
+</body>
+</html>

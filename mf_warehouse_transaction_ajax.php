@@ -15,7 +15,8 @@ $response = array(
     "status" => 1,
     "html" => "",
     "message" => "",
-    "available_stock" => null
+    "available_stock" => null,
+    "floors" => array()
 );
 
 if (!isset($_POST['event_action'])) {
@@ -133,6 +134,38 @@ if ($_POST['event_action'] === 'stock_preview') {
     $response["message"] = "Current Available Stock: " . number_format($current_stock, 2);
     $response["html"] = $response["message"];
 
+    echo json_encode($response);
+    return;
+}
+
+if ($_POST['event_action'] === 'load_warehouse_floors') {
+    $warehouse_id = isset($_POST['warehouse_id']) ? trim((string)$_POST['warehouse_id']) : '';
+
+    if ($warehouse_id === '') {
+        $response["status"] = 0;
+        $response["message"] = "Missing warehouse id.";
+        echo json_encode($response);
+        return;
+    }
+
+    $stmt_floor = $link->prepare(
+        "SELECT warehouse_floor_id, warehouse_id, floor_name, floor_no
+         FROM warehouse_floor
+         WHERE warehouse_id = ?
+         ORDER BY floor_no ASC, floor_name ASC"
+    );
+    $stmt_floor->execute(array($warehouse_id));
+
+    while ($floor_row = $stmt_floor->fetch(PDO::FETCH_ASSOC)) {
+        $response["floors"][] = array(
+            "warehouse_floor_id" => (string)$floor_row["warehouse_floor_id"],
+            "warehouse_id" => (string)$floor_row["warehouse_id"],
+            "floor_name" => (string)$floor_row["floor_name"],
+            "floor_no" => (string)$floor_row["floor_no"]
+        );
+    }
+
+    $response["message"] = "Floors loaded.";
     echo json_encode($response);
     return;
 }

@@ -57,6 +57,8 @@ if(isset($_POST["event_action"]) && $_POST["event_action"]=="save"){
                     $value["view"] = 0;
                     $value["export"] = 0;
                     $value["hide_price"] = 0;
+                    $value["hide_cost_price"] = 0;
+                    $value["hide_distri_price"] = 0;
                 }
 
                 $select_db_menusave_check="SELECT * FROM user_menus WHERE mencap=? AND usercode=?";
@@ -89,7 +91,13 @@ if(isset($_POST["event_action"]) && $_POST["event_action"]=="save"){
                         if(isset($value["hide_price"])){
                             $arr_record['hide_price'] 	= $value["hide_price"];
                         }
-                
+                        if(isset($value["hide_cost_price"])){
+                            $arr_record['hide_cost_price'] = $value["hide_cost_price"];
+                        }
+                        if(isset($value["hide_distri_price"])){
+                            $arr_record['hide_distri_price'] = $value["hide_distri_price"];
+                        }
+
                         PDO_InsertRecord($link,'user_menus',$arr_record,false);
 
                     }
@@ -108,6 +116,12 @@ if(isset($_POST["event_action"]) && $_POST["event_action"]=="save"){
                         $arr_record_crud['export'] 	    = $value["export"];
                         if(isset($value["hide_price"])){
                             $arr_record_crud['hide_price'] 	= $value["hide_price"];
+                        }
+                        if(isset($value["hide_cost_price"])){
+                            $arr_record_crud['hide_cost_price'] = $value["hide_cost_price"];
+                        }
+                        if(isset($value["hide_distri_price"])){
+                            $arr_record_crud['hide_distri_price'] = $value["hide_distri_price"];
                         }
                         PDO_UpdateRecord($link,'user_menus',$arr_record_crud, "recid=?",array($rs_menusave_crud["recid"]),false);
                     }
