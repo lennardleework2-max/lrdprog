@@ -49,28 +49,6 @@ $trncde = "SAL";
                                     </td>
                                 </tr>
 
-                                <tr style='height:20%'>
-                                    <td colspan="2">
-                                        <div class="w-100 h-100 d-flex justify-content-center align-items-top">
-                                            <div class="m-2" style='width:80%'>
-                                                <label for="">Platform:</label>
-                                                <select class="form-select" id="platform_filter" name="platform_filter" autocomplete="off">
-                                                    <option value="">All</option>
-                                                    <?php
-                                                        $select_db_customerfile = "SELECT cuscde, cusdsc FROM customerfile ORDER BY cusdsc";
-                                                        $stmt_customerfile = $link->prepare($select_db_customerfile);
-                                                        $stmt_customerfile->execute();
-
-                                                        while($rs_customerfile = $stmt_customerfile->fetch(PDO::FETCH_ASSOC)){
-                                                            echo "<option value='" . htmlspecialchars($rs_customerfile['cuscde'], ENT_QUOTES, 'UTF-8') . "'>" . htmlspecialchars($rs_customerfile['cusdsc'], ENT_QUOTES, 'UTF-8') . "</option>";
-                                                        }
-                                                    ?>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-
                                 <tr>
                                     <td colspan="2">
                                         <div class="row d-flex justify-content-center align-items-center pt-3">

@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Buyer Billing Statement</title>
+<link rel="shortcut icon" href="../images/logo_only.png">
+<link rel="stylesheet" href="../bootstrap/css/bootstrap.min.css">
+<link rel="stylesheet" href="../css/all.min.css">
+<link rel="stylesheet" href="../bootstrap/icons/font/bootstrap-icons.css">
+<link rel="stylesheet" href="payments-mock.css">
+<style>
+    .bill_card{max-width:640px;padding:24px 28px}
+    .bill_card .form-label{font-weight:500;margin-bottom:4px}
+    .bill_card .hint{color:var(--muted);font-size:12px;margin-top:3px}
+    .bill_row{margin-bottom:16px}
+    .seg{display:flex;gap:8px}
+    .seg label{flex:1;border:1px solid var(--border);border-radius:8px;padding:9px 12px;cursor:pointer;display:flex;gap:8px;align-items:center}
+    .seg input:checked + span{font-weight:600;color:var(--primary)}
+    .seg label:has(input:checked){border-color:var(--primary);background:var(--primary-soft)}
+    .buyer_info{background:#f9fafb;border:1px solid var(--border-soft);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--muted)}
+    .buyer_info b{color:var(--text)}
+    .bp_combo{position:relative}
+    .bp_combo_list{position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid #e3e6eb;border-radius:10px;box-shadow:0 8px 24px rgba(16,24,40,.12);max-height:250px;overflow:auto;z-index:5;padding:4px;display:none}
+    .bp_combo_list.open{display:block}
+    .bp_combo_list .opt{padding:8px 10px;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;gap:8px}
+    .bp_combo_list .opt:hover{background:#eaf1fb}
+</style>
+</head>
+<body>
+
+<div class="mock_bar"><b>MOCKUP</b><span>Payments &middot; Buyer Billing Statement</span></div>
+
+<!-- app shell (unchanged system header) -->
+<div class="container-fluid">
+    <div class="row app_top">
+        <div class="col-2 pe-0"><img src="../images/logo_horizontal.png" style="height:50px;width:100px;"></div>
+        <div class="col-10 text-white text-end"><div style="font-family:arial;font-weight:bold">LRD SYSTEM</div><div style="font-size:.8rem">v1.0</div></div>
+    </div>
+    <div class="row app_sub align-items-center">
+        <div class="col-1"><i class="fas fa-long-arrow-alt-right" style="font-size:24px"></i></div>
+        <div class="col-11 text-end" style="font-size:13px"><b>admin</b> <i class="far fa-user-circle mx-2"></i> <a href="#" class="text-dark fw-bold text-decoration-none"><i class="bi bi-box-arrow-right"></i> Logout</a></div>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page_head">
+        <div>
+            <h1>Buyer Billing Statement</h1>
+            <p>Export a PDF statement for a buyer: records, past payments and the amount still due.</p>
+        </div>
+    </div>
+
+    <div class="card_x bill_card">
+        <div class="bill_row">
+            <label class="form-label">Buyer <span class="text-danger">*</span></label>
+            <div class="bp_combo">
+                <input type="text" class="form-control" id="mk_buyer" placeholder="Type to search buyers&hellip;" autocomplete="off">
+                <div class="bp_combo_list" id="mk_list"></div>
+            </div>
+            <div class="buyer_info mt-2" id="mk_info" style="display:none"></div>
+        </div>
+
+        <div class="row bill_row">
+            <div class="col-sm-4">
+                <label class="form-label">As of <span class="text-danger">*</span></label>
+                <input type="date" class="form-control" value="2026-11-24">
+            </div>
+            <div class="col-sm-4">
+                <label class="form-label">From</label>
+                <input type="date" class="form-control" value="2026-10-01">
+            </div>
+            <div class="col-sm-4">
+                <label class="form-label">To</label>
+                <input type="date" class="form-control">
+            </div>
+            <div class="col-12 hint">As of: totals count records and payments up to this date. From/To (optional): only limits the lists.</div>
+        </div>
+
+        <div class="bill_row">
+            <label class="form-label">Records to show</label>
+            <div class="seg">
+                <label><input type="radio" name="mode" checked><span>Unpaid + Partial</span></label>
+                <label><input type="radio" name="mode"><span>All records</span></label>
+            </div>
+        </div>
+
+        <div class="bill_row">
+            <label class="form-label">Past payments</label>
+            <div class="d-flex align-items-center gap-2">
+                <span>Show last</span>
+                <input type="number" class="form-control" style="width:90px" value="20" min="1" max="100">
+                <span>payments</span>
+            </div>
+            <div class="hint">1 to 100</div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 pt-2 border-top" style="border-color:var(--border-soft)!important">
+            <button class="btn btn-light mt-3">Clear</button>
+            <a class="btn btn-primary mt-3" href="billing-statement-sample.pdf" target="_blank"><i class="bi bi-file-earmark-pdf me-1"></i> Export PDF</a>
+        </div>
+    </div>
+</div>
+
+<script>
+// mock data only: the real page searches mf_buyers as you type (like Add Payment)
+var BUYERS = [
+    { id: 'B0001', name: 'JUAN DELA CRUZ MOTORS', addr: '123 Rizal St, Cebu City', tel: '0917 123 4567', due: '45,400.00', open: 3 },
+    { id: 'B0002', name: 'CEBU MOTO PARTS', addr: 'Osmena Blvd, Cebu City', tel: '0918 222 3344', due: '12,000.00', open: 1 },
+    { id: 'B0003', name: 'DAVAO RIDERS SUPPLY', addr: 'JP Laurel Ave, Davao City', tel: '0920 555 1212', due: '0.00', open: 0 }
+];
+var inp = document.getElementById('mk_buyer'), list = document.getElementById('mk_list'), info = document.getElementById('mk_info');
+inp.addEventListener('input', function () {
+    var q = inp.value.toLowerCase();
+    info.style.display = 'none';
+    var hits = BUYERS.filter(function (b) { return (b.name + ' ' + b.id).toLowerCase().indexOf(q) >= 0; });
+    list.innerHTML = hits.length ? hits.map(function (b) {
+        return '<div class="opt" data-id="' + b.id + '"><span>' + b.name + '</span><span class="text-muted small">' + b.id + '</span></div>';
+    }).join('') : '<div class="p-2 text-muted">No buyer found.</div>';
+    list.classList.add('open');
+});
+inp.addEventListener('blur', function () { setTimeout(function () { list.classList.remove('open'); }, 150); });
+list.addEventListener('mousedown', function (e) { e.preventDefault(); });
+list.addEventListener('click', function (e) {
+    var el = e.target.closest('.opt'); if (!el) return;
+    var b = BUYERS.filter(function (x) { return x.id === el.dataset.id; })[0];
+    inp.value = b.name; list.classList.remove('open');
+    info.innerHTML = '<b>' + b.name + '</b> &middot; ' + b.addr + ' &middot; ' + b.tel + '<br>Amount due today: <b class="text-danger">&#8369;' + b.due + '</b> &middot; ' + b.open + ' unpaid records';
+    info.style.display = '';
+});
+</script>
+</body>
+</html>

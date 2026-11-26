@@ -90,6 +90,115 @@ require "includes/main_header.php";
             min-height: 1.2em;
             transition: opacity 0.3s ease;
         }
+
+        .item-selection-summary{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 0.35rem;
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+
+        .item-selection-summary button{
+            padding: 0;
+            font-size: 0.85rem;
+            text-decoration: none;
+        }
+
+        .inventory-item-option{
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+        }
+
+        .inventory-item-option input{
+            pointer-events: none;
+        }
+
+        .inventory-select-actions{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid #dee2e6;
+            background: #f8f9fa;
+        }
+
+        .select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__choice{
+            max-width: 100%;
+        }
+
+        .balance-table{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            text-align: left;
+        }
+
+        .balance-table thead th{
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: #6c757d;
+            padding: 0 0.6rem 0.5rem;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .balance-table thead th.text-end{
+            text-align: right;
+        }
+
+        .balance-table tbody td{
+            padding: 0.55rem 0.6rem;
+            border-bottom: 1px solid #eef0f2;
+            vertical-align: middle;
+        }
+
+        .balance-table tbody tr:last-child td{
+            border-bottom: none;
+        }
+
+        .balance-table tbody tr:nth-child(odd){
+            background: #fafbfc;
+        }
+
+        .balance-table .item-name{
+            font-weight: 600;
+            color: #212529;
+            display: block;
+        }
+
+        .balance-table .item-code{
+            font-family: monospace;
+            font-size: 0.72rem;
+            color: #6c757d;
+            background: #f1f3f5;
+            padding: 0.05rem 0.35rem;
+            border-radius: 0.25rem;
+            display: inline-block;
+            margin-top: 0.15rem;
+        }
+
+        .balance-table .balance-cell{
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .balance-table .balance-value{
+            font-weight: 600;
+        }
+
+        .balance-table .balance-unit{
+            font-size: 0.7rem;
+            color: #6c757d;
+            margin-left: 0.2rem;
+        }
+
+        .balance-table .pos{ color: #198754; }
+        .balance-table .neg{ color: #dc3545; }
+        .balance-table .zero{ color: #6c757d; }
     </style>
     <!-- Export Loading Overlay and Box -->
     <div class="export-loading-overlay" id="exportLoadingOverlay"></div>
@@ -137,21 +246,22 @@ require "includes/main_header.php";
                                     <td>
                                         <div class="w-100 h-100 d-flex justify-content-center align-items-top">
                                             <div class="m-2" style='width:80%'>
-                                                <label for="">Item:</label>
-                                                <select class="form-select" id="item" name="item" autocomplete="off" style="width:100%">
+                                                <label for="item">Items:</label>
+                                                <select class="form-select" id="item" name="item[]" multiple autocomplete="off" style="width:100%">
                                                     <?php
                                                         $select_db_itemfile="SELECT * FROM itemfile ORDER BY itmdsc";
                                                         $stmt_itemfile	= $link->prepare($select_db_itemfile);
                                                         $stmt_itemfile->execute();
-                                                        $first_item = true;
 
                                                         while($rs_itemfile = $stmt_itemfile->fetch()){
-                                                            $selected = $first_item ? ' selected' : '';
-                                                            echo "<option value=\"".htmlspecialchars($rs_itemfile['itmcde'], ENT_QUOTES, 'UTF-8')."\"".$selected.">".htmlspecialchars($rs_itemfile['itmdsc'], ENT_QUOTES, 'UTF-8')."</option>";
-                                                            $first_item = false;
+                                                            echo "<option value=\"".htmlspecialchars($rs_itemfile['itmcde'], ENT_QUOTES, 'UTF-8')."\">".htmlspecialchars($rs_itemfile['itmdsc'], ENT_QUOTES, 'UTF-8')."</option>";
                                                         }
                                                     ?>
                                                 </select>
+                                                <div class="item-selection-summary">
+                                                    <span id="itemSelectionCount">0 items selected</span>
+                                                    <button type="button" class="btn btn-link" id="clearItemSelection">Clear</button>
+                                                </div>
                                             </div>
                                         </div>
                                     </td>
@@ -349,7 +459,9 @@ require "includes/main_header.php";
                 formData.append('pregenerate', '1');
                 formData.append('txt_output_type', outputType);
                 formData.append('date_search', $('#date_search').val());
-                formData.append('item', $('#item').val());
+                $.each($('#item').val() || [], function(index, itemCode){
+                    formData.append('item[]', itemCode);
+                });
                 formData.append('trncde_hidden', $('#trncde_hidden').val());
 
                 // Make AJAX request to pre-generate the report
@@ -403,12 +515,17 @@ require "includes/main_header.php";
             $("#item").change(function(){
                 // Clear displayed balance when item changes
                 $("#item_total").html("");
+                updateItemSelectionCount();
+            });
+
+            $("#date_search").change(function(){
+                $("#item_total").html("");
             });
 
             function validateItemSelection(){
                 var item_filter = $("#item").val();
-                if(!item_filter || item_filter === ""){
-                    alert("Please select an item before exporting.");
+                if(!item_filter || item_filter.length === 0){
+                    alert("Please select at least one item.");
                     return false;
                 }
                 return true;
@@ -428,28 +545,109 @@ require "includes/main_header.php";
                 var date_filter = $("#date_search").val();
                 var item_filter = $("#item").val();
 
-                if(item_filter == ""){
+                if(!item_filter || item_filter.length === 0){
                     $("#item_total").html("");
+                    alert("Please select at least one item.");
                     return;
                 }
 
-                var xdata = "date_search=" + encodeURIComponent(date_filter) + "&item=" + encodeURIComponent(item_filter);
-
                 jQuery.ajax({
-                    data: xdata,
+                    data: {
+                        date_search: date_filter,
+                        item: item_filter
+                    },
                     dataType: "json",
                     type: "post",
                     url: "inventory_balance_ajax.php",
                     success: function(xdata2){
-                        var balance = xdata2["itm_total"];
-                        if(balance == null || balance === ''){
-                            balance = 0;
+                        var items = xdata2["items"] || [];
+                        if(items.length === 0){
+                            $("#item_total").html("");
+                            return;
                         }
-                        // Format with commas and remove trailing zeros
-                        var formatted = parseFloat(balance).toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 4});
-                        $("#item_total").html("Balance:  </br><b>" + formatted + " PCS</b>");
+
+                        var escapeHtml = function(text){
+                            return $('<div>').text(text).html();
+                        };
+
+                        var rows = $.map(items, function(itemRow){
+                            var balance = itemRow.balance;
+                            if(balance == null || balance === ''){
+                                balance = 0;
+                            }
+                            balance = parseFloat(balance);
+                            var signClass = balance > 0 ? 'pos' : (balance < 0 ? 'neg' : 'zero');
+                            var formatted = balance.toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 4});
+
+                            return "<tr>"
+                                + "<td><span class='item-name'>" + escapeHtml(itemRow.itmdsc) + "</span>"
+                                + "<span class='item-code'>" + escapeHtml(itemRow.itmcde) + "</span></td>"
+                                + "<td class='balance-cell'><span class='balance-value " + signClass + "'>" + formatted + "</span><span class='balance-unit'>PCS</span></td>"
+                                + "</tr>";
+                        });
+
+                        var table = "<table class='balance-table'>"
+                            + "<thead><tr><th>Item</th><th class='text-end'>Balance</th></tr></thead>"
+                            + "<tbody>" + rows.join("") + "</tbody>"
+                            + "</table>";
+
+                        $("#item_total").html(table);
                     }
                 });
+            }
+
+            function updateItemSelectionCount(){
+                var count = ($('#item').val() || []).length;
+                $('#itemSelectionCount').text(count + (count === 1 ? ' item selected' : ' items selected'));
+            }
+
+            function syncItemOptionCheckboxes(){
+                $('.select2-results__option[aria-selected]').each(function(){
+                    $(this).find('.inventory-item-option input').prop('checked', $(this).attr('aria-selected') === 'true');
+                });
+            }
+
+            function formatItemOption(item){
+                if(!item.id){
+                    return item.text;
+                }
+
+                var selectedValues = $('#item').val() || [];
+                var isSelected = selectedValues.indexOf(String(item.id)) !== -1;
+                var $option = $('<span class="inventory-item-option"><input type="checkbox" tabindex="-1"><span></span></span>');
+                $option.find('input').prop('checked', isSelected);
+                $option.find('span').text(item.text);
+                return $option;
+            }
+
+            function addSelectActions(){
+                var $results = $('.select2-results');
+                if($results.find('.inventory-select-actions').length){
+                    return;
+                }
+
+                var $actions = $('<div class="inventory-select-actions"><button type="button" class="btn btn-sm btn-outline-primary select-visible-items">Select visible</button><button type="button" class="btn btn-sm btn-link clear-visible-selection">Clear</button></div>');
+                $actions.on('mousedown', function(event){
+                    event.preventDefault();
+                });
+                $results.prepend($actions);
+            }
+
+            function selectVisibleItems(){
+                var searchTerm = ($('.select2-search__field').val() || '').toLowerCase();
+                var selectedValues = $('#item').val() || [];
+
+                $('#item option').each(function(){
+                    if($(this).text().toLowerCase().indexOf(searchTerm) !== -1){
+                        var value = String($(this).val());
+                        if(selectedValues.indexOf(value) === -1){
+                            selectedValues.push(value);
+                        }
+                    }
+                });
+
+                $('#item').val(selectedValues).trigger('change');
+                $('#item').select2('close');
             }
 
             $(document).ready(function(){
@@ -464,10 +662,25 @@ require "includes/main_header.php";
                     // Initialize Select2 with search functionality
                     $('#item').select2({
                         theme: 'bootstrap-5',
-                        placeholder: 'Select an item...',
-                        allowClear: false,
-                        width: '100%'
+                        placeholder: 'Select items...',
+                        closeOnSelect: false,
+                        width: '100%',
+                        templateResult: formatItemOption
                     });
+
+                    $('#item').on('select2:open', addSelectActions);
+                    $('#item').on('select2:select select2:unselect', function(){
+                        setTimeout(syncItemOptionCheckboxes, 0);
+                    });
+                    $(document).on('click', '.select-visible-items', selectVisibleItems);
+                    $(document).on('click', '.clear-visible-selection', function(){
+                        $('#item').val(null).trigger('change');
+                        $('#item').select2('close');
+                    });
+                    $('#clearItemSelection').on('click', function(){
+                        $('#item').val(null).trigger('change');
+                    });
+                    updateItemSelectionCount();
             });
     </script>
 

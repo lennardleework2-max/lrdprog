@@ -39,6 +39,7 @@ $_SESSION['sales_upload_result_generated_at'] = '';
 
 $selected_warcde = isset($_POST['warcde']) ? trim((string)$_POST['warcde']) : '';
 $selected_warehouse_floor_id = isset($_POST['warehouse_floor_id']) ? trim((string)$_POST['warehouse_floor_id']) : '';
+$selected_platform_shop_id = isset($_POST['platform_shop_id']) ? trim((string)$_POST['platform_shop_id']) : '';
 $current_usercode = isset($_POST['usercode']) && trim((string)$_POST['usercode']) !== ''
     ? trim((string)$_POST['usercode'])
     : (isset($_SESSION['usercode']) ? trim((string)$_SESSION['usercode']) : '');
@@ -48,6 +49,30 @@ if($selected_warcde === '' || $selected_warehouse_floor_id === ''){
     $response["errorMsg"] = "Please select both Warehouse and Warehouse Floor before uploading.";
     echo json_encode($response);
     exit;
+}
+
+// Validate the posted pricing type against mf_salespricetype; blank/invalid falls back to Default (no override)
+$posted_salesprice_id = isset($_POST['salesprice_id']) ? trim((string)$_POST['salesprice_id']) : '';
+$selected_salesprice_id = '';
+if($posted_salesprice_id !== ''){
+    $select_check_salesprice = "SELECT salesprice_id FROM mf_salespricetype WHERE salesprice_id = ? LIMIT 1";
+    $stmt_check_salesprice = $link->prepare($select_check_salesprice);
+    $stmt_check_salesprice->execute(array($posted_salesprice_id));
+    $rs_check_salesprice = $stmt_check_salesprice->fetch();
+    if($rs_check_salesprice){
+        $selected_salesprice_id = $posted_salesprice_id;
+    }
+}
+
+// Preload item prices for the selected pricing type in one query (avoids a query per uploaded row)
+$upload_item_price_map = array();
+if($selected_salesprice_id !== ''){
+    $select_upload_item_prices = "SELECT itmcde, price FROM mf_salesitemprice WHERE salesprice_id = ? AND price IS NOT NULL AND price > 0";
+    $stmt_upload_item_prices = $link->prepare($select_upload_item_prices);
+    $stmt_upload_item_prices->execute(array($selected_salesprice_id));
+    while($rs_upload_item_price = $stmt_upload_item_prices->fetch()){
+        $upload_item_price_map[$rs_upload_item_price['itmcde']] = $rs_upload_item_price['price'];
+    }
 }
 
 function sales_upload_add_result(&$response, $orderNumber, $success, $reason = ''){
@@ -211,9 +236,9 @@ if ($_FILES['xfile']['error'] === 0) {
     }
 
 
-    $select_db_column_equivalent="SELECT * FROM sales_upload_column";
+    $select_db_column_equivalent="SELECT * FROM sales_upload_column WHERE platform_desc = ?";
     $stmt_column_equivalent	= $link->prepare($select_db_column_equivalent);
-    $stmt_column_equivalent->execute();
+    $stmt_column_equivalent->execute(['SALES-UPLOAD']);
     while($rs_column_equivalent = $stmt_column_equivalent->fetch())
     {
 
@@ -417,6 +442,15 @@ if ($_FILES['xfile']['error'] === 0) {
             //getting the total
             $extprc = (int)$itmqty * (float)$untprc;
 
+            //Apply selected pricing type override, if a valid mf_salesitemprice price exists for this item
+            $final_untprc = $untprc;
+            $final_salesprice_id = null;
+            if($selected_salesprice_id !== '' && isset($upload_item_price_map[$rs_buyer_name['itmcde']])){
+                $final_untprc = $upload_item_price_map[$rs_buyer_name['itmcde']];
+                $final_salesprice_id = $selected_salesprice_id;
+            }
+            $final_extprc = (int)$itmqty * (float)$final_untprc;
+
             //INSERT INTO TRANFILE2
             $arr_add2 = array();
             $arr_add2['docnum'] = $docnum;
@@ -424,11 +458,13 @@ if ($_FILES['xfile']['error'] === 0) {
             $arr_add2['trncde'] = 'SAL';
             $arr_add2['itmcde'] = $rs_buyer_name['itmcde'];
             $arr_add2['file_batchno'] = $file_batchno;
-            $arr_add2['untprc'] = $untprc;
+            $arr_add2['untprc'] = $final_untprc;
             $arr_add2['itmqty'] = $itmqty;
             $arr_add2['stkqty'] =  -1*($itmqty);
-            $arr_add2['extprc'] = $extprc;
+            $arr_add2['extprc'] = $final_extprc;
+            $arr_add2['salesprice_id'] = $final_salesprice_id;
             $arr_add2['platform_upload'] = $_POST['platform_name'];
+            $arr_add2['platform_shop_id'] = $selected_platform_shop_id;
             $arr_add2['datetime_upload'] = $current_dateTime;
             $arr_add2['warcde'] = $selected_warcde;
             $arr_add2['warehouse_floor_id'] = $selected_warehouse_floor_id;
@@ -443,7 +479,7 @@ if ($_FILES['xfile']['error'] === 0) {
             $rs_extprc_check = $stmt_extprc_check->fetch();
 
             $arr_record_upd = array();
-            $arr_record_upd['trntot'] 	= $rs_extprc_check['trntot'] + $extprc;
+            $arr_record_upd['trntot'] 	= $rs_extprc_check['trntot'] + $final_extprc;
             PDO_UpdateRecord($link,"tranfile1",$arr_record_upd,"recid = ?",array($rs_extprc_check['recid']));
 
             //INSERTS INTO THE RECORD NUMBER
@@ -557,6 +593,15 @@ if ($_FILES['xfile']['error'] === 0) {
             //getting the total
             $extprc = (int)$itmqty * (float)$untprc;
 
+            //Apply selected pricing type override, if a valid mf_salesitemprice price exists for this item
+            $final_untprc = $untprc;
+            $final_salesprice_id = null;
+            if($selected_salesprice_id !== '' && isset($upload_item_price_map[$rs_buyer_name['itmcde']])){
+                $final_untprc = $upload_item_price_map[$rs_buyer_name['itmcde']];
+                $final_salesprice_id = $selected_salesprice_id;
+            }
+            $final_extprc = (int)$itmqty * (float)$final_untprc;
+
             //INSERT INTO TRANFILE2
             $arr_add2 = array();
             $arr_add2['docnum'] = $docnum;
@@ -564,11 +609,13 @@ if ($_FILES['xfile']['error'] === 0) {
             $arr_add2['trncde'] = 'SAL';
             $arr_add2['itmcde'] = $rs_buyer_name['itmcde'];
             $arr_add2['file_batchno'] = $file_batchno;
-            $arr_add2['untprc'] = $untprc;
+            $arr_add2['untprc'] = $final_untprc;
             $arr_add2['itmqty'] = $itmqty;
             $arr_add2['stkqty'] =  -1*($itmqty);
-            $arr_add2['extprc'] = $extprc;
+            $arr_add2['extprc'] = $final_extprc;
+            $arr_add2['salesprice_id'] = $final_salesprice_id;
             $arr_add2['platform_upload'] = $_POST['platform_name'];
+            $arr_add2['platform_shop_id'] = $selected_platform_shop_id;
             $arr_add2['datetime_upload'] = $current_dateTime;
             $arr_add2['warcde'] = $selected_warcde;
             $arr_add2['warehouse_floor_id'] = $selected_warehouse_floor_id;
@@ -583,7 +630,7 @@ if ($_FILES['xfile']['error'] === 0) {
             $rs_extprc_check = $stmt_extprc_check->fetch();
 
             $arr_record_upd = array();
-            $arr_record_upd['trntot'] 	= $rs_extprc_check['trntot'] + $extprc;
+            $arr_record_upd['trntot'] 	= $rs_extprc_check['trntot'] + $final_extprc;
             PDO_UpdateRecord($link,"tranfile1",$arr_record_upd,"recid = ?",array($rs_extprc_check['recid']));
 
             //INSERTS INTO THE RECORD NUMBER
@@ -717,6 +764,15 @@ if ($_FILES['xfile']['error'] === 0) {
             //getting the total
             $extprc = 1 * (float)$untprc;
 
+            //Apply selected pricing type override, if a valid mf_salesitemprice price exists for this item
+            $final_untprc = $untprc;
+            $final_salesprice_id = null;
+            if($selected_salesprice_id !== '' && isset($upload_item_price_map[$rs_buyer_name['itmcde']])){
+                $final_untprc = $upload_item_price_map[$rs_buyer_name['itmcde']];
+                $final_salesprice_id = $selected_salesprice_id;
+            }
+            $final_extprc = 1 * (float)$final_untprc;
+
             //INSERT INTO TRANFILE2
             $arr_add2 = array();
             $arr_add2['docnum'] = $docnum;
@@ -724,11 +780,13 @@ if ($_FILES['xfile']['error'] === 0) {
             $arr_add2['trncde'] = 'SAL';
             $arr_add2['itmcde'] = $rs_buyer_name['itmcde'];
             $arr_add2['file_batchno'] = $file_batchno;
-            $arr_add2['untprc'] = $untprc;
+            $arr_add2['untprc'] = $final_untprc;
             $arr_add2['itmqty'] = $itmqty;
             $arr_add2['stkqty'] =  -1*($itmqty);
-            $arr_add2['extprc'] = $extprc;
+            $arr_add2['extprc'] = $final_extprc;
+            $arr_add2['salesprice_id'] = $final_salesprice_id;
             $arr_add2['platform_upload'] = $_POST['platform_name'];
+            $arr_add2['platform_shop_id'] = $selected_platform_shop_id;
             $arr_add2['datetime_upload'] = $current_dateTime;
             $arr_add2['warcde'] = $selected_warcde;
             $arr_add2['warehouse_floor_id'] = $selected_warehouse_floor_id;
@@ -743,7 +801,7 @@ if ($_FILES['xfile']['error'] === 0) {
             $rs_extprc_check = $stmt_extprc_check->fetch();
 
             $arr_record_upd = array();
-            $arr_record_upd['trntot'] 	= $rs_extprc_check['trntot'] + $extprc;
+            $arr_record_upd['trntot'] 	= $rs_extprc_check['trntot'] + $final_extprc;
             PDO_UpdateRecord($link,"tranfile1",$arr_record_upd,"recid = ?",array($rs_extprc_check['recid']));
 
             //INSERTS INTO THE RECORD NUMBER

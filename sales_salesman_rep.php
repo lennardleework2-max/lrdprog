@@ -164,9 +164,19 @@ $trncde = "SAL";
                                                         $select_db_salesman="SELECT * FROM mf_salesman ORDER BY salesman_name";
                                                         $stmt_salesman	= $link->prepare($select_db_salesman);
                                                         $stmt_salesman->execute();
+                                                        $rs_salesman_all = $stmt_salesman->fetchAll();
 
-                                                        while($rs_salesman = $stmt_salesman->fetch()){
+                                                        // "All" sits right below "-None" (or first when there is no "-None" salesman)
+                                                        $has_none_salesman = in_array('-None', array_column($rs_salesman_all, 'salesman_name'), true);
+                                                        if(!$has_none_salesman){
+                                                            echo "<option value='all'>All</option>";
+                                                        }
+
+                                                        foreach($rs_salesman_all as $rs_salesman){
                                                             echo "<option value='".$rs_salesman['salesman_id']."'>".$rs_salesman['salesman_name']."</option>";
+                                                            if($rs_salesman['salesman_name'] === '-None'){
+                                                                echo "<option value='all'>All</option>";
+                                                            }
                                                         }
                                                     ?>
                                                 </select>
@@ -174,7 +184,35 @@ $trncde = "SAL";
                                             </div>
 
                                         </div>
-                                    
+
+
+                                    </td>
+                                </tr>
+
+                                <tr style='height:12.5%'>
+
+                                    <td colspan="2">
+
+                                        <div class="w-100 h-100 d-flex justify-content-center align-items-top">
+
+                                            <div class="m-2" style='width:80%'>
+
+                                                <label for="">Shop Name :</label>
+
+                                                <select class="form-select" id="cus_search" name="cus_search" autocomplete="off" style="width:100%">
+                                                    <option value="">-- Select Shop Name --</option>
+                                                    <?php
+                                                        $stmt_customer = $link->prepare("SELECT cuscde, cusdsc FROM customerfile ORDER BY cusdsc");
+                                                        $stmt_customer->execute();
+                                                        while($rs_customer = $stmt_customer->fetch()){
+                                                            echo "<option value='".htmlspecialchars($rs_customer['cuscde'], ENT_QUOTES)."'>".htmlspecialchars($rs_customer['cusdsc'], ENT_QUOTES)."</option>";
+                                                        }
+                                                    ?>
+                                                </select>
+
+                                            </div>
+
+                                        </div>
 
                                     </td>
                                 </tr>
@@ -331,6 +369,10 @@ $trncde = "SAL";
                                             </div>
                                         </div>
 
+                                        <!-- keep in sync with SALES_SALESMAN_MAX_ROWS in sales_salesman_pdf.php -->
+                                        <div class="text-center text-danger small">Exports are limited to 15,000 records.</div>
+                                        <div id="row_limit_alert" class="alert alert-danger py-2 mx-3 mt-2 mb-0 text-center small" style="display:none"></div>
+
                                     </td>
 
                                 </tr>
@@ -360,9 +402,33 @@ $trncde = "SAL";
 
     <script>
 
+            // Asks the server how many records match the filters; false (with a red alert) when over the limit.
+            // Synchronous on purpose: the export opens in a new tab, which browsers only allow during the click.
+            function within_row_limit(){
+                var ok = true;
+                $("#row_limit_alert").hide();
+                $.ajax({
+                    url: "sales_salesman_pdf.php",
+                    type: "POST",
+                    data: $("#myforms").serialize() + "&count_only=1",
+                    dataType: "json",
+                    async: false,
+                    success: function(res){
+                        if(res.message){
+                            $("#row_limit_alert").text(res.message).show();
+                            ok = false;
+                        }
+                    }
+                    // on a failed check, let the export run and the server decide
+                });
+                return ok;
+            }
+
             function exp_pdf(){
 
-
+                if(!within_row_limit()){
+                    return;
+                }
 
                 $("#txt_output_type").val("");
 
@@ -384,6 +450,9 @@ $trncde = "SAL";
 
             function exp_txt(){
 
+                if(!within_row_limit()){
+                    return;
+                }
 
                 $("#txt_output_type").val("tab");
 
@@ -404,6 +473,13 @@ $trncde = "SAL";
                 $('#smn_search').select2({
                     theme: 'bootstrap-5',
                     placeholder: '-- Select Salesman --',
+                    allowClear: true,
+                    width: '100%'
+                });
+
+                $('#cus_search').select2({
+                    theme: 'bootstrap-5',
+                    placeholder: '-- Select Shop Name --',
                     allowClear: true,
                     width: '100%'
                 });

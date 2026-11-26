@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Buyer Payments · Design Comparison (Mockup)</title>
+<link rel="shortcut icon" href="../../images/logo_short.png">
+<link rel="stylesheet" href="../../bootstrap/css/bootstrap.min.css">
+<link rel="stylesheet" href="../../bootstrap/icons/font/bootstrap-icons.css">
+<link rel="stylesheet" href="bp-base.css">
+<style>
+.page{max-width:1180px;margin:0 auto;padding:24px 16px 48px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.dc{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-1);display:flex;flex-direction:column;overflow:hidden}
+.dc .sk{height:120px;background:#f3f5f8;border-bottom:1px solid var(--line);padding:12px;display:grid;gap:6px}
+.dc .bd{padding:16px;display:flex;flex-direction:column;gap:8px;flex:1}
+.dc h3{font-size:18px;font-weight:800;margin:0}
+.dc ul{padding-left:18px;margin:0;font-size:13.5px}
+.lbl{font-size:12px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-top:6px}
+.blk{background:#d6dce5;border-radius:6px}
+.rules{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;margin-top:18px;font-size:14px}
+@media (max-width: 900px){.grid3{grid-template-columns:minmax(0,1fr)}}
+</style>
+</head>
+<body>
+<div class="mock_bar"><b>MOCKUP</b><span class="tag">Sample data · nothing is saved</span><span>Buyer Payments · Phase 1 UI comparison</span>
+    <nav aria-label="Mockup designs"><a href="index.html" aria-current="page">Compare</a><a href="design-1-dashboard.html">Design 1</a><a href="design-2-ledger.html">Design 2</a><a href="design-3-collections.html">Design 3</a></nav></div>
+<header class="lrd_top"><img src="../../images/logo_horizontal.png" alt="LRD"><div class="sys"><b>LRD SYSTEM</b><small>v1.0 · preview</small></div></header>
+
+<main class="page">
+    <h2 class="fw-bold mb-1">Buyer Payments: pick a design</h2>
+    <p class="muted">All three use the same sample buyers (Customer A matches the client PDF) and the same balance rules. Everything is in memory: reload or press Reset to start over.</p>
+
+    <div class="grid3">
+        <article class="dc">
+            <div class="sk" aria-hidden="true"><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px"><i class="blk" style="height:26px"></i><i class="blk"></i><i class="blk"></i><i class="blk"></i><i class="blk"></i></div><i class="blk" style="height:10px"></i><i class="blk" style="height:12px"></i><i class="blk" style="height:12px"></i><i class="blk" style="height:12px"></i></div>
+            <div class="bd">
+                <h3>Design 1 · Buyer Payment Dashboard</h3>
+                <p class="small muted mb-0">KPI cards + status bar + buyer table. A row opens a side drawer; Add Payment is a modal.</p>
+                <div class="lbl">Strengths</div><ul><li>Whole picture at a glance</li><li>Fast to find who owes most</li><li>Closest to the existing LRD list pages</li></ul>
+                <div class="lbl">Weaknesses</div><ul><li>Running ledger isn't shown (drawer only)</li><li>More clicks to record many payments</li></ul>
+                <div class="lbl">Best for</div><p class="small mb-2">Managers and owners checking overall collection status.</p>
+                <a class="btn btn-brand mt-auto" href="design-1-dashboard.html">Open Design 1 <i class="bi bi-arrow-right"></i></a>
+            </div>
+        </article>
+        <article class="dc">
+            <div class="sk" aria-hidden="true" style="grid-template-columns:30% 1fr"><div style="display:grid;gap:4px"><i class="blk"></i><i class="blk"></i><i class="blk"></i><i class="blk"></i></div><div style="display:grid;gap:4px;background:#fff;border-radius:6px;padding:6px"><i class="blk" style="height:14px"></i><i class="blk" style="height:20px"></i><i class="blk"></i><i class="blk"></i></div></div>
+            <div class="bd">
+                <h3>Design 2 · Customer Ledger Workspace</h3>
+                <p class="small muted mb-0">Buyer list on the left and a PDF-style statement on the right, with tabs for Ledger / DR / Payments / Cheques. Inline payment form.</p>
+                <div class="lbl">Strengths</div><ul><li>Matches the client's PDF</li><li>Full debit/credit running balance</li><li>Print Ledger + CSV preview</li></ul>
+                <div class="lbl">Weaknesses</div><ul><li>Dense on phones (wide ledger table scrolls sideways)</li><li>One buyer at a time</li></ul>
+                <div class="lbl">Best for</div><p class="small mb-2">Accounting staff reviewing or printing a customer's account.</p>
+                <a class="btn btn-brand mt-auto" href="design-2-ledger.html">Open Design 2 <i class="bi bi-arrow-right"></i></a>
+            </div>
+        </article>
+        <article class="dc">
+            <div class="sk" aria-hidden="true" style="grid-template-columns:1fr 1fr 34%"><i class="blk"></i><i class="blk"></i><i class="blk" style="grid-row:span 2;background:#c3cddb"></i><i class="blk"></i><i class="blk"></i></div>
+            <div class="bd">
+                <h3>Design 3 · Collections Workspace</h3>
+                <p class="small muted mb-0">Buyer cards sorted by balance + a quick-pay panel. Cheque Monitor board (Hold → For Deposit → Cleared / Returned) and an activity log.</p>
+                <div class="lbl">Strengths</div><ul><li>Fewest clicks per payment (quick-fill amounts)</li><li>Cheque follow-up across all buyers</li><li>Best on mobile (bottom tabs)</li></ul>
+                <div class="lbl">Weaknesses</div><ul><li>No running ledger / print view</li><li>Less like current LRD screens</li></ul>
+                <div class="lbl">Best for</div><p class="small mb-2">Collectors and cashiers recording payments throughout the day.</p>
+                <a class="btn btn-brand mt-auto" href="design-3-collections.html">Open Design 3 <i class="bi bi-arrow-right"></i></a>
+            </div>
+        </article>
+    </div>
+
+    <section class="rules">
+        <b>Shared balance rules (same as the PDF)</b>
+        <ul class="mb-0 mt-2">
+            <li><b>Collected</b> = Cash / GCash / Bank payments + <b>Cleared</b> cheques.</li>
+            <li><b>Cheques on Hand</b> = Hold + For Deposit (not counted as collected).</li>
+            <li><b>Returned</b> = Bounced + Closed Account (never reduces the debt).</li>
+            <li><b>Outstanding</b> = Sales − Collected · <b>Net</b> = Sales − Collected − Cheques on Hand.</li>
+            <li>Status: <span class="badge_s s-paid">Paid</span> <span class="badge_s s-partial">Partial</span> <span class="badge_s s-unpaid">Unpaid</span> are based on collected amounts only.</li>
+        </ul>
+    </section>
+</main>
+</body>
+</html>

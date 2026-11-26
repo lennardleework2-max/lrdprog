@@ -293,87 +293,106 @@
         }
     }
 
-    // OPTIMIZATION: Batch load ALL unit costs in ONE query instead of per-item queries
+    // Unit cost = item's "Cost" price in mf_salesitemprice (price type from mf_salespricetype)
     $cost_cache = array();
+    $pur_cost_cache = array(); // "itmcde|unmcde" => latest purchase untprc
     if(!empty($unique_items)) {
         $item_list = array_keys($unique_items);
         $placeholders = implode(',', array_fill(0, count($item_list), '?'));
-        $cost_query_params = $item_list;
-        $cost_date_limit = '';
-        if(isset($_POST['date_to']) && !empty($_POST['date_to'])) {
-            $cost_date_limit = " AND t1.trndte <= ?";
-            $cost_query_params[] = $_POST['date_to'];
-        }
 
-        // Get the latest cost for each item (by recid DESC)
-        $cost_query = "SELECT t2.itmcde, t2.unmcde, t2.untprc, t2.recid, t1.trndte
-            FROM tranfile2 t2
-            INNER JOIN tranfile1 t1 ON t1.docnum = t2.docnum
-            WHERE t2.itmcde IN ($placeholders)
-            AND t1.trncde='PUR'
-            AND t2.stkqty > 0
-            ".$cost_date_limit."
-            ORDER BY t1.trndte DESC, t2.recid DESC";
+        $cost_query = "SELECT sip.itmcde, sip.price
+            FROM mf_salesitemprice sip
+            WHERE sip.salesprice_id = (SELECT salesprice_id FROM mf_salespricetype WHERE salesprice_desc = 'Cost' LIMIT 1)
+            AND sip.itmcde IN ($placeholders)";
 
         $stmt_cost = $link->prepare($cost_query);
-        $stmt_cost->execute($cost_query_params);
+        $stmt_cost->execute($item_list);
+        $cost_cache = $stmt_cost->fetchAll(PDO::FETCH_KEY_PAIR);
 
-        // Store ALL cost records grouped by item code + unit code (for date-based lookup)
-        while($cost_row = $stmt_cost->fetch(PDO::FETCH_ASSOC)) {
-            $cost_key = sales_cost_cache_key($cost_row['itmcde'], $cost_row['unmcde']);
-            if(!isset($cost_cache[$cost_key])) {
-                $cost_cache[$cost_key] = array();
+        // Fallback: items with no/zero Cost price use the untprc of their latest purchase (PUR) line
+        // dated <= today with the SAME unit of measure (unmcde) as the sale line
+        $no_cost_items = array();
+        foreach($item_list as $itm) {
+            if(empty($cost_cache[$itm]) || (float)$cost_cache[$itm] == 0) {
+                $no_cost_items[] = $itm;
             }
-            $cost_cache[$cost_key][] = $cost_row;
         }
-    }
-
-    function sales_cost_cache_key($itmcde, $unmcde) {
-        return (string)$itmcde . '|' . ($unmcde === NULL ? '__NULL__' : (string)$unmcde);
-    }
-
-    // Function to get unit cost from cache (no database query)
-    function get_cached_unitcost($itmcde, $unmcde, $trndte, $sal_recid, &$cost_cache) {
-        $cost_key = sales_cost_cache_key($itmcde, $unmcde);
-        if(!isset($cost_cache[$cost_key]) || empty($cost_cache[$cost_key])) {
-            return 0;
-        }
-
-        $costs = $cost_cache[$cost_key];
-
-        // If we have a date, find cost where trndte <= sale date
-        if(!empty($trndte)) {
-            foreach($costs as $c) {
-                if(!empty($c['trndte']) && $c['trndte'] <= $trndte) {
-                    return $c['untprc'];
+        if(!empty($no_cost_items)) {
+            $pur_placeholders = implode(',', array_fill(0, count($no_cost_items), '?'));
+            // Latest = latest tran date (recid breaks ties); first row per item+UOM wins
+            $pur_cost_query = "SELECT t2.itmcde, t2.unmcde, t2.untprc
+                FROM tranfile2 t2
+                INNER JOIN tranfile1 t1 ON t1.docnum = t2.docnum
+                WHERE t1.trncde = 'PUR' AND t1.trndte <= ? AND t2.itmcde IN ($pur_placeholders)
+                ORDER BY t1.trndte DESC, t2.recid DESC";
+            $stmt_pur_cost = $link->prepare($pur_cost_query);
+            $stmt_pur_cost->execute(array_merge(array(date('Y-m-d')), $no_cost_items));
+            while($pur_row = $stmt_pur_cost->fetch(PDO::FETCH_ASSOC)) {
+                $pur_cost_key = $pur_row['itmcde'].'|'.$pur_row['unmcde'];
+                if(!isset($pur_cost_cache[$pur_cost_key])) {
+                    $pur_cost_cache[$pur_cost_key] = (float)$pur_row['untprc'];
                 }
             }
         }
-
-        // Fallback: find cost where recid < sale recid
-        if(!empty($sal_recid)) {
-            foreach($costs as $c) {
-                if($c['recid'] < $sal_recid) {
-                    return $c['untprc'];
-                }
-            }
-        }
-
-        // Last fallback: return latest cost
-        return $costs[0]['untprc'];
     }
 
     // Calculate grand total commission (same filters, exclude '-None' salesman)
-    $commission_query = "SELECT COALESCE(SUM(tranfile1.trntot * COALESCE(mf_salesman.commission, 0) / 100), 0) as total_commission
+    // Filtered docnums come from a subquery with the same joins as the main query (customerfile/tranfile2
+    // are needed by the Shop/Item filters); summing on the outer tranfile1 counts each trntot once.
+    $commission_doc_subquery = "SELECT DISTINCT tranfile1.docnum
         FROM tranfile1
-        LEFT JOIN mf_salesman ON tranfile1.salesman_id = mf_salesman.salesman_id
-        WHERE tranfile1.trncde = ?
-        AND (mf_salesman.salesman_name IS NULL OR mf_salesman.salesman_name != '-None')
-        ".$xfilter;
-    $stmt_commission = $link->prepare($commission_query);
-    $stmt_commission->execute(array_merge(array($_POST['trncde_hidden']), $xfilter_params));
-    $commission_row = $stmt_commission->fetch(PDO::FETCH_ASSOC);
-    $grand_total_commission = floatval($commission_row['total_commission']);
+        LEFT JOIN customerfile ON tranfile1.cuscde = customerfile.cuscde
+        LEFT JOIN tranfile2 ON tranfile1.docnum = tranfile2.docnum
+        WHERE tranfile1.trncde = ? ".$xfilter;
+    $commission_query = "SELECT COALESCE(SUM(t1c.trntot * COALESCE(mf_salesman.commission, 0) / 100), 0) as total_commission
+        FROM tranfile1 t1c
+        LEFT JOIN mf_salesman ON t1c.salesman_id = mf_salesman.salesman_id
+        WHERE (mf_salesman.salesman_name IS NULL OR mf_salesman.salesman_name != '-None')
+        AND t1c.docnum IN (".$commission_doc_subquery.")";
+    // BEAVER DEBUG: Total Comm = 0 investigation
+    if (!function_exists('beaver_log')) {
+        function beaver_log($step) {
+            file_put_contents(__DIR__.'/debug_beaver_sales_cost.log',
+                date('Y-m-d H:i:s').' | '.$step."\n", FILE_APPEND);
+        }
+    }
+    beaver_log('==== START commission debug ====');
+    beaver_log('[1] trncde_hidden='.(isset($_POST['trncde_hidden']) ? $_POST['trncde_hidden'] : '(unset)'));
+    beaver_log('[1] xfilter='.$xfilter);
+    beaver_log('[1] xfilter_params='.json_encode($xfilter_params));
+    beaver_log('[2] commission_query='.preg_replace('/\s+/', ' ', $commission_query));
+
+    $commission_row = false;
+    try {
+        $stmt_commission = $link->prepare($commission_query);
+        $exec_ok = $stmt_commission->execute(array_merge(array($_POST['trncde_hidden']), $xfilter_params));
+        beaver_log('[3] execute_ok='.var_export($exec_ok, true).' errorInfo='.json_encode($stmt_commission->errorInfo()));
+        $commission_row = $stmt_commission->fetch(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        beaver_log('[3] EXCEPTION: '.$e->getMessage());
+    }
+    beaver_log('[4] commission_row='.str_replace("\n", ' ', var_export($commission_row, true)));
+
+    // [5] Diagnostic breakdown by salesman (same filters/joins as commission query, without -None exclusion)
+    try {
+        $diag_query = "SELECT t1c.salesman_id, mf_salesman.salesman_name, mf_salesman.commission,
+                COUNT(*) AS doc_count, SUM(t1c.trntot) AS sum_trntot,
+                SUM(CASE WHEN t1c.trntot IS NULL OR t1c.trntot = 0 THEN 1 ELSE 0 END) AS zero_trntot_count
+            FROM tranfile1 t1c
+            LEFT JOIN mf_salesman ON t1c.salesman_id = mf_salesman.salesman_id
+            WHERE t1c.docnum IN (".$commission_doc_subquery.")
+            GROUP BY t1c.salesman_id, mf_salesman.salesman_name, mf_salesman.commission";
+        $stmt_diag = $link->prepare($diag_query);
+        $stmt_diag->execute(array_merge(array($_POST['trncde_hidden']), $xfilter_params));
+        while ($diag = $stmt_diag->fetch(PDO::FETCH_ASSOC)) {
+            beaver_log('[5] '.json_encode($diag));
+        }
+    } catch (Exception $e) {
+        beaver_log('[5] EXCEPTION: '.$e->getMessage());
+    }
+
+    $grand_total_commission = $commission_row ? floatval($commission_row['total_commission']) : 0;
+    beaver_log('[6] grand_total_commission='.$grand_total_commission);
 
     // Group data by docnum for rendering
     $grouped_data = array();
@@ -478,9 +497,11 @@
 
         // Process items for this document
         foreach($doc['items'] as $item) {
-            // Get unit cost from cache (NO database query)
-            $trndte = (empty($original_trndte)) ? NULL : date("Y-m-d", strtotime($original_trndte));
-            $unit_cost = get_cached_unitcost($item['itmcde'], $item['unmcde'], $trndte, $item['recid'], $cost_cache);
+            $unit_cost = isset($cost_cache[$item['itmcde']]) ? (float)$cost_cache[$item['itmcde']] : 0;
+            $pur_cost_key = $item['itmcde'].'|'.$item['unmcde'];
+            if($unit_cost == 0 && isset($pur_cost_cache[$pur_cost_key])) {
+                $unit_cost = $pur_cost_cache[$pur_cost_key];
+            }
             $cost = $unit_cost * $item["itmqty"];
             $profit = $item["extprc"] - $cost;
 

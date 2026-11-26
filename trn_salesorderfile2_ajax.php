@@ -51,6 +51,53 @@
         return $rs ? trim((string)$rs['unmdsc']) : $unmcde;
     }
 
+    function salesorder_get_price_restrictions($link){
+        return stdfunc_get_price_restrictions($link, 'Sales Order Transaction');
+    }
+
+    // Restricted edit sentinel preserves the existing server-side unit price without exposing it.
+    function salesorder_validate_untprc($link, $posted_untprc, $posted_extprc, $hide_cost_price, $hide_distri_price, $edit_recid = null){
+        $posted_untprc = trim((string)$posted_untprc);
+        $posted_extprc = trim((string)$posted_extprc);
+        if(($hide_cost_price || $hide_distri_price) && $posted_untprc === '__RESTRICTED__'){
+            if(!empty($edit_recid)){
+                $stmt_existing = $link->prepare("SELECT untprc, extprc, salesprice_id FROM salesorderfile2 WHERE recid = ? LIMIT 1");
+                $stmt_existing->execute(array($edit_recid));
+                $row_existing = $stmt_existing->fetch();
+                if($row_existing && stdfunc_is_salesprice_restricted($row_existing['salesprice_id'], $hide_cost_price, $hide_distri_price)){
+                    return array($row_existing['untprc'], $row_existing['extprc']);
+                }
+            }
+            return array(0, 0);
+        }
+        return array($posted_untprc, $posted_extprc);
+    }
+
+    function salesorder_validate_salesprice_id($link, $posted_salesprice_id, $hide_cost_price, $hide_distri_price, $edit_recid = null){
+        $posted_salesprice_id = trim((string)$posted_salesprice_id);
+        if(($hide_cost_price || $hide_distri_price) && $posted_salesprice_id === '__RESTRICTED__' && !empty($edit_recid)){
+            $stmt_existing = $link->prepare("SELECT salesprice_id FROM salesorderfile2 WHERE recid = ? LIMIT 1");
+            $stmt_existing->execute(array($edit_recid));
+            $row_existing = $stmt_existing->fetch();
+            if($row_existing && stdfunc_is_salesprice_restricted($row_existing['salesprice_id'], $hide_cost_price, $hide_distri_price)){
+                return $row_existing['salesprice_id'];
+            }
+        }
+        if(stdfunc_is_salesprice_restricted($posted_salesprice_id, $hide_cost_price, $hide_distri_price)){
+            return 'SID-00003';
+        }
+        if($posted_salesprice_id === ''){
+            return 'SID-00003';
+        }
+        $select_check = "SELECT salesprice_id FROM mf_salespricetype WHERE salesprice_id = ? LIMIT 1";
+        $stmt_check = $link->prepare($select_check);
+        $stmt_check->execute(array($posted_salesprice_id));
+        $rs_check = $stmt_check->fetch();
+        return $rs_check ? $posted_salesprice_id : 'SID-00003';
+    }
+
+    list($salesorder_hide_cost_price, $salesorder_hide_distri_price) = salesorder_get_price_restrictions($link);
+
     $xret = array();
     $xret["html"] = "";
     $xret["html_mobile"] = "";
@@ -137,15 +184,21 @@
                 date_default_timezone_set('Asia/Manila');
                 $date_today = date('Y-m-d');
 
-                $select_db2 = "SELECT SUM(stkqty) as xsum FROM tranfile2 
+                $select_db2 = "SELECT SUM(stkqty) as xsum FROM tranfile2
                     LEFT JOIN tranfile1 ON tranfile1.docnum = tranfile2.docnum
-                    WHERE tranfile2.itmcde='".$rs_itemfile['itmcde']."' 
+                    WHERE tranfile2.itmcde='".$rs_itemfile['itmcde']."'
                     AND tranfile1.trndte<='".$date_today."'";
                 $stmt_main2	= $link->prepare($select_db2);
                 $stmt_main2->execute(array());
                 $rs2 = $stmt_main2->fetch();
 
                 $currentStock =  $rs2['xsum'];
+
+                $select_wholesale_price = "SELECT price FROM mf_salesitemprice WHERE itmcde = ? AND salesprice_id = 'SID-00003'";
+                $stmt_wholesale_price = $link->prepare($select_wholesale_price);
+                $stmt_wholesale_price->execute(array($rs_itemfile['itmcde']));
+                $rs_wholesale_price = $stmt_wholesale_price->fetch();
+                $wholesale_price_value = $rs_wholesale_price ? $rs_wholesale_price['price'] : null;
 
                 $xret["html"] .= "<tr>";
                     $xret["html"] .= "<td>";
@@ -162,9 +215,9 @@
                         $xret["html"] .= "<button type='button' onclick='select_item_modal(" 
                             . json_encode($rs_itemfile['itmcde']) . "," 
                             . json_encode($rs_itemfile['itmdsc']) . "," 
-                            . json_encode($currentStock) . "," 
-                            . json_encode($rs_itemfile['wholesaleprc']). ","
-                            . json_encode($_POST['event_action_itmsearch']) 
+                            . json_encode($currentStock) . ","
+                            . json_encode($wholesale_price_value). ","
+                            . json_encode($_POST['event_action_itmsearch'])
                             . ")' class='btn btn-primary fw-bold'>";
                             $xret["html"].= "Select";
                         $xret["html"].= "</button>";
@@ -202,6 +255,32 @@
                 $xret["uom_labels"][$item_unmcde] = array(
                     "conversion" => $rs_item_units["conversion"]
                 );
+            }
+        }
+
+        echo json_encode($xret);
+        return;
+    }
+
+    if(isset($_POST["event_action"]) && $_POST["event_action"] == "get_item_sales_price"){
+        $itmcde = isset($_POST['itmcde']) ? trim((string)$_POST['itmcde']) : '';
+        $salesprice_id = isset($_POST['salesprice_id']) ? trim((string)$_POST['salesprice_id']) : '';
+        $xret["price"] = null;
+
+        if(stdfunc_is_salesprice_restricted($salesprice_id, $salesorder_hide_cost_price, $salesorder_hide_distri_price)){
+            $xret["status"] = 0;
+            $xret["msg"] = "This pricing option is restricted.";
+        }else if($itmcde !== '' && $salesprice_id !== ''){
+            $select_item_sales_price = "SELECT mf_salesitemprice.price
+                                         FROM mf_salesitemprice
+                                         INNER JOIN mf_salespricetype ON mf_salespricetype.salesprice_id = mf_salesitemprice.salesprice_id
+                                         WHERE mf_salesitemprice.itmcde = ? AND mf_salesitemprice.salesprice_id = ?
+                                         LIMIT 1";
+            $stmt_item_sales_price = $link->prepare($select_item_sales_price);
+            $stmt_item_sales_price->execute(array($itmcde, $salesprice_id));
+            $rs_item_sales_price = $stmt_item_sales_price->fetch();
+            if($rs_item_sales_price && $rs_item_sales_price['price'] !== null){
+                $xret["price"] = $rs_item_sales_price['price'];
             }
         }
 
@@ -408,9 +487,9 @@
             $arr_record['itmqty'] 	= $_POST['itmqty_add'];
             // $arr_record['stkqty'] 	= $_POST['itmqty_add'] * -1;
             $arr_record['unmcde']   = isset($_POST['unmcde_add']) ? $_POST['unmcde_add'] : '';
-            $arr_record['untprc'] 	= $_POST['price_add'];
-            $arr_record['extprc'] 	= $_POST['amount_add'];
+            list($arr_record['untprc'], $arr_record['extprc']) = salesorder_validate_untprc($link, $_POST['price_add'], $_POST['amount_add'], $salesorder_hide_cost_price, $salesorder_hide_distri_price);
             $arr_record['wholesaleprc'] 	= $_POST['wholesaleprc_add'];
+            $arr_record['salesprice_id'] 	= salesorder_validate_salesprice_id($link, isset($_POST['salesprice_id_add']) ? $_POST['salesprice_id_add'] : '', $salesorder_hide_cost_price, $salesorder_hide_distri_price);
             $arr_record_file1['trncde']     = $trncde;
             PDO_InsertRecord($link,'salesorderfile2',$arr_record, false);
 
@@ -477,7 +556,7 @@
 
     if(isset($_POST["event_action"]) && $_POST["event_action"] == "getEdit"){
 
-        $select_salesorderfile2="SELECT salesorderfile2.wholesaleprc as wholesaleprc, salesorderfile2.itmcde as 'itmcde', salesorderfile2.itmqty, salesorderfile2.unmcde, salesorderfile2.untprc, salesorderfile2.extprc, itemfile.itmdsc, itemunitmeasurefile.unmdsc, salesorderfile2.recid as salesorderfile2_recid FROM salesorderfile2 LEFT JOIN itemfile ON itemfile.itmcde = salesorderfile2.itmcde LEFT JOIN itemunitmeasurefile ON itemunitmeasurefile.unmcde = salesorderfile2.unmcde WHERE salesorderfile2.recid=?";
+        $select_salesorderfile2="SELECT salesorderfile2.wholesaleprc as wholesaleprc, salesorderfile2.itmcde as 'itmcde', salesorderfile2.itmqty, salesorderfile2.unmcde, salesorderfile2.untprc, salesorderfile2.extprc, salesorderfile2.salesprice_id as salesorderfile2_salesprice_id, itemfile.itmdsc, itemunitmeasurefile.unmdsc, salesorderfile2.recid as salesorderfile2_recid FROM salesorderfile2 LEFT JOIN itemfile ON itemfile.itmcde = salesorderfile2.itmcde LEFT JOIN itemunitmeasurefile ON itemunitmeasurefile.unmcde = salesorderfile2.unmcde WHERE salesorderfile2.recid=?";
         $stmt_salesorderfile2	= $link->prepare($select_salesorderfile2);
         $stmt_salesorderfile2->execute(array($_POST["recid"]));
         $rs_salesorderfile2 = $stmt_salesorderfile2->fetch();
@@ -490,16 +569,18 @@
         }
 
         $retedit_unmcde = isset($rs_salesorderfile2["unmcde"]) ? trim((string)$rs_salesorderfile2["unmcde"]) : '';
+        $retedit_is_restricted = stdfunc_is_salesprice_restricted($rs_salesorderfile2["salesorderfile2_salesprice_id"], $salesorder_hide_cost_price, $salesorder_hide_distri_price);
         $xret["retEdit"] = [
             "itmcde" =>  $rs_salesorderfile2["itmcde"],
             "itmdsc" =>  $rs_salesorderfile2["itmdsc"],
             "itmqty" =>  $rs_salesorderfile2["itmqty"],
             "unmcde" =>  $retedit_unmcde,
             "unmdsc" =>  !empty($rs_salesorderfile2["unmdsc"]) ? trim((string)$rs_salesorderfile2["unmdsc"]) : $retedit_unmcde,
-            "untprc" =>  $rs_salesorderfile2["untprc"],
-            "extprc" =>  $rs_salesorderfile2["extprc"],
+            "untprc" =>  $retedit_is_restricted ? '__RESTRICTED__' : $rs_salesorderfile2["untprc"],
+            "extprc" =>  $retedit_is_restricted ? '__RESTRICTED__' : $rs_salesorderfile2["extprc"],
             "recid" =>  $rs_salesorderfile2["salesorderfile2_recid"],
             "wholesaleprc" =>  $rs_salesorderfile2["wholesaleprc"],
+            "salesprice_id" =>  $retedit_is_restricted ? '__RESTRICTED__' : (!empty($rs_salesorderfile2["salesorderfile2_salesprice_id"]) ? $rs_salesorderfile2["salesorderfile2_salesprice_id"] : 'SID-00003'),
         ];
 
         $xret["msg"] = "retEdit";
@@ -561,9 +642,9 @@
             $arr_record['itmqty'] 	= $_POST['itmqty_edit'];
             // $arr_record['stkqty'] 	= $_POST['itmqty_edit'] * -1;
             $arr_record['unmcde']   = isset($_POST['unmcde_edit']) ? $_POST['unmcde_edit'] : '';
-            $arr_record['untprc'] 	= $_POST['price_edit'];
-            $arr_record['extprc'] 	= $_POST['amount_edit'];
+            list($arr_record['untprc'], $arr_record['extprc']) = salesorder_validate_untprc($link, $_POST['price_edit'], $_POST['amount_edit'], $salesorder_hide_cost_price, $salesorder_hide_distri_price, isset($_POST['salesfile2_recid_hidden']) ? $_POST['salesfile2_recid_hidden'] : null);
             $arr_record['wholesaleprc'] 	= $_POST['wholesaleprc_edit'];
+            $arr_record['salesprice_id'] 	= salesorder_validate_salesprice_id($link, isset($_POST['salesprice_id_edit']) ? $_POST['salesprice_id_edit'] : '', $salesorder_hide_cost_price, $salesorder_hide_distri_price, isset($_POST['salesfile2_recid_hidden']) ? $_POST['salesfile2_recid_hidden'] : null);
 
             //BOM FOR EDIT START DELETE FIRST
             //START OF DELETE EDIT
@@ -809,7 +890,7 @@
                 $xret["html"] .= "<td class='text-center'>Action</td>";
             $xret["html"] .= "</tr>";  
 
-            $select_salesfile2="SELECT salesorderfile2.wholesaleprc as wholesaleprc, salesorderfile2.docnum as salesorderfile2_docnum, itemfile.itmdsc as itemfile_itmdsc,itemfile.itmcde as itemfile_itmcde, salesorderfile2.itmqty, salesorderfile2.untprc, salesorderfile2.extprc, salesorderfile2.recid as salesorderfile2_recid, itemunitmeasurefile.unmdsc
+            $select_salesfile2="SELECT salesorderfile2.wholesaleprc as wholesaleprc, salesorderfile2.docnum as salesorderfile2_docnum, itemfile.itmdsc as itemfile_itmdsc,itemfile.itmcde as itemfile_itmcde, salesorderfile2.itmqty, salesorderfile2.untprc, salesorderfile2.extprc, salesorderfile2.salesprice_id, salesorderfile2.recid as salesorderfile2_recid, itemunitmeasurefile.unmdsc
             FROM salesorderfile2 LEFT JOIN itemfile ON itemfile.itmcde = salesorderfile2.itmcde
             LEFT JOIN itemunitmeasurefile ON itemunitmeasurefile.unmcde = salesorderfile2.unmcde
             WHERE docnum=?";
@@ -832,6 +913,10 @@
                     $rs_salesfile2['itmqty'] =  number_format($rs_salesfile2['itmqty']);
                 }
 
+                $row_is_restricted = stdfunc_is_salesprice_restricted($rs_salesfile2['salesprice_id'], $salesorder_hide_cost_price, $salesorder_hide_distri_price);
+                $display_untprc = $row_is_restricted ? 'Restricted' : $rs_salesfile2['untprc'];
+                $display_extprc = $row_is_restricted ? 'Restricted' : $rs_salesfile2['extprc'];
+
                 $select_chkmatch="SELECT * FROM tranfile2 WHERE so_recid='".$rs_salesfile2['salesorderfile2_recid']."'";
                 $stmt_chkmatch	= $link->prepare($select_chkmatch);
                 $stmt_chkmatch->execute(array($docnum));
@@ -848,8 +933,8 @@
                     $xret["html"] .= "<td>".htmlspecialchars($rs_salesfile2['itemfile_itmdsc'],ENT_QUOTES)."</td>";
                     $xret["html"] .= "<td style='text-align:right'>".$rs_salesfile2['itmqty']."</td>";
                     $xret["html"] .= "<td>".htmlspecialchars(isset($rs_salesfile2['unmdsc']) ? $rs_salesfile2['unmdsc'] : '',ENT_QUOTES)."</td>";
-                    $xret["html"] .= "<td style='text-align:right'>".$rs_salesfile2['untprc']."</td>";
-                    $xret["html"] .= "<td style='text-align:right'>".$rs_salesfile2['extprc']."</td>";
+                    $xret["html"] .= "<td style='text-align:right'>".$display_untprc."</td>";
+                    $xret["html"] .= "<td style='text-align:right'>".$display_extprc."</td>";
                     $xret["html"] .= "<td style='text-align:right'>".$rs_salesfile2['wholesaleprc']."</td>";
                     $xret["html"].= "<td class='text-center align-middle' data-label='Action'>";
 
@@ -902,7 +987,7 @@
 
                 $xret["html_mobile"] .= "<tr>";
                     $xret["html_mobile"] .= "<td class='fw-bold'>Price</td>";
-                    $xret["html_mobile"] .= "<td style='text-align:right'>".$rs_salesfile2['untprc']."</td>";
+                    $xret["html_mobile"] .= "<td style='text-align:right'>".$display_untprc."</td>";
                 $xret["html_mobile"] .= "</tr>";
 
                 $xret["html_mobile"] .= "<tr>";
@@ -912,7 +997,7 @@
 
                 $xret["html_mobile"] .= "<tr>";
                     $xret["html_mobile"] .= "<td class='fw-bold'>Amount</td>";
-                    $xret["html_mobile"] .= "<td style='text-align:right'>".$rs_salesfile2['extprc']."</td>";
+                    $xret["html_mobile"] .= "<td style='text-align:right'>".$display_extprc."</td>";
                 $xret["html_mobile"] .= "</tr>";
 
                 $xret["html_mobile"] .= "<tr>";

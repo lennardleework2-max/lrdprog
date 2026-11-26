@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Design 1 · Buyer Payment Dashboard (Mockup)</title>
+<link rel="shortcut icon" href="../../images/logo_short.png">
+<link rel="stylesheet" href="../../bootstrap/css/bootstrap.min.css">
+<link rel="stylesheet" href="../../bootstrap/icons/font/bootstrap-icons.css">
+<link rel="stylesheet" href="bp-base.css">
+<style>
+/* ===== Design 1: dashboard-first ===== */
+.page{max-width:1380px;margin:0 auto;padding:20px 16px 56px}
+.head{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 16px;margin-bottom:18px}
+.head h2{margin:2px 0 0;font-weight:700;font-size:26px;letter-spacing:-.01em}
+.head .sub{color:var(--muted);font-size:13px}
+.head .actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+
+/* KPI cards */
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 16px;box-shadow:var(--shadow-1);position:relative;overflow:hidden;min-width:0}
+.kpi::after{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent,#94a3b8)}
+.kpi .k{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+.kpi .k .ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--accent-soft,#eef1f5);color:var(--accent,#475569);font-size:15px;flex:none}
+.kpi .v{font-size:clamp(18px,2.1vw,24px);font-weight:800;margin-top:8px;letter-spacing:-.01em}
+.kpi .s{font-size:12.5px;color:var(--muted);margin-top:2px}
+.k-sales{--accent:#334155;--accent-soft:#eef1f5}
+.k-col{--accent:var(--paid);--accent-soft:var(--paid-soft)}
+.k-hand{--accent:var(--onhand);--accent-soft:var(--hold-soft)}
+.k-ret{--accent:var(--returned);--accent-soft:var(--returned-soft)}
+.k-out{--accent:var(--brand);--accent-soft:var(--brand-soft);background:linear-gradient(180deg,#fff, #f5f8fd)}
+
+/* status mix */
+.mix{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding:14px 16px;margin-bottom:14px}
+.mix h3{font-size:14px;font-weight:700;margin:0}
+.mix_bar{flex:1 1 320px;display:flex;height:34px;border-radius:10px;overflow:hidden;background:#e9edf2;min-width:0}
+.mix_bar button{border:0;color:#fff;font-weight:700;font-size:12.5px;display:flex;align-items:center;justify-content:center;gap:5px;min-width:0;padding:0 6px;white-space:nowrap;overflow:hidden;transition:filter var(--t),flex-grow .4s var(--ease)}
+.mix_bar button:hover{filter:brightness(1.08)}
+.mix_bar button[aria-pressed="true"]{box-shadow:inset 0 0 0 3px rgba(255,255,255,.75)}
+.mix_bar .Paid{background:var(--paid)}.mix_bar .Partial{background:#d98400}.mix_bar .Unpaid{background:var(--unpaid)}
+.mix_legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+
+/* buyer table card */
+.board{overflow:hidden}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 16px;border-bottom:3px solid var(--line-strong)}
+.search{position:relative;flex:1 1 260px;min-width:0}
+.search i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--subtle)}
+.search .form-control{padding-left:36px}
+.seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;border-radius:9px;padding:6px 12px;font-weight:600;font-size:13px;color:var(--muted);min-height:36px;transition:background var(--t),color var(--t)}
+.seg button[aria-pressed="true"]{background:#fff;color:var(--ink);box-shadow:var(--shadow-1)}
+.seg .cnt{font-size:11px;background:#e7ebf0;border-radius:999px;padding:0 6px;margin-left:4px}
+.sort{max-width:220px}
+
+.tbl tbody tr{cursor:pointer;transition:background var(--t)}
+.tbl tbody tr:hover{background:#f6f9fd}
+.tbl tbody tr:focus-visible{outline:3px solid rgba(47,111,208,.45);outline-offset:-3px}
+.b_name{font-weight:700;color:var(--ink)}
+.b_acct{font-size:12px;color:var(--muted)}
+.col_meter{width:140px}
+.col_meter .meter{margin-top:2px}
+.col_meter small{font-size:11.5px;color:var(--muted)}
+.more_row{padding:12px;text-align:center;border-top:1px solid var(--line)}
+
+/* mobile: rows become cards */
+@media (max-width: 767.98px){
+    .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .k-out{grid-column:1 / -1}
+    .tbl thead{display:none}
+    .tbl,.tbl tbody,.tbl tr,.tbl td{display:block;width:100%}
+    .tbl tbody tr{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+    .tbl td{border:0;padding:0}
+    .tbl td[data-label]:not(.td_main)::before{content:attr(data-label);display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase}
+    .tbl .td_main{grid-column:1 / -1}
+    .tbl .td_status{grid-column:1 / -1}
+    .tbl .r{text-align:left}
+    .tbl .col_meter{grid-column:1 / -1;width:auto}
+    .tbl .td_act{grid-column:1 / -1}
+    .tbl .td_act .btn{width:100%}
+    .sort{max-width:none;flex:1 1 100%}
+    .seg{width:100%}.seg button{flex:1}
+}
+@media (min-width: 768px) and (max-width: 1199.98px){
+    .kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .hide-md{display:none}
+}
+
+/* drawer */
+.offcanvas.drawer{width:min(560px,100vw);border-left:0;box-shadow:var(--shadow-2)}
+.drawer .offcanvas-header{border-bottom:3px solid var(--line-strong);align-items:flex-start;gap:10px}
+.drawer .offcanvas-title{font-weight:800;font-size:19px}
+.d_tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.d_tile{border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:0}
+.d_tile .k{font-size:12px;font-weight:700;color:var(--muted)}
+.d_tile .v{font-size:17px;font-weight:800}
+.d_big{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}
+.d_big .d_tile{background:var(--surface-2)}
+.d_big .v{font-size:20px}
+.formula{font-size:12px;color:var(--muted);margin-top:6px}
+.d_sec{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:18px 0 8px;display:flex;align-items:center;gap:8px}
+.d_sec::after{content:"";flex:1;height:1px;background:var(--line)}
+.pay_item{display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;padding:10px 0;border-bottom:1px solid #eef0f3;align-items:center}
+.pay_item .ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--surface-2);font-size:16px;color:#334155}
+.pay_item .t{font-weight:600;min-width:0}
+.pay_item .m{font-size:12px;color:var(--muted)}
+.pay_item .a{text-align:right;font-weight:700}
+.pay_item select{grid-column:2 / 4;max-width:220px;min-height:38px;font-size:14px;padding:4px 30px 4px 10px}
+.dr_item{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid #eef0f3}
+
+@media (max-width: 575.98px){
+    .offcanvas.drawer{top:auto!important;left:0;right:0;width:100%;height:88vh;height:88dvh;border-radius:18px 18px 0 0;transform:translateY(100%)}
+    .offcanvas.drawer.show{transform:none}
+    .drawer .grab{display:block;width:44px;height:5px;border-radius:9px;background:#cfd5dd;margin:8px auto 0}
+}
+.drawer .grab{display:none}
+
+/* add payment modal */
+.modal-content{border-radius:18px;border:0;box-shadow:var(--shadow-2)}
+.modal-header{border-bottom:3px solid var(--line-strong)}
+.combo{position:relative}
+.combo_list{position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-2);max-height:260px;overflow:auto;z-index:5;padding:4px;display:none}
+.combo_list.open{display:block}
+.combo_list [role="option"]{padding:9px 10px;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;gap:10px}
+.combo_list [role="option"][aria-selected="true"],.combo_list [role="option"]:hover{background:var(--brand-soft)}
+.picked{display:flex;justify-content:space-between;gap:8px;align-items:center;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-top:8px;font-size:13px}
+.after{background:var(--brand-soft);border-radius:12px;padding:10px 12px;font-size:13px;margin-top:14px}
+</style>
+</head>
+<body>
+
+<div class="mock_bar">
+    <b>MOCKUP</b><span class="tag">Sample data · nothing is saved</span><span>Design 1 · Buyer Payment Dashboard</span>
+    <nav aria-label="Mockup designs">
+        <a href="index.html">Compare</a><a href="design-1-dashboard.html" aria-current="page">Design 1</a><a href="design-2-ledger.html">Design 2</a><a href="design-3-collections.html">Design 3</a>
+    </nav>
+</div>
+<header class="lrd_top"><img src="../../images/logo_horizontal.png" alt="LRD"><div class="sys"><b>LRD SYSTEM</b><small>v1.0 · preview</small></div></header>
+<div class="lrd_sub"><span class="menu_arrow" aria-hidden="true"><i class="bi bi-arrow-right"></i></span><div class="who"><b>demo.user</b><i class="bi bi-person-circle" aria-hidden="true"></i><a href="#" onclick="return false"><i class="bi bi-box-arrow-right"></i> Logout</a></div></div>
+
+<main class="page">
+    <div class="head">
+        <div>
+            <div class="crumbs"><span>Sales</span><i class="bi bi-chevron-right"></i><span>Collections</span></div>
+            <h2>Buyer Payments</h2>
+            <div class="sub">Collections grouped by Buyer (Order By) · as of <b id="asof"></b></div>
+        </div>
+        <div class="actions no-print">
+            <button type="button" class="btn btn-danger" id="btn_back" style="min-width:90px">Back</button>
+            <div class="dropdown">
+                <button type="button" class="btn btn-ghost dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-sliders"></i> Demo</button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><button type="button" class="dropdown-item" id="btn_bulk"><i class="bi bi-database-add me-2"></i>Load 300 sample buyers</button></li>
+                    <li><button type="button" class="dropdown-item text-danger" id="btn_reset"><i class="bi bi-arrow-counterclockwise me-2"></i>Reset demo data</button></li>
+                </ul>
+            </div>
+            <button type="button" class="btn btn-pay" id="btn_add"><i class="bi bi-plus-lg"></i> Add Payment</button>
+        </div>
+    </div>
+
+    <section class="kpis" id="kpis" aria-label="Collection summary"></section>
+
+    <section class="card_lrd mix" aria-label="Payment status mix">
+        <h3>Status mix</h3>
+        <div class="mix_bar" id="mix_bar"></div>
+        <div class="mix_legend"><span><i class="bi bi-info-circle"></i> Status uses collected / cleared payments only. Click a segment to filter.</span></div>
+    </section>
+
+    <section class="card_lrd board" aria-label="Buyers">
+        <div class="toolbar">
+            <div class="search"><i class="bi bi-search" aria-hidden="true"></i>
+                <label for="q" class="visually-hidden">Search buyers</label>
+                <input type="search" id="q" class="form-control" placeholder="Search buyer name or account no." autocomplete="off">
+            </div>
+            <div class="seg" role="group" aria-label="Filter by status" id="seg"></div>
+            <label for="sort" class="visually-hidden">Sort</label>
+            <select id="sort" class="form-select sort">
+                <option value="outstanding">Highest outstanding</option>
+                <option value="name">Buyer name A–Z</option>
+                <option value="recent">Last collection (recent)</option>
+                <option value="pct">Lowest % collected</option>
+            </select>
+        </div>
+        <div class="tbl_wrap">
+            <table class="tbl" aria-describedby="tbl_note">
+                <thead><tr>
+                    <th>Buyer</th><th>Status</th><th class="r">Total Sales</th><th class="r">Collected</th>
+                    <th class="r hide-md">Chq on Hand</th><th class="r">Outstanding</th><th class="hide-md">Collected %</th><th class="r"><span class="visually-hidden">Action</span></th>
+                </tr></thead>
+                <tbody id="rows"></tbody>
+            </table>
+        </div>
+        <div id="more"></div>
+        <p id="tbl_note" class="visually-hidden">Select a buyer row to open the account drawer.</p>
+    </section>
+</main>
+
+<!-- Buyer drawer -->
+<div class="offcanvas offcanvas-end drawer" tabindex="-1" id="drawer" aria-labelledby="d_title">
+    <span class="grab" aria-hidden="true"></span>
+    <div class="offcanvas-header">
+        <div class="wrap-any">
+            <div class="b_acct" id="d_acct"></div>
+            <h5 class="offcanvas-title wrap-any" id="d_title"></h5>
+            <div id="d_badge" class="mt-1"></div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body" id="d_body"></div>
+    <div class="p-3 border-top d-flex gap-2 flex-wrap">
+        <button type="button" class="btn btn-pay flex-fill" id="d_add"><i class="bi bi-plus-lg"></i> Add Payment</button>
+        <button type="button" class="btn btn-info fw-bold" id="d_print"><i class="bi bi-printer"></i> Print Ledger</button>
+        <button type="button" class="btn btn-ghost" id="d_csv"><i class="bi bi-filetype-csv"></i> Export CSV</button>
+    </div>
+</div>
+
+<!-- Add payment modal -->
+<div class="modal fade" id="payModal" tabindex="-1" aria-labelledby="pm_title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
+        <form class="modal-content" id="payForm" novalidate>
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="pm_title"><i class="bi bi-wallet2 me-1"></i> Add Payment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3" data-field="buyer">
+                    <label class="form-label" for="pm_buyer">Buyer (Order By) <span class="req">*</span></label>
+                    <div class="combo">
+                        <input type="text" class="form-control" id="pm_buyer" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="pm_list" placeholder="Type to search buyers…" autocomplete="off">
+                        <div class="combo_list" id="pm_list" role="listbox" aria-label="Buyers"></div>
+                    </div>
+                    <div id="pm_picked"></div>
+                    <div class="field_err" id="pm_buyer_err"></div>
+                </div>
+                <div class="mb-3" data-field="method">
+                    <label class="form-label" for="pm_method">Payment Method <span class="req">*</span></label>
+                    <select class="form-select" id="pm_method" name="method">
+                        <option value="cash">Cash</option><option value="gcash">GCash</option>
+                        <option value="cheque">Cheque</option><option value="bank">Bank Transfer / Deposit</option>
+                    </select>
+                    <div class="field_err" id="pm_method_err"></div>
+                </div>
+                <div id="pm_fields"></div>
+                <div class="after" id="pm_after" aria-live="polite"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-pay" id="pm_save"><i class="bi bi-check2"></i> Save Payment</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- CSV preview -->
+<div class="modal fade" id="csvModal" tabindex="-1" aria-labelledby="csv_title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-fullscreen-sm-down">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title fw-bold" id="csv_title">Export CSV <span class="preview_only"><i class="bi bi-eye"></i> Preview only — no file is created</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <div class="modal-body"><pre id="csv_text" style="white-space:pre-wrap;word-break:break-word;font-size:12.5px;background:var(--surface-2);border-radius:10px;padding:12px;margin:0"></pre></div>
+        </div>
+    </div>
+</div>
+
+<script src="../../bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="bp-core.js"></script>
+<script src="bp-ui.js"></script>
+<script src="design-1.js"></script>
+</body>
+</html>

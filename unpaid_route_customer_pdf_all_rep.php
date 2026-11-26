@@ -101,7 +101,7 @@ function unpaid_route_customer_pdf_all_add_text_right($pdf, $x, $y, $width, $tex
     $pdf->addText($text_x, $y, $size, $text);
 }
 
-function unpaid_route_customer_pdf_all_render_page_header($pdf, $buyer_name, $date_printed, $route_filter_name = 'All Routes')
+function unpaid_route_customer_pdf_all_render_page_header($pdf, $buyer_name, $date_printed, $route_filter_name = 'All Routes', $salesman_filter_name = '')
 {
     $left = 30;
     $right = 582;
@@ -109,13 +109,24 @@ function unpaid_route_customer_pdf_all_render_page_header($pdf, $buyer_name, $da
 
     $pdf->setColor(0, 0, 0);
     unpaid_route_customer_pdf_all_add_text_left($pdf, $left, $top, 'Unpaid Sales Route', 15, true);
-    unpaid_route_customer_pdf_all_add_text_left($pdf, $left, $top - 18, 'Route Filter : ' . $route_filter_name, 10, false);
-    unpaid_route_customer_pdf_all_add_text_left($pdf, $left, $top - 32, 'Customer : ' . $buyer_name, 10, false);
-    unpaid_route_customer_pdf_all_add_text_left($pdf, $left, $top - 46, 'Date Printed : ' . $date_printed, 9, false);
-    $pdf->setLineStyle(.5);
-    $pdf->line($left, $top - 54, $right, $top - 54);
 
-    return $top - 72;
+    $line_y = $top - 18;
+    unpaid_route_customer_pdf_all_add_text_left($pdf, $left, $line_y, 'Route Filter : ' . $route_filter_name, 10, false);
+
+    $line_y -= 14;
+    unpaid_route_customer_pdf_all_add_text_left($pdf, $left, $line_y, 'Customer : ' . $buyer_name, 10, false);
+
+    if ($salesman_filter_name !== '') {
+        $line_y -= 14;
+        unpaid_route_customer_pdf_all_add_text_left($pdf, $left, $line_y, 'Salesman : ' . $salesman_filter_name, 10, false);
+    }
+
+    $line_y -= 14;
+    unpaid_route_customer_pdf_all_add_text_left($pdf, $left, $line_y, 'Date Printed : ' . $date_printed, 9, false);
+    $pdf->setLineStyle(.5);
+    $pdf->line($left, $line_y - 8, $right, $line_y - 8);
+
+    return $line_y - 26;
 }
 
 function unpaid_route_customer_pdf_all_draw_table_header($pdf, $x, $y, $customer_width, $dr_width, $amount_width, $row_height)
@@ -263,6 +274,12 @@ function unpaid_route_customer_pdf_all_is_all_routes($route_value)
     return ($route_value === '' || $route_value === 'all' || $route_value === 'null');
 }
 
+function unpaid_route_customer_pdf_all_is_all_salesman($salesman_value)
+{
+    $salesman_value = strtolower(trim((string)$salesman_value));
+    return ($salesman_value === '' || $salesman_value === 'all' || $salesman_value === 'null');
+}
+
 function unpaid_route_customer_pdf_all_validate_id($id, $max_length = 100)
 {
     $id = trim((string)$id);
@@ -317,6 +334,34 @@ try {
         $route_filter_name = unpaid_route_customer_pdf_all_pdf_text($rs_route_check['route_desc']);
         if ($route_filter_name === '') {
             $route_filter_name = unpaid_route_customer_pdf_all_pdf_text($filter_route_id);
+        }
+    }
+
+    // Handle salesman_id parameter
+    $salesman_id_raw = isset($_POST['salesman_id']) ? trim((string)$_POST['salesman_id']) : '';
+    $is_all_salesman = unpaid_route_customer_pdf_all_is_all_salesman($salesman_id_raw);
+    $filter_salesman_id = '';
+    $salesman_filter_name = '';
+
+    if (!$is_all_salesman) {
+        $filter_salesman_id = unpaid_route_customer_pdf_all_validate_id($salesman_id_raw);
+        if ($filter_salesman_id === false) {
+            unpaid_route_customer_pdf_all_fail_request('Invalid salesman selection.');
+        }
+
+        // Verify salesman exists and get name
+        $select_salesman_check = "SELECT salesman_id, salesman_name FROM mf_salesman WHERE salesman_id = ? LIMIT 1";
+        $stmt_salesman_check = $link->prepare($select_salesman_check);
+        $stmt_salesman_check->execute(array($filter_salesman_id));
+        $rs_salesman_check = $stmt_salesman_check->fetch();
+
+        if (empty($rs_salesman_check)) {
+            unpaid_route_customer_pdf_all_fail_request('Salesman not found.');
+        }
+
+        $salesman_filter_name = unpaid_route_customer_pdf_all_pdf_text($rs_salesman_check['salesman_name']);
+        if ($salesman_filter_name === '') {
+            $salesman_filter_name = unpaid_route_customer_pdf_all_pdf_text($filter_salesman_id);
         }
     }
 
@@ -453,6 +498,13 @@ try {
         }
     }
 
+    // Add salesman filter if a specific salesman selected
+    if (!$is_all_salesman) {
+        $select_data .= "
+                      AND tranfile1.salesman_id = ?";
+        $select_params[] = $filter_salesman_id;
+    }
+
     $select_data .= "
                     ORDER BY mf_routes.route_desc ASC, tranfile1.route_id ASC, tranfile1.buyer_id ASC, tranfile1.trndte ASC, tranfile1.ordernum ASC, tranfile1.docnum ASC";
     $stmt_data = $link->prepare($select_data);
@@ -509,7 +561,7 @@ try {
     unpaid_route_customer_pdf_all_use_font($pdf, false);
     $pdf->ezStartPageNumbers(500, 15, 8, 'right', 'Page {PAGENUM} of {TOTALPAGENUM}', 1);
 
-    $page_y = unpaid_route_customer_pdf_all_render_page_header($pdf, $buyer_name, $date_printed, $route_filter_name);
+    $page_y = unpaid_route_customer_pdf_all_render_page_header($pdf, $buyer_name, $date_printed, $route_filter_name, $salesman_filter_name);
     $table_x = 30;
     $customer_width = 220;
     $dr_width = 160;
@@ -535,7 +587,7 @@ try {
             $minimum_needed = 60 + $row_height + $row_height + 12;
             if (($page_y - $minimum_needed) < $bottom_limit) {
                 $pdf->ezNewPage();
-                $page_y = unpaid_route_customer_pdf_all_render_page_header($pdf, $buyer_name, $date_printed, $route_filter_name);
+                $page_y = unpaid_route_customer_pdf_all_render_page_header($pdf, $buyer_name, $date_printed, $route_filter_name, $salesman_filter_name);
             }
 
             $chunk_count++;
@@ -632,19 +684,26 @@ try {
                 $page_y -= 18;
             } else {
                 $pdf->ezNewPage();
-                $page_y = unpaid_route_customer_pdf_all_render_page_header($pdf, $buyer_name, $date_printed, $route_filter_name);
+                $page_y = unpaid_route_customer_pdf_all_render_page_header($pdf, $buyer_name, $date_printed, $route_filter_name, $salesman_filter_name);
             }
         }
     }
 
     if ($rendered_routes === 0) {
+        $active_filter_labels = array();
+        if (!$is_all_routes) {
+            $active_filter_labels[] = 'route';
+        }
+        if (!$is_all_buyers) {
+            $active_filter_labels[] = 'buyer(s)';
+        }
+        if (!$is_all_salesman) {
+            $active_filter_labels[] = 'salesman';
+        }
+
         $no_data_message = 'No unpaid sales transactions found';
-        if (!$is_all_routes && !$is_all_buyers) {
-            $no_data_message .= ' for the selected route and buyer(s).';
-        } elseif (!$is_all_routes) {
-            $no_data_message .= ' for the selected route.';
-        } elseif (!$is_all_buyers) {
-            $no_data_message .= ' for the selected buyer(s).';
+        if (!empty($active_filter_labels)) {
+            $no_data_message .= ' for the selected ' . implode(' and ', $active_filter_labels) . '.';
         } else {
             $no_data_message .= '.';
         }
@@ -652,7 +711,7 @@ try {
     } else {
         if (($page_y - ($row_height + 10)) < $bottom_limit) {
             $pdf->ezNewPage();
-            $page_y = unpaid_route_customer_pdf_all_render_page_header($pdf, $buyer_name, $date_printed, $route_filter_name);
+            $page_y = unpaid_route_customer_pdf_all_render_page_header($pdf, $buyer_name, $date_printed, $route_filter_name, $salesman_filter_name);
         }
 
         $page_y = unpaid_route_customer_pdf_all_draw_total_row(

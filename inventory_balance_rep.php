@@ -8,6 +8,39 @@
     require_once('ezpdfclass/class/class.ezpdf.php');
     require_once('resources/func_pdf2tab.php');
 
+    function normalize_inventory_item_codes($items) {
+        $items = is_array($items) ? $items : array($items);
+        $normalized = array();
+        foreach($items as $item) {
+            if(is_scalar($item) && trim((string)$item) !== '') {
+                $normalized[] = trim((string)$item);
+            }
+        }
+        return array_values(array_unique($normalized));
+    }
+
+    function valid_inventory_item_codes($link, $items) {
+        if(empty($items)) {
+            return array();
+        }
+
+        $placeholders = implode(',', array_fill(0, count($items), '?'));
+        $statement = $link->prepare("SELECT itmcde FROM itemfile WHERE itmcde IN ({$placeholders})");
+        $statement->execute($items);
+        $valid_codes = $statement->fetchAll(PDO::FETCH_COLUMN);
+        $valid_lookup = array_fill_keys(array_map('strval', $valid_codes), true);
+
+        return array_values(array_filter($items, function($item) use ($valid_lookup) {
+            return isset($valid_lookup[(string)$item]);
+        }));
+    }
+
+    function append_inventory_item_filter(&$filter, &$params, $column, $items) {
+        $placeholders = implode(',', array_fill(0, count($items), '?'));
+        $filter .= " AND {$column} IN ({$placeholders})";
+        $params = array_merge($params, $items);
+    }
+
     // ========================================================================
     // PRE-GENERATION FLOW: Handle token-based retrieval of pre-generated report
     // ========================================================================
@@ -82,10 +115,12 @@
         header('Content-Type: application/json; charset=utf-8');
 
         // Backend validation: require item selection
-        if(!isset($_POST['item']) || trim($_POST['item']) === ''){
-            echo json_encode(array('success' => false, 'error' => 'Please select an item before exporting.'));
+        $selected_items = valid_inventory_item_codes($link, normalize_inventory_item_codes(isset($_POST['item']) ? $_POST['item'] : array()));
+        if(empty($selected_items)){
+            echo json_encode(array('success' => false, 'error' => 'Please select at least one item.'));
             exit;
         }
+        $_POST['item'] = $selected_items;
 
         // Generate a unique token
         $token = bin2hex(random_bytes(16));
@@ -143,10 +178,11 @@
     // ========================================================================
 
     // Backend validation: require item selection
-    if(!isset($_POST['item']) || trim($_POST['item']) === ''){
+    $selected_items = valid_inventory_item_codes($link, normalize_inventory_item_codes(isset($_POST['item']) ? $_POST['item'] : array()));
+    if(empty($selected_items)){
         header('Content-Type: text/html; charset=utf-8');
         echo '<!DOCTYPE html><html><head><title>Export Error</title></head><body>';
-        echo '<h3>Export Error</h3><p>Please select an item before exporting.</p>';
+        echo '<h3>Export Error</h3><p>Please select at least one item.</p>';
         echo '<p><a href="javascript:window.close();">Close this window</a></p>';
         echo '</body></html>';
         exit;
@@ -237,10 +273,7 @@
         $params[] = $date_sql;
     }
 
-    if(isset($_POST['item']) && !empty($_POST['item'])){
-        $xfilter .= " AND tranfile2.itmcde = ?";
-        $params[] = $_POST['item'];
-    }
+    append_inventory_item_filter($xfilter, $params, 'tranfile2.itmcde', $selected_items);
 
     // FIX 1: Wrap in a subquery so the CASE/SUM expression is computed only once.
     //         The old HAVING clause duplicated the entire SUM(CASE...) block, meaning
@@ -576,10 +609,8 @@
             $params[] = $date_sql;
         }
 
-        if(isset($post_data['item']) && !empty($post_data['item'])){
-            $xfilter .= " AND tranfile2.itmcde = ?";
-            $params[] = $post_data['item'];
-        }
+        $selected_items = normalize_inventory_item_codes(isset($post_data['item']) ? $post_data['item'] : array());
+        append_inventory_item_filter($xfilter, $params, 'tranfile2.itmcde', $selected_items);
 
         $select_db = "
             SELECT *

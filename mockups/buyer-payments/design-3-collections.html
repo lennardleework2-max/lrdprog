@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Design 3 · Collections Workspace (Mockup)</title>
+<link rel="shortcut icon" href="../../images/logo_short.png">
+<link rel="stylesheet" href="../../bootstrap/css/bootstrap.min.css">
+<link rel="stylesheet" href="../../bootstrap/icons/font/bootstrap-icons.css">
+<link rel="stylesheet" href="bp-base.css">
+<style>
+/* ===== Design 3: action-focused collections workspace ===== */
+body{background:#eef1f5}
+.topnav{display:flex;gap:4px;align-items:center;padding:10px 16px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.topnav h2{font-size:19px;font-weight:800;margin:0 12px 0 0}
+.topnav [role="tab"]{border:0;background:none;padding:8px 14px;border-radius:10px;font-weight:700;color:var(--muted);min-height:40px}
+.topnav [role="tab"][aria-selected="true"]{background:var(--brand-soft);color:var(--brand)}
+.topnav .sp{flex:1}
+.today{display:flex;gap:10px;padding:12px 16px;overflow-x:auto}
+.today .st{background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 14px;min-width:170px;flex:1}
+.today .st .k{font-size:12px;color:var(--muted);font-weight:700}
+.today .st .v{font-size:19px;font-weight:800}
+.view{padding:0 16px 90px}
+.view[hidden]{display:none}
+
+/* queue */
+.q_layout{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:16px;align-items:start}
+.q_tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.q_tools .search{flex:1 1 240px;position:relative}
+.q_tools .search i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--subtle)}
+.q_tools .search input{padding-left:36px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:#fff;border-radius:999px;font-size:13px;font-weight:600;padding:6px 12px;min-height:38px;color:var(--muted)}
+.chip[aria-pressed="true"]{background:#18202b;border-color:#18202b;color:#fff}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.bcard{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;text-align:left;width:100%;display:flex;flex-direction:column;gap:8px;transition:transform var(--t),box-shadow var(--t),border-color var(--t);min-width:0}
+.bcard:hover{transform:translateY(-2px);box-shadow:var(--shadow-2)}
+.bcard[aria-pressed="true"]{border-color:var(--brand);box-shadow:0 0 0 3px rgba(31,78,140,.15)}
+.bcard .n{font-weight:700;overflow-wrap:anywhere}
+.bcard .o{font-size:20px;font-weight:800}
+.bcard .flags{display:flex;gap:4px;flex-wrap:wrap}
+
+/* quick pay panel */
+.qp{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-1);position:sticky;top:70px;max-height:calc(100vh - 86px);overflow:auto}
+.qp_head{padding:16px;border-bottom:3px solid var(--line-strong)}
+.qp_head h3{font-size:18px;font-weight:800;margin:4px 0;overflow-wrap:anywhere}
+.qp_nums{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+.qp_nums div{background:var(--surface-2);border-radius:10px;padding:6px 8px}
+.qp_nums small{display:block;font-size:11px;color:var(--muted);font-weight:700}
+.qp_nums b{font-size:13.5px}
+.qp form{padding:16px}
+.mseg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px}
+.mseg button{border:1.5px solid #cfd5dd;background:#fff;border-radius:12px;padding:8px 4px;font-size:12px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:58px}
+.mseg button i{font-size:18px}
+.mseg button[aria-checked="true"]{border-color:var(--brand);background:var(--brand-soft);color:var(--brand)}
+.quick{display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 10px}
+.quick button{font-size:12px;border:1px dashed #9fb4d4;background:#f5f9ff;border-radius:999px;padding:4px 10px;color:var(--brand);font-weight:600;min-height:32px}
+.qp_empty{padding:40px 20px;text-align:center;color:var(--muted)}
+.qp_empty i{font-size:34px;display:block;margin-bottom:6px}
+.qp .close_m{display:none}
+
+/* cheque board */
+.board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.col_b{background:#e4e8ee;border-radius:16px;padding:10px;min-width:0}
+.col_b h4{font-size:13px;font-weight:800;margin:4px 4px 10px;display:flex;justify-content:space-between}
+.chq{background:#fff;border-radius:12px;padding:10px;margin-bottom:8px;box-shadow:var(--shadow-1);border-left:4px solid var(--c,#94a3b8)}
+.chq .who{font-weight:700;font-size:13px;overflow-wrap:anywhere}
+.chq .ref{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.chq .acts{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
+.chq .acts button{font-size:12px;min-height:32px;padding:2px 8px}
+
+/* activity */
+.tl{max-width:720px;list-style:none;padding:0;margin:0;border-left:2px solid var(--line);margin-left:10px}
+.tl li{position:relative;padding:4px 0 16px 22px}
+.tl li::before{content:"";position:absolute;left:-7px;top:8px;width:12px;height:12px;border-radius:50%;background:var(--c,#94a3b8);border:2px solid #fff}
+.tl .t{font-size:12px;color:var(--muted)}
+
+.botnav{display:none}
+@media (max-width: 991.98px){
+    .q_layout{grid-template-columns:minmax(0,1fr)}
+    .qp{position:fixed;inset:0;top:auto;max-height:92vh;border-radius:20px 20px 0 0;z-index:1050;transform:translateY(102%);transition:transform .25s var(--ease)}
+    .qp.open{transform:none}
+    .qp .close_m{display:inline-flex}
+    .board{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width: 575.98px){
+    .topnav [role="tab"]{display:none}
+    .botnav{display:flex;position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);z-index:30;padding-bottom:env(safe-area-inset-bottom)}
+    .botnav [role="tab"]{flex:1;border:0;background:none;padding:8px 4px;font-size:12px;font-weight:700;color:var(--muted);display:flex;flex-direction:column;align-items:center;min-height:56px}
+    .botnav [role="tab"] i{font-size:20px}
+    .botnav [role="tab"][aria-selected="true"]{color:var(--brand)}
+    .board{grid-template-columns:minmax(0,1fr)}
+    .today .st{min-width:140px}
+}
+</style>
+</head>
+<body>
+<div class="mock_bar">
+    <b>MOCKUP</b><span class="tag">Sample data · nothing is saved</span><span>Design 3 · Collections Workspace</span>
+    <nav aria-label="Mockup designs"><a href="index.html">Compare</a><a href="design-1-dashboard.html">Design 1</a><a href="design-2-ledger.html">Design 2</a><a href="design-3-collections.html" aria-current="page">Design 3</a></nav>
+</div>
+<header class="lrd_top"><img src="../../images/logo_horizontal.png" alt="LRD"><div class="sys"><b>LRD SYSTEM</b><small>v1.0 · preview</small></div></header>
+
+<div class="topnav" role="tablist" aria-label="Sections">
+    <h2>Collections</h2>
+    <button type="button" role="tab" data-view="queue" aria-selected="true"><i class="bi bi-list-task"></i> Queue</button>
+    <button type="button" role="tab" data-view="cheques" aria-selected="false"><i class="bi bi-kanban"></i> Cheque Monitor</button>
+    <button type="button" role="tab" data-view="activity" aria-selected="false"><i class="bi bi-clock-history"></i> Activity</button>
+    <span class="sp"></span>
+    <button type="button" class="btn btn-ghost btn-sm text-danger" id="btn_reset"><i class="bi bi-arrow-counterclockwise"></i> Reset</button>
+</div>
+
+<div class="today" id="today"></div>
+
+<section class="view" id="v-queue">
+    <div class="q_layout">
+        <div>
+            <div class="q_tools">
+                <div class="search"><i class="bi bi-search"></i><label for="q" class="visually-hidden">Search</label><input type="search" id="q" class="form-control" placeholder="Search buyer…  ( / )" autocomplete="off"></div>
+                <div class="chips" id="chips">
+                    <button type="button" class="chip" data-f="due" aria-pressed="true">With balance</button>
+                    <button type="button" class="chip" data-f="Unpaid" aria-pressed="false">Unpaid</button>
+                    <button type="button" class="chip" data-f="Partial" aria-pressed="false">Partial</button>
+                    <button type="button" class="chip" data-f="Paid" aria-pressed="false">Paid</button>
+                    <button type="button" class="chip" data-f="onhand" aria-pressed="false">Cheques on hand</button>
+                    <button type="button" class="chip" data-f="returned" aria-pressed="false">Returned</button>
+                </div>
+            </div>
+            <div class="cards" id="cards"></div>
+        </div>
+        <aside class="qp" id="qp" aria-label="Quick pay"></aside>
+    </div>
+</section>
+
+<section class="view" id="v-cheques" hidden><div class="board" id="board"></div></section>
+<section class="view" id="v-activity" hidden><ul class="tl" id="tl"></ul></section>
+
+<nav class="botnav" role="tablist" aria-label="Sections">
+    <button type="button" role="tab" data-view="queue" aria-selected="true"><i class="bi bi-list-task"></i>Queue</button>
+    <button type="button" role="tab" data-view="cheques" aria-selected="false"><i class="bi bi-kanban"></i>Cheques</button>
+    <button type="button" role="tab" data-view="activity" aria-selected="false"><i class="bi bi-clock-history"></i>Activity</button>
+</nav>
+
+<script src="bp-core.js"></script>
+<script src="bp-ui.js"></script>
+<script src="design-3.js"></script>
+</body>
+</html>

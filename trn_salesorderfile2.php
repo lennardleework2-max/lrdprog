@@ -167,6 +167,23 @@ if($default_uom_desc === '' && !empty($ordered_uom_options)){
 
 $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uom_desc;
 
+$salesprice_type_options = array();
+$stmt_salesprice_type = $link->prepare("SELECT salesprice_id, salesprice_desc FROM mf_salespricetype ORDER BY salesprice_id ASC");
+$stmt_salesprice_type->execute();
+while($rs_salesprice_type = $stmt_salesprice_type->fetch()){
+    if($rs_salesprice_type['salesprice_id'] === 'SID-00002' && $hide_cost_price_crud){
+        continue;
+    }
+    if($rs_salesprice_type['salesprice_id'] === 'SID-00001' && $hide_distri_price_crud){
+        continue;
+    }
+    $salesprice_type_options[] = array(
+        'salesprice_id' => $rs_salesprice_type['salesprice_id'],
+        'salesprice_desc' => $rs_salesprice_type['salesprice_desc']
+    );
+}
+$default_salesprice_id = 'SID-00003';
+
 ?>
 
         <style>
@@ -528,6 +545,18 @@ $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uo
 
                             <div class="row m-3">
                                 <div class="col-12">
+                                    <label for="">Select Pricing</label>
+                                    <select name="salesprice_id_add" id="salesprice_id_add" class="form-select">
+                                        <option value="">Select Pricing</option>
+                                        <?php foreach($salesprice_type_options as $salesprice_type_option): ?>
+                                            <option value="<?php echo htmlspecialchars($salesprice_type_option['salesprice_id'], ENT_QUOTES); ?>" <?php echo ($salesprice_type_option['salesprice_id'] === $default_salesprice_id) ? 'selected' : ''; ?>><?php echo htmlspecialchars($salesprice_type_option['salesprice_desc'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
                                     <label for="">Price per unit</label>
                                     <input type="text" name="price_add" id="price_add" class="form-control" autocomplete="off" oninput="calcTotal('add')">
                                 </div>
@@ -607,6 +636,18 @@ $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uo
                                         <?php endif; ?>
                                         <?php foreach($ordered_uom_options as $uom_option): ?>
                                             <option value="<?php echo htmlspecialchars($uom_option['unmcde'], ENT_QUOTES); ?>" data-default-label="<?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?>" <?php echo ($default_uom_code !== '' && $uom_option['unmcde'] === $default_uom_code) ? 'selected' : ''; ?>><?php echo htmlspecialchars($uom_option['unmdsc'], ENT_QUOTES); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row m-3">
+                                <div class="col-12">
+                                    <label for="">Select Pricing</label>
+                                    <select name="salesprice_id_edit" id="salesprice_id_edit" class="form-select">
+                                        <option value="">Select Pricing</option>
+                                        <?php foreach($salesprice_type_options as $salesprice_type_option): ?>
+                                            <option value="<?php echo htmlspecialchars($salesprice_type_option['salesprice_id'], ENT_QUOTES); ?>"><?php echo htmlspecialchars($salesprice_type_option['salesprice_desc'], ENT_QUOTES); ?></option>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
@@ -713,6 +754,8 @@ $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uo
         var trncde = $("#trncde_hidden").val();
         var defaultUomCode = <?php echo json_encode($default_uom_code); ?>;
         var baseUomDisplay = <?php echo json_encode($base_uom_display); ?>;
+        var defaultSalesPriceId = <?php echo json_encode($default_salesprice_id); ?>;
+        var editPriceIsRestricted = false;
 
         $(document).ready(function(){
             var docnum = $("#docnum_hidden").val();
@@ -752,6 +795,10 @@ $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uo
 
 
         function calcTotal(event){
+
+            if(event == "edit" && editPriceIsRestricted){
+                return;
+            }
 
             if(event == "add"){
                 var price=$("#price_add").val();
@@ -914,6 +961,43 @@ $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uo
             $select.prop("disabled", true);
         }
 
+        function updateItemSalesPrice(mode){
+            var priceSelector = mode === "edit" ? "#price_edit" : "#price_add";
+            var itmcdeSelector = mode === "edit" ? "#itmcde_edit_hidden" : "#itmcde_add_hidden";
+            var salespriceSelector = mode === "edit" ? "#salesprice_id_edit" : "#salesprice_id_add";
+
+            var itmcde = $.trim($(itmcdeSelector).val() || "");
+            var salespriceId = $.trim($(salespriceSelector).val() || "");
+
+            if(itmcde === "" || salespriceId === ""){
+                return;
+            }
+
+            $.ajax({
+                data: {
+                    event_action: "get_item_sales_price",
+                    itmcde: itmcde,
+                    salesprice_id: salespriceId
+                },
+                dataType: "json",
+                type: "post",
+                url: "trn_salesorderfile2_ajax.php",
+                success: function(xdata){
+                    if($.trim($(itmcdeSelector).val() || "") !== itmcde){
+                        return;
+                    }
+                    if($.trim($(salespriceSelector).val() || "") !== salespriceId){
+                        return;
+                    }
+                    if(xdata["price"] === null || typeof xdata["price"] === "undefined"){
+                        return;
+                    }
+                    $(priceSelector).val(xdata["price"]);
+                    calcTotal(mode);
+                }
+            });
+        }
+
         function print_pdf(){
 
             document.forms.myforms.target = "_blank";
@@ -986,6 +1070,9 @@ $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uo
                 $("#insert_modal_sales").modal("show");
                 $("#current_stock_add").val(xcurrent_stock);
                 updateItemUomDropdown("#unmcde_add", xitmcde, $("#unmcde_add").val() || defaultUomCode);
+
+                $("#salesprice_id_add").val(defaultSalesPriceId);
+                updateItemSalesPrice("add");
             }else if(xevent_action == 'edit'){
 
                 $(".error_msg_edit_modal").html("");
@@ -1003,6 +1090,8 @@ $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uo
                 $("#view_itm_search").modal("hide");
                 $("#edit_modal_sales").modal("show");
                 updateItemUomDropdown("#unmcde_edit", xitmcde, $("#unmcde_edit").val() || defaultUomCode);
+                $("#salesprice_id_edit").val(defaultSalesPriceId);
+                updateItemSalesPrice("edit");
             }
 
             $(".error_msg_itm_view").html("");
@@ -1035,6 +1124,14 @@ $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uo
                 if (event.key === 'Enter' || event.keyCode === 13) {
                     search_itm_func('add');
                 }
+            });
+
+            $("#salesprice_id_add").on("change", function(){
+                updateItemSalesPrice("add");
+            });
+
+            $("#salesprice_id_edit").on("change", function(){
+                updateItemSalesPrice("edit");
             });
         });
 
@@ -1165,6 +1262,7 @@ $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uo
                     $("#amount_add").val('');
                     $("#itmqty_add").val('');
                     setInitialUomDropdownState("#unmcde_add");
+                    $("#salesprice_id_add").val(defaultSalesPriceId);
                     $("#itmcde_add").val('');
                     $("#itmcde_add_hidden").val('');
                     $(".error_msg_add_modal").html('');
@@ -1182,6 +1280,9 @@ $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uo
                     var trndte_1_val = $("#trndte_1").val();
                     var cusname1_val = $("#cusname_1").val();
                     var xdata  = $("#edit_modal_sales *").serialize()+"&event_action="+event+"&docnum="+docnum+"&recid="+recid+"&xtrndte_1="+trndte_1_val+"&xcusname_1="+cusname1_val;
+                    if(editPriceIsRestricted){
+                        xdata += "&price_edit=__RESTRICTED__&amount_edit=__RESTRICTED__";
+                    }
                 break;
                 case "getEdit": 
                     var xdata = "event_action=getEdit&recid="+xrecid+"&docnum="+docnum;
@@ -1285,11 +1386,19 @@ $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uo
                             
                             $("#itmcde_edit_hidden").val(xdata["retEdit"]["itmcde"]);
                             $("#itmcde_edit").val(xdata["retEdit"]["itmdsc"]);
-                            $("#price_edit").val(xdata["retEdit"]["untprc"]);
-                            $("#amount_edit").val(xdata["retEdit"]["extprc"]);
+                            editPriceIsRestricted = xdata["retEdit"]["untprc"] === "__RESTRICTED__";
+                            $("#price_edit").val(editPriceIsRestricted ? "Restricted" : xdata["retEdit"]["untprc"]);
+                            $("#price_edit").prop('readonly', editPriceIsRestricted);
+                            $("#amount_edit").val(editPriceIsRestricted ? "Restricted" : xdata["retEdit"]["extprc"]);
                             $("#itmqty_edit").val(xdata["retEdit"]["itmqty"]);
                             updateItemUomDropdown("#unmcde_edit", xdata["retEdit"]["itmcde"], xdata["retEdit"]["unmcde"], true);
                             $("#wholesaleprc_edit").val(xdata["retEdit"]["wholesaleprc"]);
+                            var editSalesPriceId = xdata["retEdit"]["salesprice_id"] || defaultSalesPriceId;
+                            if(editSalesPriceId === "__RESTRICTED__"){
+                                $("#salesprice_id_edit option[value='__RESTRICTED__']").remove();
+                                $("#salesprice_id_edit").prepend("<option value='__RESTRICTED__'>Restricted pricing — current unit price retained</option>");
+                            }
+                            $("#salesprice_id_edit").val(editSalesPriceId);
                             $(".error_msg_edit_modal").html('');
 
                             $("#salesfile2_recid_hidden").val(xdata["retEdit"]["recid"]);

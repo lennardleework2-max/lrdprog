@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Navbar Mockup 3</title>
+<link rel="shortcut icon" href="../images/logo_only.png">
+<link rel="stylesheet" href="../bootstrap/css/bootstrap.min.css">
+<link rel="stylesheet" href="../css/all.min.css">
+<link rel="stylesheet" href="../bootstrap/icons/font/bootstrap-icons.css">
+<link rel="stylesheet" href="navbar-mock.css">
+</head>
+<body>
+
+<div class="mock_bar">
+    <b>MOCKUP</b><span>Option 3 &middot; Compact sidebar + Pinned / Recent</span>
+    <a href="navbar-option-1.html">Option 1</a><a href="navbar-option-2.html">Option 2</a><a href="navbar-option-3.html" class="on">Option 3</a>
+</div>
+
+<!-- app shell (unchanged system header) -->
+<div class="container-fluid">
+    <div class="row app_top">
+        <div class="col-6 pe-0"><img src="../images/logo_horizontal.png" style="height:50px;width:100px;"></div>
+        <div class="col-6 text-white text-end"><div style="font-family:arial;font-weight:bold">LRD SYSTEM</div><div style="font-size:.8rem">v1.0</div></div>
+    </div>
+    <div class="row app_sub align-items-center">
+        <div class="col-2"><button class="nav_toggle" data-nav-toggle><i class="fas fa-bars"></i></button></div>
+        <div class="col-10 text-end" style="font-size:13px"><b>admin</b> <i class="far fa-user-circle mx-2"></i> <a href="#" class="text-dark fw-bold text-decoration-none"><i class="bi bi-box-arrow-right"></i> Logout</a></div>
+    </div>
+</div>
+
+<div class="shell">
+    <aside class="side">
+        <div class="side_search"><div class="box"><i class="fas fa-search"></i><input type="search" placeholder="Search pages…"><kbd>Ctrl K</kbd></div></div>
+        <div class="quick">
+            <div class="side_label"><i class="fas fa-star" style="color:#fcc419"></i>Pinned</div>
+            <div id="nav_pins"></div>
+            <div class="side_label"><i class="fas fa-history"></i>Recent</div>
+            <div id="nav_recent"></div>
+            <div class="side_label"><i class="fas fa-bars"></i>All menus</div>
+        </div>
+        <div id="nav_root"></div>
+        <div class="nav_empty" id="nav_empty" hidden>No pages match your search.</div>
+    </aside>
+    <div class="nav_backdrop" data-nav-toggle></div>
+
+    <main class="main">
+        <div class="crumb" id="crumb"></div>
+        <div class="card_x page_card mb-3">
+            <h1 id="page_title"></h1>
+            <div class="skel" style="width:60%"></div><div class="skel"></div><div class="skel" style="width:85%"></div><div class="skel" style="width:70%"></div>
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-6 col-md-3"><div class="tile"><div class="k">Top-level items</div><div class="v"><s>21</s>13</div></div></div>
+            <div class="col-6 col-md-3"><div class="tile"><div class="k">Clicks to a pinned page</div><div class="v">1</div></div></div>
+            <div class="col-6 col-md-3"><div class="tile"><div class="k">Users relearn the menu?</div><div class="v" style="font-size:16px;padding-top:5px">Barely</div></div></div>
+            <div class="col-6 col-md-3"><div class="tile"><div class="k">DB schema change</div><div class="v" style="font-size:16px;padding-top:5px"><span class="pill warn">+1 column</span></div></div></div>
+        </div>
+
+        <div class="card_x mb-3">
+            <h2 class="sec">How it works</h2>
+            <ul class="how">
+                <li>The menu users know stays almost the same. Only the 10 scattered master files are folded into <b>Master Files</b>.</li>
+                <li><b>Pinned</b>: hover any page and click ★. Each user keeps their own favourites at the top.</li>
+                <li><b>Recent</b>: the last 5 pages you opened, kept in your browser.</li>
+                <li>Search hides Pinned/Recent and filters the whole menu. <kbd>Enter</kbd> opens the first match.</li>
+                <li>Smallest change to how people already work. Least clean long-term, because Sales still has 10+ items.</li>
+            </ul>
+        </div>
+
+        <div class="card_x">
+            <h2 class="sec">Implied DB changes <span class="pill warn">1 new column</span></h2>
+            <p class="text-muted mb-0">One new column on <code>user_menus</code> for pins, plus the Master Files grouping. Recent pages live in the browser (no DB).
+            Preview only. You'll get the final SQL with the implementation plan.</p>
+<pre class="sql"><span class="c">-- 1) Pins per user + page (same style as add/edit/view flags)</span>
+ALTER TABLE user_menus ADD COLUMN is_pinned varchar(1) DEFAULT NULL AFTER hide_distri_price;
+
+<span class="c">-- 2) Master Files group (reuses the orphan code of recid 93)</span>
+INSERT INTO menus (mencap, menprogram, menlogo, menidx, mennum, mensub, mengrp, is_removed, is_disabled, has_crud) VALUES
+('Master Files', '', 'fas fa-folder-open', '1.00', 0.00, 'MASTERFILE-MAIN', '1', '', '', '');
+UPDATE menus SET mengrp='MASTERFILE-MAIN', menidx='x' WHERE recid IN (7,8,35,58,59,62,227,240,248,262);</pre>
+            <p class="text-muted mt-3 mb-0"><b>Code:</b> <code>includes/main_menu.php</code> (JOIN query, search, Pinned/Recent block) plus a small ajax file to toggle <code>is_pinned</code>.
+            Admins have no <code>user_menus</code> rows, so admin pins would need their own handling (e.g. browser only).</p>
+        </div>
+    </main>
+</div>
+
+<script src="navbar-mock.js"></script>
+<script>
+initSidebar({pins:true, tree:[
+    'dash',
+    {g:'Master Files', i:'fas fa-folder-open', c:MASTER},
+    {g:'Purchases Order', i:'fas fa-money-check-alt', c:['po_trn','po_up','po_uph', R.por]},
+    {g:'Purchases', i:'fas fa-shopping-cart', c:['pur_trn', R.pur]},
+    {g:'Sales Order', i:'fas fa-money-check-alt', c:['so_trn', R.sor]},
+    {g:'Sales', i:'fas fa-coins', c:['payout','s_up','s_view','s_hist','s_del','s_delh','sal_trn','s_paid', R.sal, R.cost]},
+    {g:'Expenses', i:'fas fa-credit-card', c:['exp_trn','exp_type', R.exp]},
+    {g:'Sales Return', i:'fas fa-wallet', c:['ret_trn', R.ret]},
+    {g:'Stock Transfer', i:'fas fa-warehouse', c:['whse','st_trn','wstaff']},
+    {g:'Inventory Adjustments', i:'fas fa-sort-amount-down-alt', c:['adj_trn', R.adj]},
+    'attend',
+    {g:'Reports', i:'far fa-file-pdf', c:R.inv.c},
+    {g:'Utilities', i:'fas fa-cogs', c:['users','log','pass','fixes']}
+]});
+initQuick({defaults:['sal_trn','inv_bal','s_up']});
+showPage('sal_trn');
+document.querySelectorAll('#nav_root .nav_group').forEach(g => g.classList.toggle('open', !!g.querySelector('.nav_leaf.active')));
+</script>
+</body>
+</html>

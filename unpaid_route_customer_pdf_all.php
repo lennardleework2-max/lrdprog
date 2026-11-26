@@ -96,6 +96,38 @@ $trncde = "SAL";
                                     </td>
                                 </tr>
 
+                                <tr style='height:12.5%'>
+
+                                    <td colspan="2">
+
+                                        <div class="w-100 h-100 d-flex justify-content-center align-items-top">
+
+                                            <div class="m-2" style='width:80%'>
+
+                                                <label for="salesman_id">Salesman :</label>
+
+                                                <select class="form-select" id="salesman_id" name="salesman_id" autocomplete="off" style="width:100%">
+                                                    <option value="all" selected>None</option>
+                                                    <?php
+                                                        $select_db_salesman = "SELECT salesman_id, salesman_name FROM mf_salesman ORDER BY salesman_name ASC";
+                                                        $stmt_salesman = $link->prepare($select_db_salesman);
+                                                        $stmt_salesman->execute();
+
+                                                        while($rs_salesman = $stmt_salesman->fetch()){
+                                                            $salesman_id_opt = isset($rs_salesman['salesman_id']) ? htmlspecialchars((string)$rs_salesman['salesman_id'], ENT_QUOTES, 'UTF-8') : '';
+                                                            $salesman_name_opt = isset($rs_salesman['salesman_name']) ? htmlspecialchars((string)$rs_salesman['salesman_name'], ENT_QUOTES, 'UTF-8') : '';
+                                                            echo "<option value=\"".$salesman_id_opt."\">".$salesman_name_opt."</option>";
+                                                        }
+                                                    ?>
+                                                </select>
+
+                                            </div>
+
+                                        </div>
+
+                                    </td>
+                                </tr>
+
                                 <tr>
 
                                     <td colspan="2" class="py-4">
@@ -197,6 +229,14 @@ $trncde = "SAL";
                     allowClear: true,
                     width: '100%',
                     closeOnSelect: false
+                });
+
+                // Initialize salesman dropdown with Select2
+                $('#salesman_id').select2({
+                    theme: 'bootstrap-5',
+                    placeholder: 'Select Salesman',
+                    allowClear: false,
+                    width: '100%'
                 });
 
                 // Load buyers when route changes

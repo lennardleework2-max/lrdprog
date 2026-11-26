@@ -144,6 +144,25 @@ while($rs_floor = $stmt_floor->fetch()){
     );
 }
 
+$platform_shop_map = array();
+$stmt_platform_shop = $link->prepare(
+    "SELECT mp.platform_desc, mps.platform_shop_id, mps.platform_shop_title
+     FROM mf_platform_shop mps
+     INNER JOIN mf_platform mp ON mp.platform_id = mps.platform_id
+     ORDER BY mp.platform_desc ASC, mps.platform_shop_title ASC"
+);
+$stmt_platform_shop->execute();
+while($rs_platform_shop = $stmt_platform_shop->fetch()){
+    $shop_platform_desc = trim((string)$rs_platform_shop['platform_desc']);
+    if(!isset($platform_shop_map[$shop_platform_desc])){
+        $platform_shop_map[$shop_platform_desc] = array();
+    }
+    $platform_shop_map[$shop_platform_desc][] = array(
+        'platform_shop_id' => $rs_platform_shop['platform_shop_id'],
+        'platform_shop_title' => $rs_platform_shop['platform_shop_title']
+    );
+}
+
 $warehouse_staff_options = array();
 $stmt_staff = $link->prepare("SELECT warehouse_staff_id, fname, lname FROM warehouse_staff ORDER BY fname ASC, lname ASC");
 $stmt_staff->execute();
@@ -151,6 +170,16 @@ while($rs_staff = $stmt_staff->fetch()){
     $warehouse_staff_options[] = array(
         'warehouse_staff_id' => $rs_staff['warehouse_staff_id'],
         'staff_name' => trim($rs_staff['fname'].' '.$rs_staff['lname'])
+    );
+}
+
+$salesprice_type_options = array();
+$stmt_salesprice_type = $link->prepare("SELECT salesprice_id, salesprice_desc FROM mf_salespricetype ORDER BY salesprice_id ASC");
+$stmt_salesprice_type->execute();
+while($rs_salesprice_type = $stmt_salesprice_type->fetch()){
+    $salesprice_type_options[] = array(
+        'salesprice_id' => $rs_salesprice_type['salesprice_id'],
+        'salesprice_desc' => $rs_salesprice_type['salesprice_desc']
     );
 }
 
@@ -241,6 +270,8 @@ if($default_warcde !== '' && isset($warehouse_floor_map[$default_warcde])){
                 </div> 
             </div>
         </div>
+
+        <?php include "includes/module_bar.php"; ?>
 
         <div class="container-fluid">
             <div class='row bg-light' style="height:2.188rem;">
@@ -382,6 +413,12 @@ if($default_warcde !== '' && isset($warehouse_floor_map[$default_warcde])){
                                                 </select>
                                             </div>
                                             <div class="m-3">
+                                                PLATFORM SHOP:
+                                                <select name="platform_shop_id" id="platform_shop_id" class="form-control">
+                                                    <option value="">NONE</option>
+                                                </select>
+                                            </div>
+                                            <div class="m-3">
                                                 <label for="warcde" class="mb-1">Warehouse</label>
                                                 <select name="warcde" id="warcde" class="form-select">
                                                     <option value="">Select Warehouse</option>
@@ -402,6 +439,15 @@ if($default_warcde !== '' && isset($warehouse_floor_map[$default_warcde])){
                                                     <option value="">Select Warehouse Staff</option>
                                                     <?php foreach($warehouse_staff_options as $staff_option): ?>
                                                         <option value="<?php echo htmlspecialchars($staff_option['warehouse_staff_id'], ENT_QUOTES); ?>"><?php echo htmlspecialchars($staff_option['staff_name'], ENT_QUOTES); ?></option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
+                                            <div class="m-3">
+                                                <label for="salesprice_id" class="mb-1">Pricing</label>
+                                                <select name="salesprice_id" id="salesprice_id" class="form-select">
+                                                    <option value="">Default</option>
+                                                    <?php foreach($salesprice_type_options as $salesprice_type_option): ?>
+                                                        <option value="<?php echo htmlspecialchars($salesprice_type_option['salesprice_id'], ENT_QUOTES); ?>"><?php echo htmlspecialchars($salesprice_type_option['salesprice_desc'], ENT_QUOTES); ?></option>
                                                     <?php endforeach; ?>
                                                 </select>
                                             </div>
@@ -467,6 +513,23 @@ if($default_warcde !== '' && isset($warehouse_floor_map[$default_warcde])){
     var warehouseFloorMap = <?php echo json_encode($warehouse_floor_map); ?>;
     var defaultWarehouseCode = <?php echo json_encode($default_warcde); ?>;
     var defaultWarehouseFloorId = <?php echo json_encode($default_warehouse_floor_id); ?>;
+    var platformShopMap = <?php echo json_encode($platform_shop_map); ?>;
+
+    function rebuildPlatformShopOptions(platformName){
+        var $select = $("#platform_shop_id");
+        if($select.length === 0){
+            return;
+        }
+
+        var options = "<option value=''>NONE</option>";
+        var shops = platformShopMap[platformName] || [];
+
+        for(var i = 0; i < shops.length; i++){
+            options += "<option value='" + shops[i].platform_shop_id + "'>" + shops[i].platform_shop_title + "</option>";
+        }
+
+        $select.html(options);
+    }
 
     function rebuildFloorOptions(selectId, warcde, selectedFloorId, allowNone){
         var $select = $("#" + selectId);
@@ -493,6 +556,11 @@ if($default_warcde !== '' && isset($warehouse_floor_map[$default_warcde])){
 
         $("#warcde").val(defaultWarehouseCode);
         rebuildFloorOptions("warehouse_floor_id", defaultWarehouseCode, defaultWarehouseFloorId, false);
+
+        $("#platform_name").on("change", function(){
+            rebuildPlatformShopOptions($(this).val());
+        });
+        rebuildPlatformShopOptions($("#platform_name").val());
     });
 
 
@@ -694,6 +762,7 @@ if($default_warcde !== '' && isset($warehouse_floor_map[$default_warcde])){
         var warcde = $("#warcde").val();
         var warehouse_floor_id = $("#warehouse_floor_id").val();
         var warehouse_staff_id = $("#warehouse_staff_id").val();
+        var salesprice_id = $("#salesprice_id").val();
 
         if (!hasRequiredWarehouseSelection()) {
             return;
@@ -705,9 +774,11 @@ if($default_warcde !== '' && isset($warehouse_floor_map[$default_warcde])){
         xdata.append('xfile',files[0]);
         xdata.append('event_action', 'process_file');
         xdata.append('platform_name', platform_name);
+        xdata.append('platform_shop_id', $("#platform_shop_id").val());
         xdata.append('warcde', warcde);
         xdata.append('warehouse_floor_id', warehouse_floor_id);
         xdata.append('warehouse_staff_id', warehouse_staff_id);
+        xdata.append('salesprice_id', salesprice_id);
         xdata.append('usercode', ($("#usercode_hidden").val() || "").trim());
 
         jQuery.ajax({    

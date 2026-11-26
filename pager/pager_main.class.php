@@ -43,6 +43,7 @@ Class pager extends db_init{
     public $field_dropdown_list_crud = array();
     public $field_dropdown_selected_crud = array();
     public $field_dropdown_orderby_field_crud = array();
+    public $field_dropdown_filter_crud = array();
     public $table_filter_field;
     public $table_filter_value;
     
@@ -734,7 +735,28 @@ Class pager extends db_init{
         }
         echo "<div>";
 
-    } 
+    }
+
+    //builds the SELECT used to populate a dropdown_custom CRUD field's <option> list
+    public static function build_dropdown_crud_query($field_name, $field_name_value, $tablename, $filter = "", $orderby = ""){
+
+        if($field_name_value == ""){
+            $select = "SELECT ".$field_name." FROM ".$tablename;
+            if($filter != ""){
+                $select = $select . " WHERE ". $filter;
+            }
+        }else{
+            $select = "SELECT ".$field_name.", ".$field_name_value." FROM ".$tablename;
+            if($filter != ""){
+                $select = $select . " WHERE ". $filter;
+            }
+            if($orderby != ""){
+                $select = $select . " ORDER BY ". $orderby;
+            }
+        }
+
+        return $select;
+    }
 
     public function display_modal(){
 
@@ -1151,7 +1173,10 @@ Class pager extends db_init{
                                 $dropdown_tablename_crud       = $this->field_dropdown_tablename_crud[$field_name_crud_key];
 
                                 // orderby
-                                $field_dropdown_orderby_field_crud = (isset($this->field_dropdown_orderby_field_crud[$field_name_crud_key]))?($this->field_dropdown_orderby_field_crud[$field_name_crud_key]) : ""; 
+                                $field_dropdown_orderby_field_crud = (isset($this->field_dropdown_orderby_field_crud[$field_name_crud_key]))?($this->field_dropdown_orderby_field_crud[$field_name_crud_key]) : "";
+
+                                // optional WHERE filter
+                                $field_dropdown_filter_crud = (isset($this->field_dropdown_filter_crud[$field_name_crud_key]))?($this->field_dropdown_filter_crud[$field_name_crud_key]) : "";
 
                                 echo "<div class='row m-3' id='crudModal_values'>";
                                     echo "<div class='col-12'>";
@@ -1173,16 +1198,8 @@ Class pager extends db_init{
                                             echo "<label> ".$fieldheader_crud."</label>";    
                                         }
 
-                                        if($dropdown_field_name_value_crud == ""){
-                                            $select_db_dd_crud ="SELECT ".$dropdown_field_name_crud." FROM ".$dropdown_tablename_crud;
-                                        }else{
-                                            $select_db_dd_crud ="SELECT ".$dropdown_field_name_crud.", ".$dropdown_field_name_value_crud." FROM ".$dropdown_tablename_crud;
-                                            if ($field_dropdown_orderby_field_crud!=""){
-                                                $select_db_dd_crud =$select_db_dd_crud . " ORDER BY ". $field_dropdown_orderby_field_crud;
-                                            }
-                                        }
+                                        $select_db_dd_crud = self::build_dropdown_crud_query($dropdown_field_name_crud, $dropdown_field_name_value_crud, $dropdown_tablename_crud, $field_dropdown_filter_crud, $field_dropdown_orderby_field_crud);
 
-                                        
                                         $stmt_dd_crud	= $this->link->prepare($select_db_dd_crud);
                                         $stmt_dd_crud->execute();
 

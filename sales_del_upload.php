@@ -147,6 +147,8 @@ $current_datetime = date("Y-m-d H:i:s");
             </div>
         </div>
 
+        <?php include "includes/module_bar.php"; ?>
+
         <div class="container-fluid">
             <div class='row bg-light' style="height:2.188rem;">
                 <div class="col-1 pe-0">

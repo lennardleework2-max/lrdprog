@@ -316,6 +316,20 @@
                 $xret["error1"] = 1;
             }
 
+            $ordernum_input = isset($_POST['ordernum_1']) ? trim((string)$_POST['ordernum_1']) : '';
+            if($ordernum_input !== ''){
+                $select_check_ordernum = "SELECT recid FROM purchasesorderfile1 WHERE TRIM(ordernum) = ? LIMIT 1";
+                $stmt_check_ordernum = $link->prepare($select_check_ordernum);
+                $stmt_check_ordernum->execute(array($ordernum_input));
+                $rs_check_ordernum = $stmt_check_ordernum->fetch();
+
+                if(!empty($rs_check_ordernum)){
+                    $xret["status"] = 0;
+                    $xret["msg"] = "Cannot save. The same order number already exists.";
+                    $xret["error1"] = 1;
+                }
+            }
+
             if(empty($_POST['trndte_1'])){
 
                 if($xret["error1"] == 1){
@@ -361,14 +375,26 @@
 
         }else{
 
+            $recid = $rs_docnum['recid'];
+            $ordernum_input = isset($_POST['ordernum_1']) ? trim((string)$_POST['ordernum_1']) : '';
+            if($ordernum_input !== ''){
+                $select_check_ordernum = "SELECT recid FROM purchasesorderfile1 WHERE TRIM(ordernum) = ? AND recid != ? LIMIT 1";
+                $stmt_check_ordernum = $link->prepare($select_check_ordernum);
+                $stmt_check_ordernum->execute(array($ordernum_input, $recid));
+                $rs_check_ordernum = $stmt_check_ordernum->fetch();
 
-            if(empty($_POST['trndte_1'])){
+                if(!empty($rs_check_ordernum)){
+                    $xret["status"] = 0;
+                    $xret["msg"] = "Cannot save. The same order number already exists.";
+                }
+            }
+
+            if($xret["status"] == 1 && empty($_POST['trndte_1'])){
                 $xret["status"] = 0;
                 $xret["msg"] = "<b>Tran. Date</b> cannot be empty.";
-            }else{
+            }else if($xret["status"] == 1){
                 $xret["msg"] = "edit_exit";
 
-                $recid = $rs_docnum['recid'];
                 $_POST['trndte_1']  = (empty($_POST['trndte_1'])) ? NULL :  date("Y-m-d", strtotime($_POST['trndte_1']));
                 $_POST['paydate_1']  = (empty($_POST['paydate_1'])) ? NULL :  date("Y-m-d", strtotime($_POST['paydate_1']));
     

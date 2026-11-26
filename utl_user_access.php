@@ -198,343 +198,41 @@ while($rs_useraccess1 = $stmt_useraccess1->fetch()){
                     }
                 })
         }
-        function checkall_sub(mensub){
 
-            var is_checked = $(".main_"+mensub).is(':checked');
-            if(is_checked == true){
-                $('.sub_'+mensub).prop('checked', true);
-                $('.crud_add_'+mensub).prop('checked', true);
-                $('.crud_delete_'+mensub).prop('checked', true);
-                $('.crud_view_'+mensub).prop('checked', true);
-                $('.crud_edit_'+mensub).prop('checked', true);
-                $('.crud_export_'+mensub).prop('checked', true);
+        // access tree: .ua_node > .ua_row (.ua_main) + .ua_cruds (.ua_crud, .ua_hide) + .ua_children (.ua_node ...)
+        // ticking a menu ticks everything inside it (and their Add/Edit/View/Delete/Export); unticking clears it
+        $(document).on('change', '#main_chk_div .ua_main', function(){
+            var node = $(this).closest('.ua_node');
+            var on   = this.checked;
 
-                
-                $('.sub_'+mensub+'2').prop('checked', true);
-                $('.crud_add_'+mensub+'2').prop('checked', true);
-                $('.crud_delete_'+mensub+'2').prop('checked', true);
-                $('.crud_view_'+mensub+'2').prop('checked', true);
-                $('.crud_edit_'+mensub+'2').prop('checked', true);
-                $('.crud_export_'+mensub+'2').prop('checked', true);
+            node.find('.ua_main:not(:disabled)').prop('checked', on);
+            node.find('.ua_crud').prop('checked', on);
+            ua_sync_parents(node);
+        });
 
-            }else{
-                $('.sub_'+mensub).prop('checked', false);
-                $('.crud_add_'+mensub).prop('checked', false);
-                $('.crud_delete_'+mensub).prop('checked', false);
-                $('.crud_view_'+mensub).prop('checked', false);
-                $('.crud_edit_'+mensub).prop('checked', false);
-                $('.crud_export_'+mensub).prop('checked', false);
-                                
-                $('.sub_'+mensub+'2').prop('checked', false);
-                $('.crud_add_'+mensub+'2').prop('checked', false);
-                $('.crud_delete_'+mensub+'2').prop('checked', false);
-                $('.crud_view_'+mensub+'2').prop('checked', false);
-                $('.crud_edit_'+mensub+'2').prop('checked', false);
-                $('.crud_export_'+mensub+'2').prop('checked', false);
+        $(document).on('change', '#main_chk_div .ua_crud', function(){
+            var node  = $(this).closest('.ua_node');
+            var cruds = node.children('.ua_cruds').find('.ua_crud');
+            var crud  = $(this).data('crud');
+
+            // edit/delete need view; no view means no edit/delete
+            if((crud == 'edit' || crud == 'delete') && this.checked){
+                cruds.filter('[data-crud=view]').prop('checked', true);
             }
-        }
-        function checkall_sub_sub(mensub,mengrp){
+            if(crud == 'view' && !this.checked){
+                cruds.filter('[data-crud=edit], [data-crud=delete]').prop('checked', false);
+            }
 
-            var x = 0;             
-            var is_checked_sub = $(".sub_"+mengrp).is(':checked');
-            var minus = $(".main_"+mensub).is(':checked');
+            node.children('.ua_row').find('.ua_main:not(:disabled)').prop('checked', cruds.filter(':checked').length > 0);
+            ua_sync_parents(node);
+        });
 
-            $(".sub_"+mengrp).each(function(){
-               var is_checked_sub = $(this).is(':checked');
-               if(is_checked_sub == true){
-                    x++;
-               }
+        // a menu stays ticked while anything inside it is ticked
+        function ua_sync_parents(node){
+            node.parents('.ua_node').each(function(){
+                var any = $(this).children('.ua_children').find('.ua_main:checked').length > 0;
+                $(this).children('.ua_row').find('.ua_main:not(:disabled)').prop('checked', any);
             });
-
-            if(x > 0){
-                $(".main_"+mengrp).prop('checked', true);
-            }else{
-
-                $(".main_"+mengrp).prop('checked', false);
-            }
-
-            var is_checked = $(".main_"+mensub).is(':checked');
-
-            if(is_checked == true){
-                $('.sub_'+mensub).prop('checked', true);
-                $('.crud_add_'+mensub).prop('checked', true);
-                $('.crud_delete_'+mensub).prop('checked', true);
-                $('.crud_view_'+mensub).prop('checked', true);
-                $('.crud_edit_'+mensub).prop('checked', true);
-                $('.crud_export_'+mensub).prop('checked', true);
-
-            }else{
-                $('.sub_'+mensub).prop('checked', false);
-                $('.crud_add_'+mensub).prop('checked', false);
-                $('.crud_delete_'+mensub).prop('checked', false);
-                $('.crud_view_'+mensub).prop('checked', false);
-                $('.crud_edit_'+mensub).prop('checked', false);
-                $('.crud_export_'+mensub).prop('checked', false);
-            }
-        }
-        function checkall_nosub(mencap){
-
-            var is_checked = $(".main_"+mencap).is(':checked');
-            if(is_checked == true){
-
-                $('.crud_add_'+mencap).prop('checked', true);
-                $('.crud_edit_'+mencap).prop('checked', true);
-                $('.crud_delete_'+mencap).prop('checked', true);
-                $('.crud_view_'+mencap).prop('checked', true);
-                $('.crud_export_'+mencap).prop('checked', true);
-            }else{
-
-                $('.crud_add_'+mencap).prop('checked', false);
-                $('.crud_edit_'+mencap).prop('checked', false);
-                $('.crud_delete_'+mencap).prop('checked', false);
-                $('.crud_view_'+mencap).prop('checked', false);
-                $('.crud_export_'+mencap).prop('checked', false);
-            }
-        }
-        function checksub(mengrp,mencap){
-
-            var x = 0;             
-            var is_checked_sub = $(".sub_"+mencap).is(':checked');
-
-            $(".sub_"+mengrp).each(function(){
-               var is_checked = $(this).is(':checked');
-               if(is_checked == true){
-                    x++;
-               }
-            });
-
-            if(x>0){
-                $('.main_'+mengrp).prop('checked', true);
-
-            }else{
-                $('.main_'+mengrp).prop('checked', false);
-            }
-
-            if(is_checked_sub == true){
-                $('.crud_add_'+mencap).prop('checked', true);
-                $('.crud_edit_'+mencap).prop('checked', true);
-                $('.crud_delete_'+mencap).prop('checked', true);
-                $('.crud_view_'+mencap).prop('checked', true);
-                $('.crud_export_'+mencap).prop('checked', true);
-            }else{
-                $('.crud_add_'+mencap).prop('checked', false);
-                $('.crud_edit_'+mencap).prop('checked', false);
-                $('.crud_delete_'+mencap).prop('checked', false);
-                $('.crud_view_'+mencap).prop('checked', false);
-                $('.crud_export_'+mencap).prop('checked', false);
-            }
-
-
-        }
-        function checksub_sub(mengrp,mencap,mensub){
-
-            var x = 0;             
-            var is_checked_sub = $(".sub_"+mencap).is(':checked');
-
-            $(".sub_"+mengrp).each(function(){
-            var is_checked = $(this).is(':checked');
-            if(is_checked == true){
-                    x++;
-            }
-            });
-
-            if(x>0){
-                $('.main_'+mengrp).prop('checked', true);
-
-            }else{
-                $('.main_'+mengrp).prop('checked', false);
-            }
-
-            
-            if(is_checked_sub == true){
-                $('.crud_add_'+mencap).prop('checked', true);
-                $('.crud_edit_'+mencap).prop('checked', true);
-                $('.crud_delete_'+mencap).prop('checked', true);
-                $('.crud_view_'+mencap).prop('checked', true);
-                $('.crud_export_'+mencap).prop('checked', true);
-            }else{
-                $('.crud_add_'+mencap).prop('checked', false);
-                $('.crud_edit_'+mencap).prop('checked', false);
-                $('.crud_delete_'+mencap).prop('checked', false);
-                $('.crud_view_'+mencap).prop('checked', false);
-                $('.crud_export_'+mencap).prop('checked', false);
-            }
-
-
-            var x = 0;             
-            var is_checked_mengrp = $(".sub_"+mencap).is(':checked');
-
-            $(".sub_"+mensub).each(function(){
-            var is_checked = $(this).is(':checked');
-                if(is_checked == true){
-                        x++;
-                }
-            });
-
-            if(x>0){
-                $('.main_'+mensub).prop('checked', true);
-
-            }else{
-                $('.main_'+mensub).prop('checked', false);
-            }
-
-            if(is_checked_mengrp == true){
-                $('.crud_add_'+mencap).prop('checked', true);
-                $('.crud_edit_'+mencap).prop('checked', true);
-                $('.crud_delete_'+mencap).prop('checked', true);
-                $('.crud_view_'+mencap).prop('checked', true);
-                $('.crud_export_'+mencap).prop('checked', true);
-            }else{
-                $('.crud_add_'+mencap).prop('checked', false);
-                $('.crud_edit_'+mencap).prop('checked', false);
-                $('.crud_delete_'+mencap).prop('checked', false);
-                $('.crud_view_'+mencap).prop('checked', false);
-                $('.crud_export_'+mencap).prop('checked', false);
-            }
-
-
-
-        }
-        function checkcrud(level, crud, mencap,mengrp){
-
-            var x=0;
-            var is_checked_delete = $(".crud_delete_"+mencap).is(':checked');
-            var is_checked_edit = $(".crud_edit_"+mencap).is(':checked');
-            var is_checked_view = $(".crud_view_"+mencap).is(':checked');
-
-            if((crud == "edit" || crud == "delete") &&( is_checked_delete == true || is_checked_edit == true)){
-                $('.crud_view_'+mencap).prop('checked', true);
-            }
-
-
-            if(crud == "view" && is_checked_view !== true){
-                $('.crud_delete_'+mencap).prop('checked', false);
-                $('.crud_edit_'+mencap).prop('checked', false);
-            }
-
-            $(".crud_"+mencap).each(function(){
-               var is_checked = $(this).is(':checked');
-               if(is_checked == true){
-                    x++;
-               }
-            });
-
-            if(x>0){
-                
-                if(level == "sub"){
-                    $('.sub_'+mencap).prop('checked', true);
-                    $('.main_'+mengrp).prop('checked', true);
-                }else{
-                    $('.main_'+mencap).prop('checked', true);
-                }
-
-            }else{
-
-                if(level == "sub"){
-
-                    $('.sub_'+mencap).prop('checked', false);
-
-                    var sub_x = 0;
-
-                    $(".sub_"+mengrp).each(function(){
-                        var is_checked = $(this).is(':checked');
-                        if(is_checked == true){
-                            sub_x++;
-                        }
-                    });
-
-                    if(sub_x>0){
-                        $('.main_'+mengrp).prop('checked', true);
-                    }else{
-                        $('.main_'+mengrp).prop('checked', false);
-                    }
-                    
-                }else{
-                    $('.main_'+mencap).prop('checked', false);
-                }
-
-
-            }   
-        }
-        function checkcrud_sub(level, crud, mencap,mengrp,mensub){
-
-            var x=0;
-            var is_checked_delete = $(".crud_delete_"+mencap).is(':checked');
-            var is_checked_edit = $(".crud_edit_"+mencap).is(':checked');
-            var is_checked_view = $(".crud_view_"+mencap).is(':checked');
-
-            if((crud == "edit" || crud == "delete") &&( is_checked_delete == true || is_checked_edit == true)){
-                $('.crud_view_'+mencap).prop('checked', true);
-            }
-
-            if(crud == "view" && is_checked_view !== true){
-                $('.crud_delete_'+mencap).prop('checked', false);
-                $('.crud_edit_'+mencap).prop('checked', false);
-            }
-
-            $(".crud_"+mencap).each(function(){
-            var is_checked = $(this).is(':checked');
-            if(is_checked == true){
-                    x++;
-            }
-            });
-
-
-            if(x>0){
-                
-                if(level == "sub"){
-                    $('.sub_'+mencap).prop('checked', true);
-                    $('.main_'+mengrp).prop('checked', true);
-
-                }else{
-                    $('.main_'+mencap).prop('checked', true);
-                }
-
-            }else{
-
-                if(level == "sub"){
-
-                    $('.sub_'+mencap).prop('checked', false);
-
-                    var sub_x = 0;
-
-                    $(".sub_"+mengrp).each(function(){
-                        var is_checked = $(this).is(':checked');
-                        if(is_checked == true){
-                            sub_x++;
-                        }
-                    });
-
-                    if(sub_x>0){
-                        $('.main_'+mengrp).prop('checked', true);
-                    }else{
-                        $('.main_'+mengrp).prop('checked', false);
-                    }
-                    
-                }else{
-                    $('.main_'+mencap).prop('checked', false);
-                }
-
-
-            }   
-
-
-            var x = 0;             
-            var is_checked_sub = $(".sub_"+mensub).is(':checked');
-
-            $(".sub_"+mensub).each(function(){
-               var is_checked_sub = $(this).is(':checked');
-               if(is_checked_sub == true){
-                    x++;
-               }
-            });
-
-            if(x > 0){
-                $(".main_"+mensub).prop('checked', true);
-            }else{
-
-                $(".main_"+mensub).prop('checked', false);
-            }
         }
 
         function save_click(){

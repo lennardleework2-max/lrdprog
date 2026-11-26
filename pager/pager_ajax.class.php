@@ -95,6 +95,40 @@ function pager_item_description_from_itmcde($link, $itmcde)
     return !empty($rs_item_description["itmdsc"]) ? $rs_item_description["itmdsc"] : '';
 }
 
+$itemfile_salesprice_field_map = array(
+    "salesprice_distributor" => "SID-00001",
+    "salesprice_cost"        => "SID-00002",
+    "salesprice_wholesale"   => "SID-00003",
+    "salesprice_retail"      => "SID-00004",
+);
+
+list($pager_hide_cost_price, $pager_hide_distri_price) = stdfunc_get_price_restrictions($link, 'Items');
+
+function pager_item_salesprice_sync($link, $itmcde, $arr_prices_by_salesprice_id)
+{
+    foreach($arr_prices_by_salesprice_id as $salesprice_id => $price){
+        $price = ($price === '' || $price === null) ? null : $price;
+
+        $select_existing = "SELECT recid FROM mf_salesitemprice WHERE itmcde = ? AND salesprice_id = ?";
+        $stmt_existing = $link->prepare($select_existing);
+        $stmt_existing->execute(array($itmcde, $salesprice_id));
+        $rs_existing = $stmt_existing->fetch();
+
+        if($rs_existing){
+            $update_query = "UPDATE mf_salesitemprice SET price = ? WHERE recid = ?";
+            $stmt_update = $link->prepare($update_query);
+            $stmt_update->execute(array($price, $rs_existing["recid"]));
+        }else if($price !== null){
+            PDO_InsertRecord($link, "mf_salesitemprice", array(
+                "itmcde"        => $itmcde,
+                "salesprice_id" => $salesprice_id,
+                "price"         => $price,
+            ), false);
+        }
+        // else: no existing row and no value provided - nothing to save
+    }
+}
+
 function pager_warehouse_name_from_warcde($link, $warcde)
 {
     $warcde = trim((string)$warcde);
@@ -379,6 +413,10 @@ else if($_POST["event_action"] == "getEdit"){
         $fieldname_select = $key_value_select[0]["name"];
         $fieldname_select = str_replace("_crudModal", "",$fieldname_select);
 
+        if(strpos($fieldname_select, 'salesprice_') === 0){
+            continue;
+        }
+
         if($xcounter_select == 0){
             $fields_select = $fieldname_select;
         }else{
@@ -387,7 +425,11 @@ else if($_POST["event_action"] == "getEdit"){
         $xcounter_select++;
     }
     $fields_select.=",recid";
-    
+
+    if($_POST['tablename'] == "itemfile"){
+        $fields_select .= ",itmcde";
+    }
+
     $retEdit_counter = 0;
 
     $select_db="SELECT ".$fields_select." FROM ".$_POST['tablename']." WHERE recid=?";
@@ -400,6 +442,10 @@ else if($_POST["event_action"] == "getEdit"){
             $fieldname = $key_value[0]["name"];
             $fieldname = str_replace("_crudModal", "",$fieldname);
             $field_type = $key_value[6]["data-field-type"];
+
+            if(strpos($fieldname, 'salesprice_') === 0){
+                continue;
+            }
 
             if($field_type == "date"){
                 if(!empty($rs_retEdit[$fieldname]) && $rs_retEdit[$fieldname] !== NULL &&  $rs_retEdit[$fieldname]!=="1970-01-01"){
@@ -416,6 +462,26 @@ else if($_POST["event_action"] == "getEdit"){
             $retEdit_counter++;
         }
 
+        if($_POST['tablename'] == "itemfile" && !empty($rs_retEdit["itmcde"])){
+            $select_prices = "SELECT salesprice_id, price FROM mf_salesitemprice WHERE itmcde = ?";
+            $stmt_prices = $link->prepare($select_prices);
+            $stmt_prices->execute(array($rs_retEdit["itmcde"]));
+            $arr_existing_prices = array();
+            while($rs_price = $stmt_prices->fetch()){
+                $arr_existing_prices[$rs_price["salesprice_id"]] = $rs_price["price"];
+            }
+
+            foreach($itemfile_salesprice_field_map as $field_key => $salesprice_id){
+                if(stdfunc_is_salesprice_restricted($salesprice_id, $pager_hide_cost_price, $pager_hide_distri_price)){
+                    continue;
+                }
+                $xret["retEdit"][$retEdit_counter]["field_name"] = $field_key;
+                $xret["retEdit"][$retEdit_counter]["field_value"] = isset($arr_existing_prices[$salesprice_id]) ? $arr_existing_prices[$salesprice_id] : '';
+                $xret["retEdit"][$retEdit_counter]["field_type"] = "text";
+                $retEdit_counter++;
+            }
+        }
+
         $xret["retEdit"]["recid"] = $_POST["recid"];
     }
 
@@ -425,6 +491,7 @@ else if($_POST["event_action"] == "insert")
 {
 
     $arr_record_data = array();
+    $arr_salesprice_input = array();
     if(isset($_POST["unique_key"])){
         $unique_key_array = array();
         parse_str($_POST["unique_key"] , $unique_key_array);
@@ -444,6 +511,10 @@ else if($_POST["event_action"] == "insert")
         $field_is_required      = str_replace("_crudModal", "",$field_is_required);
         $field_is_unique        = str_replace("_crudModal", "",$field_is_unique);
 
+        if(strpos($fieldname, 'salesprice_') === 0){
+            $arr_salesprice_input[$fieldname] = $fieldvalue;
+            continue;
+        }
 
         if($field_type == "date"){
             $fieldvalue  = (empty($fieldvalue))   ? NULL :  date("Y-m-d", strtotime($fieldvalue));
@@ -454,7 +525,7 @@ else if($_POST["event_action"] == "insert")
         }else{
             $field_checkbox_selected_only_crud = '';
         }
-        
+
         if($field_is_unique == "Y"){
 
             $select_db_unique="SELECT ".$fieldname." FROM ".$_POST['tablename']." WHERE ".$fieldname."=?";
@@ -626,6 +697,19 @@ else if($_POST["event_action"] == "insert")
 
         PDO_InsertRecord($link,$_POST["tablename"],$arr_record_data, false);
 
+        if($_POST["tablename"] == "itemfile" && !empty($fieldcode_innit)){
+            $arr_prices_by_id = array();
+            foreach($itemfile_salesprice_field_map as $field_key => $salesprice_id){
+                if(stdfunc_is_salesprice_restricted($salesprice_id, $pager_hide_cost_price, $pager_hide_distri_price)){
+                    continue;
+                }
+                if(array_key_exists($field_key, $arr_salesprice_input)){
+                    $arr_prices_by_id[$salesprice_id] = $arr_salesprice_input[$field_key];
+                }
+            }
+            pager_item_salesprice_sync($link, $fieldcode_innit, $arr_prices_by_id);
+        }
+
         // Get the docnum - use the fieldcode value (e.g., itmcde, cuscde, docnum)
         $xdocnum = "";
         // First try to use the generated fieldcode value
@@ -675,6 +759,7 @@ else if($_POST["event_action"] == "submitEdit")
 {
 
 	    $arr_record_data = array();
+	    $arr_salesprice_input = array();
 	    $rs_editcode_before = null;
         $edit_field_changes = array();
 
@@ -725,6 +810,11 @@ else if($_POST["event_action"] == "submitEdit")
         $field_is_required = str_replace("_crudModal", "",$field_is_required);
         $field_is_unique = str_replace("_crudModal", "",$field_is_unique);
 
+        if(strpos($fieldname, 'salesprice_') === 0){
+            $arr_salesprice_input[$fieldname] = $fieldvalue;
+            continue;
+        }
+
         if($field_type == "date"){
             $fieldvalue  = (empty($fieldvalue))   ? NULL :  date("Y-m-d", strtotime($fieldvalue));
             $field_datavalue_hidden  = (empty($field_datavalue_hidden))   ? NULL :  date("Y-m-d", strtotime($field_datavalue_hidden));
@@ -734,7 +824,7 @@ else if($_POST["event_action"] == "submitEdit")
             $field_checkbox_selected_only_crud = $key_value[7]["data-field-chkbox-selected-only-crud"];
         }else{
             $field_checkbox_selected_only_crud = '';
-        }        
+        }
 
         if(($field_is_unique == "Y") && ($field_datavalue_hidden !== $fieldvalue)){
 
@@ -861,6 +951,19 @@ else if($_POST["event_action"] == "submitEdit")
         $stmt_editcode	= $link->prepare($select_db_editcode);
         $stmt_editcode->execute(array($_POST["recid_edit"]));
         $rs_editcode = $stmt_editcode->fetch();
+
+        if($_POST["tablename"] == "itemfile" && !empty($rs_editcode["itmcde"])){
+            $arr_prices_by_id = array();
+            foreach($itemfile_salesprice_field_map as $field_key => $salesprice_id){
+                if(stdfunc_is_salesprice_restricted($salesprice_id, $pager_hide_cost_price, $pager_hide_distri_price)){
+                    continue;
+                }
+                if(array_key_exists($field_key, $arr_salesprice_input)){
+                    $arr_prices_by_id[$salesprice_id] = $arr_salesprice_input[$field_key];
+                }
+            }
+            pager_item_salesprice_sync($link, $rs_editcode["itmcde"], $arr_prices_by_id);
+        }
 
         if(isset($_POST["ua_field2"]) &&  !empty($_POST['ua_field2'])){
             $ua_field2 = $rs_editcode["".$_POST['ua_field2'].""];

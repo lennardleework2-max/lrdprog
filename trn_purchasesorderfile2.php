@@ -179,16 +179,6 @@ if($default_uom_desc === '' && !empty($ordered_uom_options)){
 
 $base_uom_display = strtolower($default_uom_desc) === 'pcs' ? 'pc' : $default_uom_desc;
 
-$existing_ordernum_records = array();
-$stmt_existing_ordernums = $link->prepare("SELECT docnum, ordernum FROM purchasesorderfile1 WHERE ordernum IS NOT NULL AND TRIM(ordernum) <> ''");
-$stmt_existing_ordernums->execute();
-while($rs_existing_ordernum = $stmt_existing_ordernums->fetch()){
-    $existing_ordernum_records[] = array(
-        'docnum' => isset($rs_existing_ordernum['docnum']) ? trim((string)$rs_existing_ordernum['docnum']) : '',
-        'ordernum' => isset($rs_existing_ordernum['ordernum']) ? trim((string)$rs_existing_ordernum['ordernum']) : '',
-    );
-}
-
 ?>
 
         <style>
@@ -749,42 +739,6 @@ while($rs_existing_ordernum = $stmt_existing_ordernums->fetch()){
         var defaultUomDesc = <?php echo json_encode($default_uom_desc); ?>;
         var baseUomDisplay = <?php echo json_encode($base_uom_display); ?>;
         var purchasesOrderMatchedPurDocnums = [];
-        var existingOrdernumRecords = <?php echo json_encode($existing_ordernum_records); ?>;
-
-        function normalizeOrdernumForValidation(value) {
-            return $.trim((value || "").toString()).toLowerCase();
-        }
-
-        function validateUniqueOrdernum() {
-            var currentDocnum = $.trim($("#docnum_hidden").val() || "");
-            var currentOrdernum = $.trim($("#ordernum_1").val() || "");
-
-            if (currentOrdernum === "") {
-                return true;
-            }
-
-            var normalizedCurrentOrdernum = normalizeOrdernumForValidation(currentOrdernum);
-
-            for (var i = 0; i < existingOrdernumRecords.length; i++) {
-                var record = existingOrdernumRecords[i] || {};
-                var recordDocnum = $.trim(record.docnum || "");
-                var recordOrdernum = normalizeOrdernumForValidation(record.ordernum || "");
-
-                if (recordOrdernum === "") {
-                    continue;
-                }
-
-                if (recordOrdernum === normalizedCurrentOrdernum && recordDocnum !== currentDocnum) {
-                    var escapedOrdernum = $("<div>").text(currentOrdernum).html();
-                    var escapedDocnum = $("<div>").text(recordDocnum).html();
-                    $("#alert_modal_body_system").html("same ordernum: " + escapedOrdernum + " matches with docnum " + escapedDocnum);
-                    $("#alert_modal_system").modal("show");
-                    return false;
-                }
-            }
-
-            return true;
-        }
 
         function getUniqueMatchedDocnums(docnums){
             var uniqueDocnums = [];
@@ -1456,10 +1410,6 @@ while($rs_existing_ordernum = $stmt_existing_ordernums->fetch()){
 
             switch(event){
                     case "save_exit":
-                    if(!validateUniqueOrdernum()){
-                        return;
-                    }
-
                     if ($('#cusname_1').prop('disabled')) {
                         $("#cusname_1").prop("disabled", false);
                         $("#trndte_1").prop("disabled", false);
@@ -1477,10 +1427,6 @@ while($rs_existing_ordernum = $stmt_existing_ordernums->fetch()){
 
                     break;
                 case "save_new":
-                    if(!validateUniqueOrdernum()){
-                        return;
-                    }
-
                     if ($('#cusname_1').prop('disabled')) {
                         $("#cusname_1").prop("disabled", false);
                         $("#trndte_1").prop("disabled", false);

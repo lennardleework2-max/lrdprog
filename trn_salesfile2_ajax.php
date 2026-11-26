@@ -51,6 +51,54 @@
         return $rs ? trim((string)$rs['unmdsc']) : $unmcde;
     }
 
+    function sales_get_price_restrictions($link){
+        return stdfunc_get_price_restrictions($link, 'Sales Transaction');
+    }
+
+    // Restricted edit sentinel preserves the existing server-side unit price without exposing it.
+    function sales_validate_untprc($link, $posted_untprc, $posted_extprc, $hide_cost_price, $hide_distri_price, $edit_recid = null){
+        $posted_untprc = trim((string)$posted_untprc);
+        $posted_extprc = trim((string)$posted_extprc);
+        if(($hide_cost_price || $hide_distri_price) && $posted_untprc === '__RESTRICTED__'){
+            if(!empty($edit_recid)){
+                $stmt_existing = $link->prepare("SELECT untprc, extprc, salesprice_id FROM tranfile2 WHERE recid = ? LIMIT 1");
+                $stmt_existing->execute(array($edit_recid));
+                $row_existing = $stmt_existing->fetch();
+                if($row_existing && stdfunc_is_salesprice_restricted($row_existing['salesprice_id'], $hide_cost_price, $hide_distri_price)){
+                    return array($row_existing['untprc'], $row_existing['extprc']);
+                }
+            }
+            return array(0, 0);
+        }
+        return array($posted_untprc, $posted_extprc);
+    }
+
+    // Restricted edit sentinel preserves the existing server-side pricing type without exposing it.
+    function sales_validate_salesprice_id($link, $posted_salesprice_id, $hide_cost_price, $hide_distri_price, $edit_recid = null){
+        $posted_salesprice_id = trim((string)$posted_salesprice_id);
+        if(($hide_cost_price || $hide_distri_price) && $posted_salesprice_id === '__RESTRICTED__' && !empty($edit_recid)){
+            $stmt_existing = $link->prepare("SELECT salesprice_id FROM tranfile2 WHERE recid = ? LIMIT 1");
+            $stmt_existing->execute(array($edit_recid));
+            $row_existing = $stmt_existing->fetch();
+            if($row_existing && stdfunc_is_salesprice_restricted($row_existing['salesprice_id'], $hide_cost_price, $hide_distri_price)){
+                return $row_existing['salesprice_id'];
+            }
+        }
+        if(stdfunc_is_salesprice_restricted($posted_salesprice_id, $hide_cost_price, $hide_distri_price)){
+            return 'SID-00003';
+        }
+        if($posted_salesprice_id === ''){
+            return 'SID-00003';
+        }
+        $select_check = "SELECT salesprice_id FROM mf_salespricetype WHERE salesprice_id = ? LIMIT 1";
+        $stmt_check = $link->prepare($select_check);
+        $stmt_check->execute(array($posted_salesprice_id));
+        $rs_check = $stmt_check->fetch();
+        return $rs_check ? $posted_salesprice_id : 'SID-00003';
+    }
+
+    list($sales_hide_cost_price, $sales_hide_distri_price) = sales_get_price_restrictions($link);
+
     $xret = array();
     $xret["html"] = "";
     $xret["html_mobile"] = "";
@@ -137,6 +185,32 @@
         return;
     }
 
+    if(isset($_POST["event_action"]) && $_POST["event_action"] == "get_item_sales_price"){
+        $itmcde = isset($_POST['itmcde']) ? trim((string)$_POST['itmcde']) : '';
+        $salesprice_id = isset($_POST['salesprice_id']) ? trim((string)$_POST['salesprice_id']) : '';
+        $xret["price"] = null;
+
+        if(stdfunc_is_salesprice_restricted($salesprice_id, $sales_hide_cost_price, $sales_hide_distri_price)){
+            $xret["status"] = 0;
+            $xret["msg"] = "This pricing option is restricted.";
+        }else if($itmcde !== '' && $salesprice_id !== ''){
+            $select_item_sales_price = "SELECT mf_salesitemprice.price
+                                         FROM mf_salesitemprice
+                                         INNER JOIN mf_salespricetype ON mf_salespricetype.salesprice_id = mf_salesitemprice.salesprice_id
+                                         WHERE mf_salesitemprice.itmcde = ? AND mf_salesitemprice.salesprice_id = ?
+                                         LIMIT 1";
+            $stmt_item_sales_price = $link->prepare($select_item_sales_price);
+            $stmt_item_sales_price->execute(array($itmcde, $salesprice_id));
+            $rs_item_sales_price = $stmt_item_sales_price->fetch();
+            if($rs_item_sales_price && $rs_item_sales_price['price'] !== null){
+                $xret["price"] = $rs_item_sales_price['price'];
+            }
+        }
+
+        echo json_encode($xret);
+        return;
+    }
+
     if(isset($_POST["event_action"]) && ($_POST["event_action"] == "select_itmprice" || $_POST["event_action"] == "change_itmprice")){
 
         $select_itemfile="SELECT * FROM itemfile ORDER BY itmdsc ASC LIMIT 1";
@@ -203,6 +277,11 @@
                 $stmt_itemfile2->execute();
                 $rs_itemfile2 = $stmt_itemfile2->fetch();
 
+                $select_wholesale_price = "SELECT price FROM mf_salesitemprice WHERE itmcde = ? AND salesprice_id = 'SID-00003'";
+                $stmt_wholesale_price = $link->prepare($select_wholesale_price);
+                $stmt_wholesale_price->execute(array($rs_itemfile2['itmcde']));
+                $rs_wholesale_price = $stmt_wholesale_price->fetch();
+                $wholesale_price_value = $rs_wholesale_price ? $rs_wholesale_price['price'] : null;
 
                 date_default_timezone_set('Asia/Manila');
                 $date_today = date('Y-m-d');
@@ -233,7 +312,7 @@
                 . json_encode($rs_itemfile['itmcde']) . ", "
                 . json_encode($rs_itemfile['itmdsc']) . ", "
                 . json_encode($_POST['event_action_itmsearch']) . ", "
-                . json_encode($rs_itemfile2['wholesaleprc']) . ", "
+                . json_encode($wholesale_price_value) . ", "
                 . json_encode($currentStock) . ", "
                 . json_encode($xret['itm_search'])
                 . ")' class='btn btn-primary fw-bold select_item'>";
@@ -267,17 +346,11 @@
         $_POST['orderby_1'] = NULL;
     }
 
+    // com_pay is always derived server-side from the current salesman's rate x current total —
+    // never trusted from the posted txt_com_pay field, which the frontend only recalculates when
+    // the salesman dropdown changes and can go stale (e.g. still 0 from before items were added).
     $txt_com_pay = null;
-    if(array_key_exists('txt_com_pay', $_POST)){
-        $txt_com_pay_raw = trim((string)$_POST['txt_com_pay']);
-        $txt_com_pay_raw = str_replace(",", "", $txt_com_pay_raw);
-        if($txt_com_pay_raw !== '' && is_numeric($txt_com_pay_raw)){
-            $txt_com_pay = number_format((float)$txt_com_pay_raw, 2, '.', '');
-        }
-    }
-
-    // Fallback: if commission pay was not posted/ready yet, compute it from current salesman + total.
-    if($txt_com_pay === null && isset($_POST['sel_salesman_id']) && !empty($_POST['sel_salesman_id'])){
+    if(isset($_POST['sel_salesman_id']) && !empty($_POST['sel_salesman_id'])){
         $trntot_source = '';
         if(isset($_POST['trntot_1'])){
             $trntot_source = $_POST['trntot_1'];
@@ -288,15 +361,25 @@
         $trntot_clean = str_replace(",", "", trim((string)$trntot_source));
         $trntot_value = is_numeric($trntot_clean) ? (float)$trntot_clean : 0;
 
-        $select_salesman = "SELECT commission FROM mf_salesman WHERE salesman_id=? LIMIT 1";
+        $select_salesman = "SELECT commission, salesman_name FROM mf_salesman WHERE salesman_id=? LIMIT 1";
         $stmt_salesman = $link->prepare($select_salesman);
         $stmt_salesman->execute(array($_POST['sel_salesman_id']));
         $rs_salesman = $stmt_salesman->fetch();
 
-        if($rs_salesman && is_numeric($rs_salesman['commission'])){
+        if($rs_salesman && $rs_salesman['salesman_name'] !== '-None' && is_numeric($rs_salesman['commission'])){
             $txt_com_pay = number_format((((float)$rs_salesman['commission']) / 100) * $trntot_value, 2, '.', '');
         }
     }
+
+    file_put_contents(__DIR__ . '/debug_beaver_compay.log', date('Y-m-d H:i:s')
+        . " | event_action=" . ($_POST['event_action'] ?? 'NULL')
+        . " | docnum=" . ($_POST['docnum_1'] ?? ($_POST['docnum'] ?? 'NULL'))
+        . " | POST.txt_com_pay=" . (array_key_exists('txt_com_pay', $_POST) ? var_export($_POST['txt_com_pay'], true) : 'NOT_SET')
+        . " | POST.sel_salesman_id=" . ($_POST['sel_salesman_id'] ?? 'NOT_SET')
+        . " | POST.trntot_1=" . ($_POST['trntot_1'] ?? 'NOT_SET')
+        . " | POST.trntot=" . ($_POST['trntot'] ?? 'NOT_SET')
+        . " | RESOLVED txt_com_pay=" . var_export($txt_com_pay, true)
+        . "\n", FILE_APPEND);
 
 
 
@@ -366,7 +449,14 @@
                     $arr_record['usercode']   = $current_usercode;
                     //$arr_record['order_status'] 	= $_POST['order_status_select1'];
                     $arr_record['trncde'] 	= $trncde;
-        
+
+                    file_put_contents(__DIR__ . '/debug_beaver_compay.log', date('Y-m-d H:i:s')
+                        . " | [NEW HEADER INSERT] docnum=" . $docnum
+                        . " | salesman_id=" . ($arr_record['salesman_id'] ?? 'NULL')
+                        . " | trntot=" . ($arr_record['trntot'] ?? 'NULL')
+                        . " | com_pay=" . var_export($arr_record['com_pay'], true)
+                        . "\n", FILE_APPEND);
+
                     PDO_InsertRecord($link,'tranfile1',$arr_record, false);
 
                     // Log activity: add header
@@ -430,6 +520,14 @@
                     $arr_record_update['remarks'] 	= $_POST['remarks_1'];
                     $arr_record_update['ordernum'] 	= $_POST['ordernum_1'];
                     //$arr_record_update['order_status'] 	= $_POST['order_status_select1'];
+
+                    file_put_contents(__DIR__ . '/debug_beaver_compay.log', date('Y-m-d H:i:s')
+                        . " | [HEADER UPDATE] docnum=" . $docnum
+                        . " | salesman_id=" . ($arr_record_update['salesman_id'] ?? 'NULL')
+                        . " | trntot=" . ($arr_record_update['trntot'] ?? 'NULL')
+                        . " | com_pay=" . var_export($arr_record_update['com_pay'], true)
+                        . "\n", FILE_APPEND);
+
                     PDO_UpdateRecord($link,"tranfile1",$arr_record_update,"recid = ?",array($recid),false);
 
                     // Log activity: edit header
@@ -662,9 +760,9 @@
             $arr_record['itmqty'] 	= $_POST['itmqty_add'];
             $arr_record['stkqty'] 	= $stkqty;
             $arr_record['unmcde']   = $_POST['unmcde_add'];
-            $arr_record['untprc'] 	= $_POST['price_add'];
-            $arr_record['extprc'] 	= $_POST['amount_add'];
+            list($arr_record['untprc'], $arr_record['extprc']) = sales_validate_untprc($link, $_POST['price_add'], $_POST['amount_add'], $sales_hide_cost_price, $sales_hide_distri_price);
             $arr_record['wholesaleprc'] 	= $_POST['wholesaleprc_add'];
+            $arr_record['salesprice_id'] 	= sales_validate_salesprice_id($link, isset($_POST['salesprice_id_add']) ? $_POST['salesprice_id_add'] : '', $sales_hide_cost_price, $sales_hide_distri_price);
             $arr_record['warcde'] 	= $_POST['warcde_add'];
             $arr_record['warehouse_floor_id'] = $_POST['warehouse_floor_id_add'];
             $arr_record['warehouse_staff_id'] = $_POST['warehouse_staff_id_add'];
@@ -813,7 +911,7 @@
 
     if(isset($_POST["event_action"]) && $_POST["event_action"] == "getEdit"){
 
-        $select_tranfile2="SELECT tranfile2.wholesaleprc as wholesaleprc, tranfile2.itmcde as 'itmcde', tranfile2.so_recid as 'tranfile2_so_recid', tranfile2.order_status as tranfile2_order_status, tranfile2.itmqty, tranfile2.unmcde, tranfile2.untprc, tranfile2.extprc, tranfile2.warcde, tranfile2.warehouse_floor_id, tranfile2.warehouse_staff_id, itemfile.itmdsc, itemunitmeasurefile.unmdsc, tranfile2.recid as tranfile2_recid FROM tranfile2 LEFT JOIN itemfile ON itemfile.itmcde = tranfile2.itmcde LEFT JOIN itemunitmeasurefile ON itemunitmeasurefile.unmcde = tranfile2.unmcde WHERE tranfile2.recid=?";
+        $select_tranfile2="SELECT tranfile2.wholesaleprc as wholesaleprc, tranfile2.itmcde as 'itmcde', tranfile2.so_recid as 'tranfile2_so_recid', tranfile2.order_status as tranfile2_order_status, tranfile2.itmqty, tranfile2.unmcde, tranfile2.untprc, tranfile2.extprc, tranfile2.warcde, tranfile2.warehouse_floor_id, tranfile2.warehouse_staff_id, tranfile2.salesprice_id as tranfile2_salesprice_id, itemfile.itmdsc, itemunitmeasurefile.unmdsc, tranfile2.recid as tranfile2_recid FROM tranfile2 LEFT JOIN itemfile ON itemfile.itmcde = tranfile2.itmcde LEFT JOIN itemunitmeasurefile ON itemunitmeasurefile.unmcde = tranfile2.unmcde WHERE tranfile2.recid=?";
         $stmt_tranfile2	= $link->prepare($select_tranfile2);
         $stmt_tranfile2->execute(array($_POST["recid"]));
         $rs_tranfile2 = $stmt_tranfile2->fetch();
@@ -836,16 +934,18 @@
         }        
 
         $retedit_unmcde = isset($rs_tranfile2["unmcde"]) ? trim((string)$rs_tranfile2["unmcde"]) : '';
+        $retedit_is_restricted = stdfunc_is_salesprice_restricted($rs_tranfile2["tranfile2_salesprice_id"], $sales_hide_cost_price, $sales_hide_distri_price);
         $xret["retEdit"] = [
             "itmcde" =>  $rs_tranfile2["itmcde"],
             "itmdsc" =>  $rs_tranfile2["itmdsc"],
             "itmqty" =>  $rs_tranfile2["itmqty"],
             "unmcde" =>  $retedit_unmcde,
             "unmdsc" =>  !empty($rs_tranfile2["unmdsc"]) ? trim((string)$rs_tranfile2["unmdsc"]) : $retedit_unmcde,
-            "untprc" =>  $rs_tranfile2["untprc"],
-            "extprc" =>  $rs_tranfile2["extprc"],
+            "untprc" =>  $retedit_is_restricted ? '__RESTRICTED__' : $rs_tranfile2["untprc"],
+            "extprc" =>  $retedit_is_restricted ? '__RESTRICTED__' : $rs_tranfile2["extprc"],
             "order_status" =>  $rs_tranfile2["tranfile2_order_status"],
             "wholesaleprc" =>  $rs_tranfile2["wholesaleprc"],
+            "salesprice_id" =>  $retedit_is_restricted ? '__RESTRICTED__' : (!empty($rs_tranfile2["tranfile2_salesprice_id"]) ? $rs_tranfile2["tranfile2_salesprice_id"] : 'SID-00003'),
             "so_recid" =>  $rs_tranfile2["tranfile2_so_recid"],
             "warcde" =>  isset($rs_tranfile2["warcde"]) ? $rs_tranfile2["warcde"] : '',
             "warehouse_floor_id" =>  isset($rs_tranfile2["warehouse_floor_id"]) ? $rs_tranfile2["warehouse_floor_id"] : '',
@@ -978,9 +1078,9 @@
             $arr_record['itmqty'] 	= $_POST['itmqty_edit'];
             $arr_record['stkqty'] 	= $stkqty;
             $arr_record['unmcde']   = $_POST['unmcde_edit'];
-            $arr_record['untprc'] 	= $_POST['price_edit'];
-            $arr_record['extprc'] 	= $_POST['amount_edit'];
+            list($arr_record['untprc'], $arr_record['extprc']) = sales_validate_untprc($link, $_POST['price_edit'], $_POST['amount_edit'], $sales_hide_cost_price, $sales_hide_distri_price, isset($_POST['salesfile2_recid_hidden']) ? $_POST['salesfile2_recid_hidden'] : null);
             $arr_record['wholesaleprc'] 	= $_POST['wholesaleprc_edit'];
+            $arr_record['salesprice_id'] 	= sales_validate_salesprice_id($link, isset($_POST['salesprice_id_edit']) ? $_POST['salesprice_id_edit'] : '', $sales_hide_cost_price, $sales_hide_distri_price, isset($_POST['salesfile2_recid_hidden']) ? $_POST['salesfile2_recid_hidden'] : null);
             $arr_record['warcde'] 	= $_POST['warcde_edit'];
             $arr_record['warehouse_floor_id'] = $_POST['warehouse_floor_id_edit'];
             $arr_record['warehouse_staff_id'] = $_POST['warehouse_staff_id_edit'];
@@ -1429,7 +1529,7 @@
         $xret["html"] .= "<td class='text-center'>Action</td>";
     $xret["html"] .= "</tr>";  
 
-    $select_salesfile2="SELECT tranfile2.wholesaleprc as wholesaleprc, tranfile2.itmcde as 'tranfile2_itmcde', tranfile2.itmqty as 'tranfile2_itmqty', tranfile2.so_recid as 'so_recid', tranfile2.order_status as tranfile2_order_status, itemfile.itmdsc as itemfile_itmdsc,itemfile.itmcde as itemfile_itmcde, tranfile2.itmqty, tranfile2.untprc, tranfile2.extprc, tranfile2.recid as tranfile2_recid, warehouse.warehouse_name, warehouse_floor.floor_no, itemunitmeasurefile.unmdsc
+    $select_salesfile2="SELECT tranfile2.wholesaleprc as wholesaleprc, tranfile2.itmcde as 'tranfile2_itmcde', tranfile2.itmqty as 'tranfile2_itmqty', tranfile2.so_recid as 'so_recid', tranfile2.order_status as tranfile2_order_status, itemfile.itmdsc as itemfile_itmdsc,itemfile.itmcde as itemfile_itmcde, tranfile2.itmqty, tranfile2.untprc, tranfile2.extprc, tranfile2.salesprice_id, tranfile2.recid as tranfile2_recid, warehouse.warehouse_name, warehouse_floor.floor_no, itemunitmeasurefile.unmdsc
     FROM tranfile2 LEFT JOIN itemfile ON itemfile.itmcde = tranfile2.itmcde
     LEFT JOIN warehouse ON warehouse.warcde = tranfile2.warcde
     LEFT JOIN warehouse_floor ON warehouse_floor.warehouse_floor_id = tranfile2.warehouse_floor_id
@@ -1462,6 +1562,10 @@
             $rs_salesfile2['itmqty'] =  number_format($rs_salesfile2['itmqty']);
         }
 
+        $row_is_restricted = stdfunc_is_salesprice_restricted($rs_salesfile2['salesprice_id'], $sales_hide_cost_price, $sales_hide_distri_price);
+        $display_untprc = $row_is_restricted ? 'Restricted' : $rs_salesfile2['untprc'];
+        $display_extprc = $row_is_restricted ? 'Restricted' : $rs_salesfile2['extprc'];
+
         $order_status = "";
         if($rs_salesfile2['tranfile2_order_status'] == "INTRANSIT"){
             $order_status = "In Transit";
@@ -1476,8 +1580,8 @@
             $xret["html"] .= "<td>".htmlspecialchars((string)($rs_salesfile2['floor_no'] ?? ''),ENT_QUOTES)."</td>";
             $xret["html"] .= "<td style='text-align:right'>".$rs_salesfile2['itmqty']."</td>";
             $xret["html"] .= "<td>".htmlspecialchars((string)($rs_salesfile2['unmdsc'] ?? ''),ENT_QUOTES)."</td>";
-            $xret["html"] .= "<td style='text-align:right'>".$rs_salesfile2['untprc']."</td>";
-            $xret["html"] .= "<td style='text-align:right'>".$rs_salesfile2['extprc']."</td>";
+            $xret["html"] .= "<td style='text-align:right'>".$display_untprc."</td>";
+            $xret["html"] .= "<td style='text-align:right'>".$display_extprc."</td>";
             $xret["html"] .= "<td style='text-align:right'>".$rs_salesfile2['wholesaleprc']."</td>";
             $xret["html"] .= "<td style='text-align:center'>".$matched_so."</td>";
             // $xret["html"] .= "<td style='text-align:center'>".$order_status."</td>";
@@ -1529,12 +1633,12 @@
 
         $xret["html_mobile"] .= "<tr>";
             $xret["html_mobile"] .= "<td class='fw-bold'>Price per unit</td>";
-            $xret["html_mobile"] .= "<td style='text-align:right'>".$rs_salesfile2['untprc']."</td>";
+            $xret["html_mobile"] .= "<td style='text-align:right'>".$display_untprc."</td>";
         $xret["html_mobile"] .= "</tr>";
 
         $xret["html_mobile"] .= "<tr>";
             $xret["html_mobile"] .= "<td class='fw-bold'>Amount</td>";
-            $xret["html_mobile"] .= "<td style='text-align:right'>".$rs_salesfile2['extprc']."</td>";
+            $xret["html_mobile"] .= "<td style='text-align:right'>".$display_extprc."</td>";
         $xret["html_mobile"] .= "</tr>";
 
         $xret["html_mobile"] .= "<tr>";
@@ -1582,13 +1686,25 @@
 	$stmt_trntot->execute(array($docnum));
     $rs_trntot = $stmt_trntot->fetch();
 
-    $arr_record_salesfile1 = array();			
+    $arr_record_salesfile1 = array();
     $arr_record_salesfile1['trntot'] = $trntot;
-    if($txt_com_pay !== null){
-        $arr_record_salesfile1['com_pay'] = $txt_com_pay;
+
+    // Authoritative recompute: trntot above is just derived from the actual item sum, so
+    // com_pay must be re-derived from it too — a posted txt_com_pay can be stale (e.g.
+    // computed before items were added) and must not be trusted as final here.
+    $salesman_id_for_calc = $rs_trntot['salesman_id'] ?? null;
+    if(!empty($salesman_id_for_calc)){
+        $select_salesman_calc = "SELECT commission, salesman_name FROM mf_salesman WHERE salesman_id=? LIMIT 1";
+        $stmt_salesman_calc = $link->prepare($select_salesman_calc);
+        $stmt_salesman_calc->execute(array($salesman_id_for_calc));
+        $rs_salesman_calc = $stmt_salesman_calc->fetch();
+        if($rs_salesman_calc && $rs_salesman_calc['salesman_name'] !== '-None' && is_numeric($rs_salesman_calc['commission'])){
+            $arr_record_salesfile1['com_pay'] = round((((float)$rs_salesman_calc['commission']) / 100) * $trntot, 2);
+        }
     }
+
     if(isset($_POST["event_action"]) && ($_POST["event_action"]  == "insert_new" || $_POST["event_action"]  == "insert_old" || $_POST["event_action"]  == "submitEdit" || $_POST["event_action"]  == "delete" || $_POST["event_action"]  == "insert")){
-        PDO_UpdateRecord($link,"tranfile1",$arr_record_salesfile1,"recid = ?",array($rs_trntot["recid"]));  
+        PDO_UpdateRecord($link,"tranfile1",$arr_record_salesfile1,"recid = ?",array($rs_trntot["recid"]));
     }
 
     

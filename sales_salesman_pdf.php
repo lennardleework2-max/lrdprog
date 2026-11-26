@@ -3,6 +3,88 @@
 // error_reporting(E_ALL);
 // ini_set('display_errors',true);
 //ini_set('memory_limit',-1);
+
+    // Salesman filter: blank or "all" = every salesman, each in its own section; otherwise one salesman.
+    function sales_salesman_filter_sql($smn_search)
+    {
+        $smn_search = trim((string)$smn_search);
+        if($smn_search === '' || strtolower($smn_search) === 'all'){
+            return '';
+        }
+        return " AND tranfile1.salesman_id='".$smn_search."'";
+    }
+
+    // Customer filter: blank = every customer; otherwise only that customerfile.cuscde.
+    function sales_customer_filter_sql($cus_search)
+    {
+        $cus_search = trim((string)$cus_search);
+        if($cus_search === ''){
+            return '';
+        }
+        return " AND tranfile1.cuscde='".str_replace("'", "''", $cus_search)."'";
+    }
+
+    // Cuts $string to the longest prefix whose width fits ($max_wid - 5), adding "..." when cut.
+    // Binary search keeps width calls to O(log n) instead of one per character.
+    function sales_salesman_fit_text($string, $max_wid, callable $width_fn)
+    {
+        $string = (string)$string;
+        $max_wid -= 5;
+        if($string === '' || $width_fn($string) <= $max_wid){
+            return $string;
+        }
+
+        $lo = 0;
+        $hi = strlen($string) - 1; // full string is known not to fit
+        while($lo < $hi){
+            $mid = intdiv($lo + $hi + 1, 2);
+            if($width_fn(substr($string, 0, $mid)) <= $max_wid){
+                $lo = $mid;
+            }else{
+                $hi = $mid - 1;
+            }
+        }
+        return substr($string, 0, $lo).'...';
+    }
+
+    // Above this many rows the host kills the export (memory/CPU), so it is refused with a message instead.
+    const SALES_SALESMAN_MAX_ROWS = 15000;
+
+    // Returns the "too many records" message, or '' when the export can run.
+    function sales_salesman_row_limit_message($row_count)
+    {
+        if($row_count <= SALES_SALESMAN_MAX_ROWS){
+            return '';
+        }
+        return "Too many records to export (".number_format($row_count)."). The limit is "
+            .number_format(SALES_SALESMAN_MAX_ROWS)." records. Please narrow the date range or select a specific salesman.";
+    }
+
+    // lets tests/test_sales_salesman_pdf.php load the functions above without a DB, session or output
+    if (defined('SALES_SALESMAN_PDF_LIB_ONLY')) {
+        return;
+    }
+
+    // large date ranges produce thousands of rows; give the export room to finish
+    set_time_limit(300);
+    ini_set('memory_limit', '512M');
+
+    // BEAVER TEMP: trace where large exports die (remove once fixed)
+    $GLOBALS['beaver_t0'] = microtime(true);
+    function beaver_log($step)
+    {
+        file_put_contents(__DIR__.'/debug_beaver_salesman_pdf.log',
+            date('Y-m-d H:i:s').' | '.sprintf('%7.2fs', microtime(true) - $GLOBALS['beaver_t0'])
+            .' | mem='.round(memory_get_usage(true)/1048576, 1).'MB peak='.round(memory_get_peak_usage(true)/1048576, 1).'MB'
+            .' | '.$step."\n", FILE_APPEND);
+    }
+    register_shutdown_function(function(){
+        $e = error_get_last();
+        beaver_log('SHUTDOWN'.($e ? ' | ERROR: '.$e['message'].' @ line '.$e['line'] : ' | no error'));
+    });
+    beaver_log('START | output='.($_POST['txt_output_type'] ?? '').' | date='.($_POST['date_from'] ?? '').'..'.($_POST['date_to'] ?? '')
+        .' | smn='.($_POST['smn_search'] ?? '').' | max_execution_time='.ini_get('max_execution_time').' | memory_limit='.ini_get('memory_limit'));
+
     session_start();
     require_once("resources/db_init.php") ;
 	require_once("resources/connect4.php");
@@ -23,10 +105,15 @@
         }
     }
     $xtrndte_log = date("Y-m-d H:i:s");
+    beaver_log('DB CONNECTED');
     $xprog_module_log = 'SALES SALESMAN';
     $xactivity_log = (isset($_POST['txt_output_type']) && $_POST['txt_output_type']=='tab') ? 'export_txt' : 'export_pdf';
     $xremarks_log = "Exported ".((isset($_POST['txt_output_type']) && $_POST['txt_output_type']=='tab') ? 'TXT' : 'PDF')." from Sales Salesman";
-    PDO_UserActivityLog($link, $username_session, '', $xtrndte_log, $xprog_module_log, $xactivity_log, $username_full_name, $xremarks_log, 0, '', '', '', '', $username_session, '', '');
+    // count_only = pre-check from sales_salesman_rep.php: only counts rows, nothing is exported
+    $count_only = !empty($_POST['count_only']);
+    if(!$count_only){
+        PDO_UserActivityLog($link, $username_session, '', $xtrndte_log, $xprog_module_log, $xactivity_log, $username_full_name, $xremarks_log, 0, '', '', '', '', $username_session, '', '');
+    }
 
     ob_start();
 
@@ -277,8 +364,11 @@ echo "<pre>";
         $payment_conditions[] = "(tranfile1.paydate IS NULL AND NOT EXISTS (SELECT 1 FROM partial_payment WHERE partial_payment.docnum = tranfile1.docnum))";
     }
 
-    // If any conditions exist, add them with OR logic
-    if(count($payment_conditions) > 0){
+    // All three checked = every record matches (paid, or unpaid with/without partials),
+    // so skip the per-row partial_payment subqueries entirely.
+    if(count($payment_conditions) == 3){
+        // no payment filter
+    }else if(count($payment_conditions) > 0){
         $xfilter .= " AND (" . implode(" OR ", $payment_conditions) . ")";
     }else{
         // If no checkboxes selected, show nothing
@@ -296,9 +386,8 @@ echo "<pre>";
     }
     
     
-    if(isset($_POST['smn_search']) && !empty($_POST['smn_search'])){
-        $xfilter_smn = " AND tranfile1.salesman_id='".$_POST['smn_search']."'";
-    }
+    $xfilter_smn = sales_salesman_filter_sql(isset($_POST['smn_search']) ? $_POST['smn_search'] : '');
+    $xfilter_smn .= sales_customer_filter_sql($_POST['cus_search'] ?? '');
 
 
     $xorder_by = " ORDER BY mf_salesman.salesman_id ASC"; //default order by
@@ -321,18 +410,6 @@ echo "<pre>";
     }
 
 
-    // gets the total number of rows
-    $count_query = "SELECT COUNT(*) as total_rows FROM tranfile1      
-    LEFT JOIN mf_salesman ON tranfile1.salesman_id = mf_salesman.salesman_id      
-    LEFT JOIN mf_buyers ON tranfile1.buyer_id = mf_buyers.buyer_id      
-    LEFT JOIN mf_routes ON tranfile1.route_id = mf_routes.route_id     
-    WHERE true AND tranfile1.trncde='".$_POST['trncde_hidden']."' ".$xfilter." ".$xfilter_smn;
-    $stmt_count = $link->prepare($count_query);
-    $stmt_count->execute();
-    while($rs_row_count = $stmt_count->fetch()){
-        $table_row_count = (int)$rs_row_count['total_rows'];
-    }
-
     $grand_total = 0;
     $xpre_salesman='**';
     $xpre_salesman_id='**';
@@ -347,15 +424,42 @@ echo "<pre>";
     $select_db="SELECT tranfile1.paydate_salesman as 'paydate_salesman', tranfile1.ship_status as tranfile1_ship_status, mf_routes.route_desc as mf_routes_route_desc, tranfile1.shipto as tranfile1_shipto,tranfile1.salesman_id as tranfile1_salesman_id,tranfile1.docnum as tranfile1_docnum,
     tranfile1.trndte as tranfile1_trndte,tranfile1.trntot as tranfile1_trntot,tranfile1.orderby as tranfile1_orderby,tranfile1.recid as tranfile1_recid, tranfile1.ordernum as tranfile1_ordernum,
     mf_salesman.recid as mf_salesman1_recid, mf_salesman.salesman_name as mf_salesman_name, tranfile1.paydate as tranfile1_paydate, tranfile1.paydetails as tranfile1_paydetails,
-    mf_salesman.salesman_name, mf_salesman.salesman_id, mf_buyers.buyer_name as mf_buyer_name, mf_salesman.commission as mf_salesman_commission,com_pay FROM tranfile1 
+    mf_salesman.salesman_name, mf_salesman.salesman_id, mf_buyers.buyer_name as mf_buyer_name, mf_salesman.commission as mf_salesman_commission,com_pay,
+    COALESCE(NULLIF(tranfile1.com_pay, 0), ROUND(tranfile1.trntot * mf_salesman.commission / 100, 2), 0) as tranfile1_com_pay_calc FROM tranfile1
     LEFT JOIN mf_salesman ON tranfile1.salesman_id = mf_salesman.salesman_id 
     LEFT JOIN mf_buyers ON tranfile1.buyer_id = mf_buyers.buyer_id 
     LEFT JOIN mf_routes ON tranfile1.route_id = mf_routes.route_id
     WHERE true AND tranfile1.trncde='".$_POST['trncde_hidden']."' ".$xfilter." ".$xfilter_smn." ".$xorder_by;
 
+    // Cheap count first (tranfile1 only - every filter is on tranfile1) so huge exports are refused before loading rows.
+    $stmt_count = $link->prepare("SELECT COUNT(*) FROM tranfile1 WHERE true AND tranfile1.trncde='".$_POST['trncde_hidden']."' ".$xfilter." ".$xfilter_smn);
+    $stmt_count->execute();
+    $export_row_count = (int)$stmt_count->fetchColumn();
+    $row_limit_message = sales_salesman_row_limit_message($export_row_count);
+    if($count_only){
+        ob_end_clean();
+        header('Content-Type: application/json');
+        echo json_encode(array('count' => $export_row_count, 'limit' => SALES_SALESMAN_MAX_ROWS, 'message' => $row_limit_message));
+        exit;
+    }
+    if($row_limit_message !== ''){
+        beaver_log('REFUSED | '.$row_limit_message);
+        ob_end_clean();
+        echo "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Salesman Report</title></head>"
+            ."<body style='font-family:Arial,sans-serif;padding:40px'>"
+            ."<h3 style='color:#b02a37'>Export not generated</h3>"
+            ."<p>".htmlspecialchars($row_limit_message)."</p>"
+            ."<p>You can close this tab and adjust the filters.</p></body></html>";
+        exit;
+    }
+
+    beaver_log('MAIN QUERY START | filter='.$xfilter.$xfilter_smn);
     $stmt_main	= $link->prepare($select_db);
     $stmt_main->execute();
+    beaver_log('MAIN QUERY EXECUTED | fetching rows');
     $main_rows = $stmt_main->fetchAll(PDO::FETCH_ASSOC);
+    $table_row_count = count($main_rows);
+    beaver_log('MAIN QUERY DONE | rows='.$table_row_count);
 
     // Resolve partial payment schema once per request.
     $partial_date_column = "date_paid";
@@ -421,9 +525,14 @@ echo "<pre>";
         $none_salesman_name = $rs_main_empty_salesman["salesman_name"];
     }
 
-    foreach($main_rows as $rs_main){    
+    beaver_log('PARTIAL PAYMENTS PREFETCHED | docnums='.count($partial_payment_map));
+
+    foreach($main_rows as $rs_main){
 
         $xactual_rows_count++;
+        if($xactual_rows_count % 1000 == 0){
+            beaver_log('RENDERING | row '.$xactual_rows_count.' of '.$table_row_count);
+        }
 
         if($rs_main['tranfile1_salesman_id'] == null){
             if($none_salesman_id !== null){
@@ -577,7 +686,7 @@ echo "<pre>";
         $pdf->ezPlaceData($xleft+=105,$xtop,$rs_main["tranfile1_paydate"],9,"left");
         $pdf->ezPlaceData($xleft+=60,$xtop,$rs_main["paydate_salesman"]??'',9,"left");
         $pdf->ezPlaceData($xleft+=170,$xtop,number_format($rs_main["tranfile1_trntot"],"2"),9,"right");
-        $xrow_comission = $rs_main["com_pay"];
+        $xrow_comission = $rs_main["tranfile1_com_pay_calc"];
         $salesman_subtotal += $xrow_comission;
 
         $pdf->ezPlaceData($xleft+=110,$xtop,number_format($xrow_comission,"2"),9,"right");
@@ -733,8 +842,10 @@ echo "<pre>";
 
 
 	$pdf->addText(30,15,8,"Date Printed : ".date("F j, Y, g:i A"),$angle=0,$wordspaceadjust=1);
+    beaver_log('RENDER DONE | before ezStream');
+    ob_end_clean(); // drop stray output so only the PDF is sent, without buffering it twice
 	$pdf->ezStream();
-    ob_end_flush();
+    beaver_log('EZSTREAM DONE');
 
     function trim_str($string,$max_wid,$fsize)
     {   
@@ -743,24 +854,9 @@ echo "<pre>";
         {
             return $string;
         }
-        $xarr_str = str_split($string);
-        $max_wid -= 5;
-        $xxstr = "";
-        $xcut = false;
-        foreach ($xarr_str as $value) {
-            $xstr_wid = $pdf->getTextWidth($fsize,$xxstr.$value);
-            if($xstr_wid > $max_wid)
-            {   
-                $xcut = true;
-                break;
-            }
-            $xxstr = $xxstr.$value;
-        }
-        if($xcut)
-        {   
-            $xxstr = $xxstr.'...';
-        }
-        return $xxstr;
+        return sales_salesman_fit_text($string, $max_wid, function($s) use ($pdf, $fsize){
+            return $pdf->getTextWidth($fsize, $s);
+        });
     }
 
     //returns dynamic width
@@ -787,7 +883,7 @@ echo "<pre>";
     function sales_return($passed_row_count, $xtable_row_count,$xinclude,$salesman_row_id)
     {
 
-        $xfilter = '';
+        $xfilter = sales_customer_filter_sql($_POST['cus_search'] ?? '');
         global $link,$pdf, $xleft, $xtop, $xpre_salesman, $xpre_salesman_id,$xsal_ret_tot, $subtotal;
 
 

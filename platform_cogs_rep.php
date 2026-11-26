@@ -1,165 +1,20 @@
 <?php
     /**
      * Platform COGS Report - PDF and XLS output
-     * Based on critical_pdf_rep.php header style and sales_trndate_rep.php report behavior
      *
-     * COGS CALCULATION LOGIC:
-     * ======================
-     * For sales transactions (trncde = 'SAL'), tranfile2.stkqty is ALWAYS NEGATIVE.
-     * To get the correct sold quantity, we multiply stkqty by -1:
-     *   sold_qty = stkqty * -1
+     * Groups sales (tranfile2 where trncde = 'SAL') by:
+     *   Platform (tranfile2.platform_upload, e.g. TIKTOK/SHOPEE/LAZADA)
+     *     -> Shop (tranfile2.platform_shop_id -> mf_platform_shop.platform_shop_title,
+     *              or "No Shop Assigned Yet" when platform_shop_id is blank)
+     *       -> Item (Qty in pcs, Cost per pc, Total COGS)
      *
-     * Then COGS is calculated as:
-     *   line_cogs = latest_purchase_cost * sold_qty
-     *   platform_cogs = SUM(line_cogs)
-     *
-     * Example:
-     *   Sales stkqty = -100
-     *   sold_qty = -100 * -1 = 100
-     *   latest_purchase_cost = 10
-     *   line_cogs = 10 * 100 = 1,000
-     *
-     * =============================================================================
-     * MANUAL SQL TEST QUERIES FOR SHOPEE (CUS-00010)
-     * =============================================================================
-     *
-     * 1. Test Shopee COGS WITH date filters (replace YYYY-MM-DD with actual dates):
-     *
-     * SELECT
-     *     x.Platform,
-     *     SUM(COALESCE(x.latest_purchase_cost, 0) * COALESCE(x.sold_qty, 0)) AS COGS
-     * FROM (
-     *     SELECT
-     *         cf.cusdsc AS Platform,
-     *         s.itmcde,
-     *         s.sold_qty,
-     *         (
-     *             SELECT p2.untprc
-     *             FROM tranfile1 p1
-     *             LEFT JOIN tranfile2 p2 ON p1.docnum = p2.docnum
-     *             WHERE p1.trncde = 'PUR'
-     *               AND p2.itmcde = s.itmcde
-     *               AND p2.unmcde = (
-     *                   SELECT ium.unmcde FROM itemunitmeasurefile ium
-     *                   WHERE LOWER(ium.unmdsc) = 'pcs' LIMIT 1
-     *               )
-     *               AND p1.trndte <= CURDATE()
-     *             ORDER BY p1.trndte DESC, p1.docnum DESC
-     *             LIMIT 1
-     *         ) AS latest_purchase_cost
-     *     FROM customerfile cf
-     *     LEFT JOIN (
-     *         SELECT
-     *             t1.cuscde,
-     *             t2.itmcde,
-     *             (COALESCE(t2.stkqty, 0) * -1) AS sold_qty
-     *         FROM tranfile1 t1
-     *         LEFT JOIN tranfile2 t2 ON t1.docnum = t2.docnum
-     *         WHERE t1.trncde = 'SAL'
-     *           AND t1.cuscde = 'CUS-00010'
-     *           AND t1.trndte >= 'YYYY-MM-DD'
-     *           AND t1.trndte <= 'YYYY-MM-DD'
-     *     ) s ON cf.cuscde = s.cuscde
-     *     WHERE cf.cuscde = 'CUS-00010'
-     * ) x
-     * GROUP BY x.Platform;
-     *
-     * 2. Test Shopee COGS WITHOUT date filters:
-     *
-     * SELECT
-     *     x.Platform,
-     *     SUM(COALESCE(x.latest_purchase_cost, 0) * COALESCE(x.sold_qty, 0)) AS COGS
-     * FROM (
-     *     SELECT
-     *         cf.cusdsc AS Platform,
-     *         s.itmcde,
-     *         s.sold_qty,
-     *         (
-     *             SELECT p2.untprc
-     *             FROM tranfile1 p1
-     *             LEFT JOIN tranfile2 p2 ON p1.docnum = p2.docnum
-     *             WHERE p1.trncde = 'PUR'
-     *               AND p2.itmcde = s.itmcde
-     *               AND p2.unmcde = (
-     *                   SELECT ium.unmcde FROM itemunitmeasurefile ium
-     *                   WHERE LOWER(ium.unmdsc) = 'pcs' LIMIT 1
-     *               )
-     *               AND p1.trndte <= CURDATE()
-     *             ORDER BY p1.trndte DESC, p1.docnum DESC
-     *             LIMIT 1
-     *         ) AS latest_purchase_cost
-     *     FROM customerfile cf
-     *     LEFT JOIN (
-     *         SELECT
-     *             t1.cuscde,
-     *             t2.itmcde,
-     *             (COALESCE(t2.stkqty, 0) * -1) AS sold_qty
-     *         FROM tranfile1 t1
-     *         LEFT JOIN tranfile2 t2 ON t1.docnum = t2.docnum
-     *         WHERE t1.trncde = 'SAL'
-     *           AND t1.cuscde = 'CUS-00010'
-     *     ) s ON cf.cuscde = s.cuscde
-     *     WHERE cf.cuscde = 'CUS-00010'
-     * ) x
-     * GROUP BY x.Platform;
-     *
-     * 3. Detailed/Debug SQL to inspect each Shopee sales line (replace YYYY-MM-DD):
-     *
-     * SELECT
-     *     cf.cusdsc AS Platform,
-     *     s.docnum AS SalesDocnum,
-     *     s.trndte AS SalesDate,
-     *     s.itmcde AS ItemCode,
-     *     s.raw_stkqty AS RawSalesStkQty,
-     *     s.sold_qty AS PositiveSoldQty,
-     *     COALESCE((
-     *         SELECT p2.untprc
-     *         FROM tranfile1 p1
-     *         LEFT JOIN tranfile2 p2 ON p1.docnum = p2.docnum
-     *         WHERE p1.trncde = 'PUR'
-     *           AND p2.itmcde = s.itmcde
-     *           AND p2.unmcde = (
-     *               SELECT ium.unmcde FROM itemunitmeasurefile ium
-     *               WHERE LOWER(ium.unmdsc) = 'pcs' LIMIT 1
-     *           )
-     *           AND p1.trndte <= CURDATE()
-     *         ORDER BY p1.trndte DESC, p1.docnum DESC
-     *         LIMIT 1
-     *     ), 0) AS LatestPurchaseCost,
-     *     COALESCE((
-     *         SELECT p2.untprc
-     *         FROM tranfile1 p1
-     *         LEFT JOIN tranfile2 p2 ON p1.docnum = p2.docnum
-     *         WHERE p1.trncde = 'PUR'
-     *           AND p2.itmcde = s.itmcde
-     *           AND p2.unmcde = (
-     *               SELECT ium.unmcde FROM itemunitmeasurefile ium
-     *               WHERE LOWER(ium.unmdsc) = 'pcs' LIMIT 1
-     *           )
-     *           AND p1.trndte <= CURDATE()
-     *         ORDER BY p1.trndte DESC, p1.docnum DESC
-     *         LIMIT 1
-     *     ), 0) * COALESCE(s.sold_qty, 0) AS LineCOGS
-     * FROM customerfile cf
-     * LEFT JOIN (
-     *     SELECT
-     *         t1.cuscde,
-     *         t1.docnum,
-     *         t1.trndte,
-     *         t2.itmcde,
-     *         t2.stkqty AS raw_stkqty,
-     *         (COALESCE(t2.stkqty, 0) * -1) AS sold_qty
-     *     FROM tranfile1 t1
-     *     LEFT JOIN tranfile2 t2 ON t1.docnum = t2.docnum
-     *     WHERE t1.trncde = 'SAL'
-     *       AND t1.cuscde = 'CUS-00010'
-     *       AND t1.trndte >= 'YYYY-MM-DD'
-     *       AND t1.trndte <= 'YYYY-MM-DD'
-     * ) s ON cf.cuscde = s.cuscde
-     * WHERE cf.cuscde = 'CUS-00010'
-     * ORDER BY s.trndte, s.docnum, s.itmcde;
-     *
-     * =============================================================================
+     * Everything is in pcs:
+     *   Qty (pcs)  = itmqty x conversion (pcs = 1, other UOMs from itemunitfile).
+     *              Lines whose UOM has no conversion are excluded and counted.
+     *   Cost (pc)  = item's "Cost" price in mf_salesitemprice (per pc). If empty/0:
+     *              latest PUR (tranfile1.trndte <= today) in pcs -> untprc, otherwise
+     *              latest PUR in another UOM -> untprc / conversion, otherwise 0.
+     *   Total COGS = Qty (pcs) x Cost (pc). Gross sales only, not netted against SALRET.
      */
 
     session_start();
@@ -171,12 +26,9 @@
 
     ob_start();
 
-    // Validate session
     if (!isset($_SESSION['userdesc'])) {
         die('Unauthorized access');
     }
-
-    $xreport_title = "Platform COGS Report";
 
     if (isset($_POST['txt_output_type']) && $_POST['txt_output_type'] == 'tab') {
         $pdf = new tab_ezpdf('Letter', 'landscape');
@@ -188,279 +40,216 @@
     $pdf->ezStartPageNumbers(500, 15, 8, 'right', 'Page {PAGENUM}  of  {TOTALPAGENUM}', 1);
     date_default_timezone_set('Asia/Manila');
     $date_printed = date("F j, Y h:i:s A");
-    $today_date = date("Y-m-d");
+    $is_tab = (get_class($pdf) == 'tab_ezpdf');
 
-    $xtop = 580;
-    $xleft = 25;
+    $xtop = 550;
+    $C_LABEL = 25;
+    $C_QTY   = 540;
+    $C_COST  = 650;
+    $C_TOTAL = 770;
 
-    // Process date filters for display
-    $date_from_display = '';
-    $date_to_display = '';
-    $date_from_sql = null;
-    $date_to_sql = null;
-
-    if (isset($_POST['date_from']) && !empty($_POST['date_from'])) {
-        $date_from_sql = date("Y-m-d", strtotime($_POST['date_from']));
-        $date_from_display = date("m/d/Y", strtotime($_POST['date_from']));
-    }
-
-    if (isset($_POST['date_to']) && !empty($_POST['date_to'])) {
-        $date_to_sql = date("Y-m-d", strtotime($_POST['date_to']));
-        $date_to_display = date("m/d/Y", strtotime($_POST['date_to']));
-    }
-
-    // Build date filter display string
-    $date_filter_display = '';
-    if (!empty($date_from_display) && !empty($date_to_display)) {
-        $date_filter_display = 'Date Filter: ' . $date_from_display . ' - ' . $date_to_display;
-    } elseif (!empty($date_from_display)) {
-        $date_filter_display = 'Date Filter: From ' . $date_from_display;
-    } elseif (!empty($date_to_display)) {
-        $date_filter_display = 'Date Filter: To ' . $date_to_display;
-    } else {
-        $date_filter_display = 'Date Filter: All Dates';
-    }
-
-    // Process platform filter
-    $platform_filter = null;
-    $platform_filter_display = 'Platform: All';
-    if (isset($_POST['platform_filter']) && !empty($_POST['platform_filter'])) {
-        // Validate that the cuscde exists in customerfile
-        $validate_stmt = $link->prepare("SELECT cuscde, cusdsc FROM customerfile WHERE cuscde = ? LIMIT 1");
-        $validate_stmt->execute(array($_POST['platform_filter']));
-        $validate_result = $validate_stmt->fetch(PDO::FETCH_ASSOC);
-        if ($validate_result) {
-            $platform_filter = $validate_result['cuscde'];
-            $platform_filter_display = 'Platform: ' . htmlspecialchars($validate_result['cusdsc']);
-        }
+    // ---- date filter ----
+    $xfilter2 = '';
+    $period_label = 'All Dates';
+    if (isset($_POST['date_from']) && !empty($_POST['date_from']) &&
+        isset($_POST['date_to']) && !empty($_POST['date_to'])) {
+        $_POST['date_from'] = date("Y-m-d", strtotime($_POST['date_from']));
+        $_POST['date_to'] = date("Y-m-d", strtotime($_POST['date_to']));
+        $xfilter2 .= " AND tranfile1.trndte>='" . $_POST['date_from'] . "' AND tranfile1.trndte<='" . $_POST['date_to'] . "'";
+        $period_label = date("m/d/Y", strtotime($_POST['date_from'])) . " - " . date("m/d/Y", strtotime($_POST['date_to']));
+    } elseif (isset($_POST['date_from']) && !empty($_POST['date_from'])) {
+        $_POST['date_from'] = date("Y-m-d", strtotime($_POST['date_from']));
+        $xfilter2 .= " AND tranfile1.trndte>='" . $_POST['date_from'] . "'";
+        $period_label = "From " . date("m/d/Y", strtotime($_POST['date_from']));
+    } elseif (isset($_POST['date_to']) && !empty($_POST['date_to'])) {
+        $_POST['date_to'] = date("Y-m-d", strtotime($_POST['date_to']));
+        $xfilter2 .= " AND tranfile1.trndte<='" . $_POST['date_to'] . "'";
+        $period_label = "Up to " . date("m/d/Y", strtotime($_POST['date_to']));
     }
 
     /** Header **/
     $xheader = $pdf->openObject();
     $pdf->saveState();
-    $pdf->ezPlaceData($xleft, $xtop, xls_safe_text("<b>Platform COGS Report</b>"), 15, 'left');
+    $pdf->ezPlaceData($C_LABEL, $xtop, xls_safe_text("<b>Platform COGS Report</b>"), 15, 'left');
     $xtop -= 15;
-    $pdf->ezPlaceData($xleft, $xtop, xls_safe_text("<b>Pdf Report by: " . htmlspecialchars($_SESSION['userdesc']) . " (Summarized)</b>"), 9, 'left');
+    $pdf->ezPlaceData($C_LABEL, $xtop, xls_safe_text("<b>Pdf Report by: " . htmlspecialchars($_SESSION['userdesc']) . "</b>"), 9, 'left');
     $xtop -= 15;
-    $pdf->ezPlaceData($xleft, $xtop, xls_safe_text($date_filter_display), 10, 'left');
+    $pdf->ezPlaceData($C_LABEL, $xtop, xls_safe_text('Period : ' . $period_label), 10, 'left');
     $xtop -= 15;
-    $pdf->ezPlaceData($xleft, $xtop, xls_safe_text($platform_filter_display), 10, 'left');
+    $pdf->ezPlaceData($C_LABEL, $xtop, xls_safe_text('Date Printed : ' . $date_printed), 10, 'left');
     $xtop -= 15;
-    $pdf->ezPlaceData($xleft, $xtop, xls_safe_text('Date Printed : ' . $date_printed), 10, 'left');
-    $xtop -= 20;
 
     $pdf->setLineStyle(.5);
-    $pdf->line($xleft, $xtop + 10, 770, $xtop + 10);
-    $pdf->line($xleft, $xtop - 3, 770, $xtop - 3);
-
-    // Column headers
-    $pdf->ezPlaceData($xleft, $xtop, xls_safe_text("<b>Platform</b>"), 10, 'left');
-    $pdf->ezPlaceData(400, $xtop, xls_safe_text("<b>COGS</b>"), 10, 'right');
-
-    $xleft = 25;
-    $xtop -= 15;
-
     $pdf->restoreState();
     $pdf->closeObject();
     $pdf->addObject($xheader, 'all');
     /** End Header **/
 
-    // Get the unmcde for 'pcs' unit measure (cached once, not per row)
-    $pcs_unmcde = null;
-    $stmt_pcs = $link->prepare("SELECT unmcde FROM itemunitmeasurefile WHERE LOWER(unmdsc) = 'pcs' LIMIT 1");
+    // ---- every SAL line in range, with its shop title and item description ----
+    $select_db = "SELECT tranfile2.itmcde, tranfile2.unmcde, tranfile2.itmqty,
+            tranfile2.platform_upload, mps.platform_shop_title, itemfile.itmdsc
+        FROM tranfile2
+        INNER JOIN tranfile1 ON tranfile1.docnum = tranfile2.docnum
+        LEFT JOIN mf_platform_shop mps ON mps.platform_shop_id = tranfile2.platform_shop_id
+        LEFT JOIN itemfile ON itemfile.itmcde = tranfile2.itmcde
+        WHERE tranfile1.trncde = 'SAL' " . $xfilter2;
+    $stmt_main = $link->prepare($select_db);
+    $stmt_main->execute();
+    $sal_rows = $stmt_main->fetchAll(PDO::FETCH_ASSOC);
+
+    // ---- batch-load pcs code, conversions and costs for the items sold ----
+    $unique_items = array();
+    foreach ($sal_rows as $sal_row) {
+        if (!empty($sal_row['itmcde'])) {
+            $unique_items[$sal_row['itmcde']] = true;
+        }
+    }
+    $item_list = array_map('strval', array_keys($unique_items));
+
+    $stmt_pcs = $link->prepare("SELECT unmcde FROM itemunitmeasurefile WHERE LOWER(TRIM(unmdsc)) = 'pcs' ORDER BY recid ASC LIMIT 1");
     $stmt_pcs->execute();
-    $rs_pcs = $stmt_pcs->fetch(PDO::FETCH_ASSOC);
-    if ($rs_pcs) {
-        $pcs_unmcde = $rs_pcs['unmcde'];
-    }
+    $pcs_unmcde = (string)$stmt_pcs->fetchColumn();
 
-    // Pre-fetch all purchase costs for optimization
-    // Get latest purchase cost per item (pcs unit) up to today
-    // Order by trndte DESC, docnum DESC to get the most recent cost
+    $conv_map = array();
     $cost_cache = array();
-    $cost_query = "SELECT t2.itmcde, t2.untprc, t1.trndte, t1.docnum
-        FROM tranfile2 t2
-        INNER JOIN tranfile1 t1 ON t1.docnum = t2.docnum
-        WHERE t1.trncde = 'PUR'
-        AND t1.trndte <= ?
-        AND t2.stkqty > 0";
+    $pur_rows = array();
+    if (!empty($item_list)) {
+        $placeholders = implode(',', array_fill(0, count($item_list), '?'));
 
-    $cost_params = array($today_date);
-
-    // Add pcs filter if we found the pcs unit code
-    if ($pcs_unmcde !== null) {
-        $cost_query .= " AND t2.unmcde = ?";
-        $cost_params[] = $pcs_unmcde;
-    }
-
-    $cost_query .= " ORDER BY t1.trndte DESC, t1.docnum DESC";
-
-    $stmt_cost = $link->prepare($cost_query);
-    $stmt_cost->execute($cost_params);
-
-    // Store only the latest cost per item (first occurrence due to ORDER BY)
-    while ($cost_row = $stmt_cost->fetch(PDO::FETCH_ASSOC)) {
-        $itmcde = $cost_row['itmcde'];
-        if (!isset($cost_cache[$itmcde])) {
-            $cost_cache[$itmcde] = floatval($cost_row['untprc']);
+        $stmt_conv = $link->prepare("SELECT itmcde, unmcde, conversion FROM itemunitfile WHERE itmcde IN ($placeholders)");
+        $stmt_conv->execute($item_list);
+        while ($conv_row = $stmt_conv->fetch(PDO::FETCH_ASSOC)) {
+            $conv_map[$conv_row['itmcde'] . '|' . trim((string)$conv_row['unmcde'])] = (float)$conv_row['conversion'];
         }
-    }
 
-    // Get customers/platforms (filtered or all)
-    $customer_params = array();
-    if ($platform_filter !== null) {
-        // Single platform selected
-        $select_customers = "SELECT cuscde, cusdsc FROM customerfile WHERE cuscde = ? ORDER BY cusdsc ASC";
-        $customer_params[] = $platform_filter;
-    } else {
-        // All platforms
-        $select_customers = "SELECT cuscde, cusdsc FROM customerfile ORDER BY cusdsc ASC";
-    }
-    $stmt_customers = $link->prepare($select_customers);
-    $stmt_customers->execute($customer_params);
-    $all_customers = $stmt_customers->fetchAll(PDO::FETCH_ASSOC);
+        // Cost price (per pc) = item's "Cost" price in mf_salesitemprice
+        $cost_query = "SELECT sip.itmcde, sip.price
+            FROM mf_salesitemprice sip
+            WHERE sip.salesprice_id = (SELECT salesprice_id FROM mf_salespricetype WHERE salesprice_desc = 'Cost' LIMIT 1)
+            AND sip.itmcde IN ($placeholders)";
+        $stmt_cost = $link->prepare($cost_query);
+        $stmt_cost->execute($item_list);
+        $cost_cache = $stmt_cost->fetchAll(PDO::FETCH_KEY_PAIR);
 
-    // Build sales filter based on date inputs and platform filter
-    $sales_filter = "";
-    $sales_params = array();
-
-    // Add platform filter if a specific platform is selected
-    if ($platform_filter !== null) {
-        $sales_filter .= " AND t1.cuscde = ?";
-        $sales_params[] = $platform_filter;
-    }
-
-    if ($date_from_sql !== null) {
-        $sales_filter .= " AND t1.trndte >= ?";
-        $sales_params[] = $date_from_sql;
-    }
-
-    if ($date_to_sql !== null) {
-        $sales_filter .= " AND t1.trndte <= ?";
-        $sales_params[] = $date_to_sql;
-    }
-
-    // Pre-fetch sales data grouped by customer (filtered or all)
-    // Note: stkqty for SAL transactions is NEGATIVE
-    $sales_query = "SELECT t1.cuscde, t2.itmcde, t2.stkqty
-        FROM tranfile1 t1
-        INNER JOIN tranfile2 t2 ON t1.docnum = t2.docnum
-        WHERE t1.trncde = 'SAL'" . $sales_filter . "
-        ORDER BY t1.cuscde ASC";
-
-    $stmt_sales = $link->prepare($sales_query);
-    $stmt_sales->execute($sales_params);
-
-    // Group sales by customer
-    $sales_by_customer = array();
-    while ($sales_row = $stmt_sales->fetch(PDO::FETCH_ASSOC)) {
-        $cuscde = $sales_row['cuscde'];
-        if (!isset($sales_by_customer[$cuscde])) {
-            $sales_by_customer[$cuscde] = array();
-        }
-        $sales_by_customer[$cuscde][] = array(
-            'itmcde' => $sales_row['itmcde'],
-            'stkqty' => floatval($sales_row['stkqty'])
-        );
-    }
-
-    // Calculate COGS for each platform and render
-    $grand_total_cogs = 0;
-
-    foreach ($all_customers as $customer) {
-        $cuscde = $customer['cuscde'];
-        $cusdsc = $customer['cusdsc'];
-
-        $platform_cogs = 0;
-
-        // Calculate COGS if customer has sales
-        if (isset($sales_by_customer[$cuscde])) {
-            foreach ($sales_by_customer[$cuscde] as $sale) {
-                $itmcde = $sale['itmcde'];
-
-                // IMPORTANT: SAL stkqty is always NEGATIVE
-                // Convert to positive by multiplying by -1
-                // Example: stkqty = -100, sold_qty = -100 * -1 = 100
-                $sold_qty = $sale['stkqty'] * -1;
-
-                // Get latest purchase cost from cache
-                // If no purchase cost found, treat as 0
-                $unit_cost = isset($cost_cache[$itmcde]) ? $cost_cache[$itmcde] : 0;
-
-                // Calculate COGS for this line item
-                // line_cogs = latest_purchase_cost * sold_qty
-                $line_cogs = $unit_cost * $sold_qty;
-
-                $platform_cogs += $line_cogs;
+        // Fallback source: purchases (latest first) for items with no/zero Cost price
+        $no_cost_items = array();
+        foreach ($item_list as $itm) {
+            if (empty($cost_cache[$itm]) || (float)$cost_cache[$itm] == 0) {
+                $no_cost_items[] = $itm;
             }
         }
-
-        // Display platform row (show all platforms, even with 0 COGS)
-        $xleft = 25;
-
-        // Truncate long platform names for PDF display
-        $display_cusdsc = $cusdsc;
-        if (get_class($pdf) != 'tab_ezpdf') {
-            $display_cusdsc = trim_str($cusdsc, 350, 9);
-        } else {
-            $display_cusdsc = xls_safe_text($cusdsc);
-        }
-
-        $pdf->ezPlaceData($xleft, $xtop, $display_cusdsc, 9, "left");
-        $pdf->ezPlaceData(400, $xtop, number_format($platform_cogs, 2), 9, "right");
-
-        $grand_total_cogs += $platform_cogs;
-
-        $xtop -= 15;
-
-        if ($xtop <= 60) {
-            $pdf->ezNewPage();
-            $xtop = 515;
+        if (!empty($no_cost_items)) {
+            $pur_placeholders = implode(',', array_fill(0, count($no_cost_items), '?'));
+            $pur_cost_query = "SELECT t2.itmcde, t2.unmcde, t2.untprc
+                FROM tranfile2 t2
+                INNER JOIN tranfile1 t1 ON t1.docnum = t2.docnum
+                WHERE t1.trncde = 'PUR' AND t1.trndte <= ? AND t2.itmcde IN ($pur_placeholders)
+                ORDER BY t1.trndte DESC, t2.recid DESC";
+            $stmt_pur = $link->prepare($pur_cost_query);
+            $stmt_pur->execute(array_merge(array(date('Y-m-d')), $no_cost_items));
+            $pur_rows = $stmt_pur->fetchAll(PDO::FETCH_ASSOC);
         }
     }
 
-    // Grand Total
-    $pdf->line(25, $xtop, 770, $xtop);
-    $xtop -= 15;
-    $xleft = 25;
+    $unit_costs = platform_cogs_unit_costs($item_list, $cost_cache, $pur_rows, $pcs_unmcde, $conv_map);
+    $grouped = platform_cogs_build_groups($sal_rows, $unit_costs, $pcs_unmcde, $conv_map);
+    $groups = $grouped['groups'];
+    ksort($groups);
 
-    $pdf->ezPlaceData($xleft, $xtop, xls_safe_text("<b>Grand Total:</b>"), 9, "left");
-    $pdf->ezPlaceData(400, $xtop, "<b>" . number_format($grand_total_cogs, 2) . "</b>", 9, "right");
+    // ---- render ----
+    if (empty($groups)) {
 
-    $pdf->line(25, $xtop - 5, 770, $xtop - 5);
+        $pdf->ezPlaceData($C_LABEL, $xtop - 15, xls_safe_text("No sales records found for the selected period."), 10, 'left');
+
+    } else {
+
+        platform_cogs_column_header($pdf, $xtop);
+        $xtop -= 23;
+
+        foreach ($groups as $platform => $platform_data) {
+
+            $pdf->ezPlaceData($C_LABEL, $xtop, xls_safe_text("<b>" . $platform . "</b>"), 10, 'left');
+            $xtop -= 15;
+
+            foreach (platform_cogs_sort_shops($platform_data['shops']) as $shop_label => $shop_data) {
+
+                $pdf->ezPlaceData($C_LABEL, $xtop, xls_safe_text("<b>    " . $shop_label . "</b>"), 9, 'left');
+                $xtop -= 14;
+                platform_cogs_page_break($pdf, $xtop);
+
+                foreach ($shop_data['items'] as $item) {
+                    $pdf->ezPlaceData($C_LABEL, $xtop, xls_safe_text("        " . $item['dsc']), 9, 'left');
+                    $pdf->ezPlaceData($C_QTY,   $xtop, number_format($item['qty']), 9, 'right');
+                    $pdf->ezPlaceData($C_COST,  $xtop, number_format($item['cost'], 2), 9, 'right');
+                    $pdf->ezPlaceData($C_TOTAL, $xtop, number_format($item['total'], 2), 9, 'right');
+                    $xtop -= 14;
+                    platform_cogs_page_break($pdf, $xtop);
+                }
+
+                $pdf->line($C_QTY - 60, $xtop + 10, $C_TOTAL, $xtop + 10);
+                $pdf->ezPlaceData($C_LABEL, $xtop, xls_safe_text("<b>    Subtotal COGS - " . $shop_label . "</b>"), 9, 'left');
+                $pdf->ezPlaceData($C_QTY,   $xtop, "<b>" . number_format($shop_data['qty']) . "</b>", 9, 'right');
+                $pdf->ezPlaceData($C_COST,  $xtop, "", 9, 'right');
+                $pdf->ezPlaceData($C_TOTAL, $xtop, "<b>" . number_format($shop_data['total'], 2) . "</b>", 9, 'right');
+                $xtop -= 18;
+
+                if ($is_tab) {
+                    $pdf->ezPlaceData($C_LABEL, $xtop, '', 9, 'left');
+                    $xtop -= 14;
+                }
+                platform_cogs_page_break($pdf, $xtop);
+            }
+
+            $pdf->line(25, $xtop + 10, $C_TOTAL, $xtop + 10);
+            $pdf->ezPlaceData($C_LABEL, $xtop, xls_safe_text("<b>Total COGS - " . $platform . "</b>"), 10, 'left');
+            $pdf->ezPlaceData($C_QTY,   $xtop, "<b>" . number_format($platform_data['qty']) . "</b>", 10, 'right');
+            $pdf->ezPlaceData($C_COST,  $xtop, "", 9, 'right');
+            $pdf->ezPlaceData($C_TOTAL, $xtop, "<b>" . number_format($platform_data['total'], 2) . "</b>", 10, 'right');
+            $pdf->line(25, $xtop - 5, $C_TOTAL, $xtop - 5);
+            $xtop -= 26;
+
+            if ($is_tab) {
+                $pdf->ezPlaceData($C_LABEL, $xtop, '', 9, 'left');
+                $xtop -= 14;
+            }
+            platform_cogs_page_break($pdf, $xtop);
+        }
+
+        $pdf->line(25, $xtop + 8, $C_TOTAL, $xtop + 8);
+        $pdf->ezPlaceData($C_LABEL, $xtop - 6, xls_safe_text("<b>Grand Total COGS</b>"), 11, 'left');
+        $pdf->ezPlaceData($C_QTY,   $xtop - 6, "<b>" . number_format($grouped['grand_qty']) . "</b>", 11, 'right');
+        $pdf->ezPlaceData($C_COST,  $xtop - 6, "", 9, 'right');
+        $pdf->ezPlaceData($C_TOTAL, $xtop - 6, "<b>" . number_format($grouped['grand_total'], 2) . "</b>", 11, 'right');
+        $xtop -= 20;
+    }
+
+    if ($grouped['excluded_count'] > 0) {
+        $pdf->ezPlaceData($C_LABEL, $xtop - 10, xls_safe_text("Note: Excluded " . $grouped['excluded_count'] . " sale line(s) with no UOM conversion to pcs."), 9, 'left');
+    }
+
     $pdf->addText(30, 15, 8, "Date Printed : " . date("F j, Y, g:i A"), $angle = 0, $wordspaceadjust = 1);
     $pdf->ezStream();
     ob_end_flush();
 
-    /**
-     * Utility function to trim strings for PDF display
-     */
-    function trim_str($string, $max_wid, $fsize)
+    function platform_cogs_column_header($pdf, $xtop)
     {
-        global $pdf;
-        if (get_class($pdf) == 'tab_ezpdf') {
-            return $string;
+        global $C_LABEL, $C_QTY, $C_COST, $C_TOTAL;
+        $pdf->ezPlaceData($C_LABEL, $xtop - 9, xls_safe_text("<b>Platform / Shop / Item</b>"), 9, 'left');
+        $pdf->ezPlaceData($C_QTY,   $xtop - 9, xls_safe_text("<b>Qty (pcs)</b>"), 9, 'right');
+        $pdf->ezPlaceData($C_COST,  $xtop - 9, xls_safe_text("<b>Cost</b>"), 9, 'right');
+        $pdf->ezPlaceData($C_TOTAL, $xtop - 9, xls_safe_text("<b>Total COGS</b>"), 9, 'right');
+        $pdf->line(25, $xtop - 12, $C_TOTAL, $xtop - 12);
+    }
+
+    function platform_cogs_page_break($pdf, &$xtop)
+    {
+        if ($xtop > 60) {
+            return;
         }
-        $string = (string)$string;
-        if (empty($string)) {
-            return $string;
-        }
-        $xarr_str = str_split($string);
-        $max_wid -= 5;
-        $xxstr = "";
-        $xcut = false;
-        foreach ($xarr_str as $value) {
-            $xstr_wid = $pdf->getTextWidth($fsize, $xxstr . $value);
-            if ($xstr_wid > $max_wid) {
-                $xcut = true;
-                break;
-            }
-            $xxstr = $xxstr . $value;
-        }
-        if ($xcut) {
-            $xxstr = $xxstr . '...';
-        }
-        return $xxstr;
+        $pdf->ezNewPage();
+        $xtop = 490; // below the 4-line page header repeated on every page (550 -> 505)
+        platform_cogs_column_header($pdf, $xtop);
+        $xtop -= 23;
     }
 
     /**
@@ -476,30 +265,162 @@
             return $string;
         }
 
-        // Try to fix encoding issues first
         if (function_exists('mb_check_encoding') && !mb_check_encoding($string, 'UTF-8')) {
             $string = mb_convert_encoding($string, 'UTF-8', 'UTF-8, Windows-1252, ISO-8859-1');
         }
 
-        // Transliterate to ASCII to prevent layout-breaking chars in XLS
         if (function_exists('iconv')) {
             $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $string);
             if ($converted !== false && $converted !== '') {
                 $string = $converted;
             } else {
-                // Fallback: strip all non-printable-ASCII
                 $string = preg_replace('/[^\x20-\x7E]/', '', $string);
             }
         } else {
-            // No iconv available: strip all non-printable-ASCII
             $string = preg_replace('/[^\x20-\x7E]/', '', $string);
         }
 
-        // Remove tabs, line breaks, and control chars that break TSV format
         $string = str_replace(array("\t", "\r", "\n", "\0"), ' ', $string);
         $string = preg_replace('/[\x00-\x1F\x7F]/', ' ', $string);
         $string = preg_replace('/\s{2,}/', ' ', $string);
 
         return trim($string);
+    }
+
+    // Pcs per 1 unit of $unmcde for this item: 1 for pcs, itemunitfile conversion otherwise, null if unknown.
+    function platform_cogs_is_pcs($unmcde, $pcs_unmcde)
+    {
+        $unmcde = trim((string)$unmcde);
+        return $unmcde !== '' && ($unmcde === (string)$pcs_unmcde || strtolower($unmcde) === 'pcs');
+    }
+
+    function platform_cogs_line_conversion($itmcde, $unmcde, $pcs_unmcde, $conv_map)
+    {
+        $unmcde = trim((string)$unmcde);
+        if (platform_cogs_is_pcs($unmcde, $pcs_unmcde)) {
+            return 1.0;
+        }
+        $key = $itmcde . '|' . $unmcde;
+        return (isset($conv_map[$key]) && (float)$conv_map[$key] > 0) ? (float)$conv_map[$key] : null;
+    }
+
+    // Cost per pc per item: Cost price; else latest pcs PUR; else latest other-UOM PUR / conversion; else 0.
+    // $pur_rows must be sorted latest first (trndte DESC, recid DESC).
+    function platform_cogs_unit_costs($item_list, $cost_cache, $pur_rows, $pcs_unmcde, $conv_map)
+    {
+        $costs = array();
+        foreach ($item_list as $itm) {
+            if (!empty($cost_cache[$itm]) && (float)$cost_cache[$itm] != 0) {
+                $costs[(string)$itm] = (float)$cost_cache[$itm];
+            }
+        }
+
+        $derived = array(); // latest non-pcs purchase converted to per-pc
+        foreach ($pur_rows as $row) {
+            $itm = (string)$row['itmcde'];
+            if (isset($costs[$itm])) {
+                continue;
+            }
+            if (platform_cogs_is_pcs($row['unmcde'], $pcs_unmcde)) {
+                $costs[$itm] = (float)$row['untprc'];
+                continue;
+            }
+            $conv = platform_cogs_line_conversion($itm, $row['unmcde'], $pcs_unmcde, $conv_map);
+            if ($conv !== null && !isset($derived[$itm])) {
+                $derived[$itm] = (float)$row['untprc'] / $conv;
+            }
+        }
+
+        foreach ($item_list as $itm) {
+            $itm = (string)$itm;
+            if (!isset($costs[$itm])) {
+                $costs[$itm] = isset($derived[$itm]) ? $derived[$itm] : 0;
+            }
+        }
+        return $costs;
+    }
+
+    // Groups SAL rows into Platform -> Shop -> Item with pcs qty and COGS. Pure (no DB/PDF) so it's unit-testable.
+    // Each $sal_row needs: itmcde, itmdsc, unmcde, itmqty, platform_upload, platform_shop_title
+    function platform_cogs_build_groups($sal_rows, $unit_costs, $pcs_unmcde, $conv_map)
+    {
+        $groups = array();
+        $grand_qty = 0;
+        $grand_total = 0;
+        $excluded_count = 0;
+
+        foreach ($sal_rows as $row) {
+            $itm = (string)$row['itmcde'];
+            $conv = platform_cogs_line_conversion($itm, $row['unmcde'], $pcs_unmcde, $conv_map);
+            if ($conv === null) {
+                $excluded_count++;
+                continue;
+            }
+
+            $platform = trim((string)$row['platform_upload']);
+            if ($platform === '') {
+                $platform = '(No Platform)';
+            }
+            $shop = !empty($row['platform_shop_title']) ? trim((string)$row['platform_shop_title']) : 'No Shop Assigned Yet';
+
+            $qty = (float)$row['itmqty'] * $conv;
+            $cost = isset($unit_costs[$itm]) ? (float)$unit_costs[$itm] : 0;
+            $total = $qty * $cost;
+
+            if (!isset($groups[$platform])) {
+                $groups[$platform] = array('shops' => array(), 'qty' => 0, 'total' => 0);
+            }
+            if (!isset($groups[$platform]['shops'][$shop])) {
+                $groups[$platform]['shops'][$shop] = array('items' => array(), 'qty' => 0, 'total' => 0);
+            }
+            $items = &$groups[$platform]['shops'][$shop]['items'];
+            if (!isset($items[$itm])) {
+                $dsc = trim((string)(isset($row['itmdsc']) ? $row['itmdsc'] : ''));
+                $items[$itm] = array('dsc' => $dsc !== '' ? $dsc : $itm, 'qty' => 0, 'cost' => $cost, 'total' => 0);
+            }
+            $items[$itm]['qty'] += $qty;
+            $items[$itm]['total'] += $total;
+            unset($items);
+
+            $groups[$platform]['shops'][$shop]['qty'] += $qty;
+            $groups[$platform]['shops'][$shop]['total'] += $total;
+            $groups[$platform]['qty'] += $qty;
+            $groups[$platform]['total'] += $total;
+            $grand_qty += $qty;
+            $grand_total += $total;
+        }
+
+        foreach ($groups as $platform => $platform_data) {
+            foreach ($platform_data['shops'] as $shop => $shop_data) {
+                uasort($groups[$platform]['shops'][$shop]['items'], function ($a, $b) {
+                    return strcasecmp($a['dsc'], $b['dsc']);
+                });
+            }
+        }
+
+        return array(
+            'groups' => $groups,
+            'grand_qty' => $grand_qty,
+            'grand_total' => $grand_total,
+            'excluded_count' => $excluded_count
+        );
+    }
+
+    // Sorts one platform's shop map: real shops alphabetically, "No Shop Assigned Yet" always last.
+    function platform_cogs_sort_shops($shops)
+    {
+        $unassigned = null;
+        if (isset($shops['No Shop Assigned Yet'])) {
+            $unassigned = $shops['No Shop Assigned Yet'];
+            unset($shops['No Shop Assigned Yet']);
+        }
+
+        ksort($shops);
+
+        if ($unassigned !== null) {
+            $shops['No Shop Assigned Yet'] = $unassigned;
+        }
+
+        return $shops;
     }
 ?>

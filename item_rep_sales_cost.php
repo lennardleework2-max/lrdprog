@@ -94,6 +94,7 @@
     $item_rows = $stmt_main->fetchAll(PDO::FETCH_ASSOC);
 
     $cost_cache = array();
+    $pur_cost_cache = array(); // "itmcde|unmcde" => latest purchase untprc
     $unique_items = array();
     foreach($item_rows as $item_row){
         if(!empty($item_row['itmcde'])){
@@ -104,35 +105,45 @@
     if(!empty($unique_items)){
         $item_list = array_keys($unique_items);
         $placeholders = implode(',', array_fill(0, count($item_list), '?'));
-        $cost_query_params = $item_list;
-        $cost_date_limit = '';
-        if(isset($_POST['date_to']) && !empty($_POST['date_to'])){
-            $cost_date_limit = " AND t1.trndte <= ?";
-            $cost_query_params[] = $_POST['date_to'];
-        }
-        $cost_query = "SELECT t2.itmcde, t2.unmcde, t2.untprc, t2.recid, t1.trndte
-            FROM tranfile2 t2
-            INNER JOIN tranfile1 t1 ON t1.docnum = t2.docnum
-            WHERE t2.itmcde IN ($placeholders)
-            AND t1.trncde='PUR'
-            AND t2.stkqty > 0
-            ".$cost_date_limit."
-            ORDER BY t1.trndte DESC , t2.recid DESC";
-        $stmt_cost = $link->prepare($cost_query);
-        $stmt_cost->execute($cost_query_params);
 
-        while($cost_row = $stmt_cost->fetch(PDO::FETCH_ASSOC)){
-            $cost_key = item_sales_cost_cache_key($cost_row['itmcde'], $cost_row['unmcde']);
-            if(!isset($cost_cache[$cost_key])){
-                $cost_cache[$cost_key] = array();
+        // Unit cost = item's "Cost" price in mf_salesitemprice (price type from mf_salespricetype)
+        $cost_query = "SELECT sip.itmcde, sip.price
+            FROM mf_salesitemprice sip
+            WHERE sip.salesprice_id = (SELECT salesprice_id FROM mf_salespricetype WHERE salesprice_desc = 'Cost' LIMIT 1)
+            AND sip.itmcde IN ($placeholders)";
+        $stmt_cost = $link->prepare($cost_query);
+        $stmt_cost->execute($item_list);
+        $cost_cache = $stmt_cost->fetchAll(PDO::FETCH_KEY_PAIR);
+
+        // Fallback: items with no/zero Cost price use the untprc of their latest purchase (PUR) line
+        // dated <= today with the SAME unit of measure (unmcde) as the sale line
+        $no_cost_items = array();
+        foreach($item_list as $itm){
+            if(empty($cost_cache[$itm]) || (float)$cost_cache[$itm] == 0){
+                $no_cost_items[] = $itm;
             }
-            $cost_cache[$cost_key][] = $cost_row;
+        }
+        if(!empty($no_cost_items)){
+            $pur_placeholders = implode(',', array_fill(0, count($no_cost_items), '?'));
+            // Latest = latest tran date (recid breaks ties); first row per item+UOM wins
+            $pur_cost_query = "SELECT t2.itmcde, t2.unmcde, t2.untprc
+                FROM tranfile2 t2
+                INNER JOIN tranfile1 t1 ON t1.docnum = t2.docnum
+                WHERE t1.trncde = 'PUR' AND t1.trndte <= ? AND t2.itmcde IN ($pur_placeholders)
+                ORDER BY t1.trndte DESC, t2.recid DESC";
+            $stmt_pur_cost = $link->prepare($pur_cost_query);
+            $stmt_pur_cost->execute(array_merge(array(date('Y-m-d')), $no_cost_items));
+            while($pur_row = $stmt_pur_cost->fetch(PDO::FETCH_ASSOC)){
+                $pur_cost_key = $pur_row['itmcde'].'|'.$pur_row['unmcde'];
+                if(!isset($pur_cost_cache[$pur_cost_key])){
+                    $pur_cost_cache[$pur_cost_key] = (float)$pur_row['untprc'];
+                }
+            }
         }
     }
 
-    // Batch-fetch all detail rows once and collect the exact cost lookup keys needed by the report.
+    // Batch-fetch all detail rows once.
     $detail_cache = array();
-    $sales_cost_needs = array();
     if(!empty($unique_items)){
         $item_list = array_keys($unique_items);
         $placeholders = implode(',', array_fill(0, count($item_list), '?'));
@@ -151,36 +162,46 @@
         $stmt_detail->execute($params);
 
         while($detail_row = $stmt_detail->fetch(PDO::FETCH_ASSOC)){
-            $lookup_trndte = '';
-            if(!empty($detail_row['trndte'])){
-                $lookup_trndte = date("Y-m-d", strtotime($detail_row['trndte']));
-            }
-            $detail_row['_lookup_trndte'] = $lookup_trndte;
-
             $itmcde = $detail_row['itmcde'];
             if(!isset($detail_cache[$itmcde])){
                 $detail_cache[$itmcde] = array();
             }
             $detail_cache[$itmcde][] = $detail_row;
-
-            $cost_key = item_sales_cost_cache_key($detail_row['itmcde'], isset($detail_row['unmcde']) ? $detail_row['unmcde'] : NULL);
-            if(!isset($sales_cost_needs[$cost_key])){
-                $sales_cost_needs[$cost_key] = array(
-                    'dates' => array(),
-                    'recids' => array()
-                );
-            }
-
-            if($lookup_trndte !== ''){
-                $sales_cost_needs[$cost_key]['dates'][$lookup_trndte] = true;
-            }
-
-            if(isset($detail_row['recid']) && $detail_row['recid'] !== ''){
-                $sales_cost_needs[$cost_key]['recids'][(string)$detail_row['recid']] = (int)$detail_row['recid'];
-            }
         }
     }
-    $cost_lookup_cache = item_sales_cost_build_lookup_cache($cost_cache, $sales_cost_needs);
+
+    // "Show items with no cost": list only sold items with no "Cost" price in mf_salesitemprice,
+    // without their transactions.
+    if(!empty($_POST['show_no_cost'])){
+        $pdf->ezPlaceData(25, $xtop-9, xls_safe_text("<b>Items with no cost</b>"), 11, 'left');
+        $pdf->line(25, $xtop-12, 770, $xtop-12);
+        $xtop -= 27;
+
+        $no_cost_count = 0;
+        foreach($item_rows as $rs_main){
+            $detail_rows = isset($detail_cache[$rs_main['itmcde']]) ? $detail_cache[$rs_main['itmcde']] : array();
+            if(!item_has_no_cost_sale($rs_main['itmcde'], $detail_rows, $cost_cache)){
+                continue;
+            }
+            $no_cost_count++;
+            foreach(wrap_text($rs_main['itmdsc'], 700, 10) as $line){
+                $pdf->ezPlaceData(25, $xtop, xls_safe_text($line), 10, 'left');
+                $xtop -= 14;
+                if($xtop <= 60){
+                    $pdf->ezNewPage();
+                    $xtop = 515;
+                }
+            }
+        }
+        if($no_cost_count == 0){
+            $pdf->ezPlaceData(25, $xtop, xls_safe_text("No items with no cost."), 10, 'left');
+        }
+
+        $pdf->addText(30,15,8,"Date Printed : ".date("F j, Y, g:i A"),$angle=0,$wordspaceadjust=1);
+        $pdf->ezStream();
+        ob_end_flush();
+        exit;
+    }
 
     $grand_total_extprc = 0;
     $grand_total_profit = 0;
@@ -244,7 +265,7 @@
             $pdf->ezPlaceData($xleft+=75,$xtop,number_format($rs_main2["untprc"],2),9,"right");
 
             $pdf->ezPlaceData($xleft+=95,$xtop,number_format($rs_main2["extprc"],2),9,"right");
-            $unit_cost = item_sales_cost_get_cached_unitcost($rs_main['itmcde'], isset($rs_main2['unmcde']) ? $rs_main2['unmcde'] : NULL, $rs_main2['_lookup_trndte'], $rs_main2['recid'], $cost_lookup_cache);
+            $unit_cost = get_unit_cost($rs_main['itmcde'], $rs_main2['unmcde'], $cost_cache, $pur_cost_cache);
             $cost = $unit_cost * $rs_main2["itmqty"];
 
             $pdf->ezPlaceData($xleft+=95,$xtop,number_format($cost,2),9,"right");
@@ -358,6 +379,24 @@
 	$pdf->ezStream();
     ob_end_flush();
 
+    // Unit cost of a sale line: masterfile Cost, else latest purchase untprc in the same UOM, else 0
+    function get_unit_cost($itmcde, $unmcde, $cost_cache, $pur_cost_cache)
+    {
+        $unit_cost = isset($cost_cache[$itmcde]) ? (float)$cost_cache[$itmcde] : 0;
+        $pur_cost_key = $itmcde.'|'.$unmcde;
+        if($unit_cost == 0 && isset($pur_cost_cache[$pur_cost_key])){
+            $unit_cost = $pur_cost_cache[$pur_cost_key];
+        }
+        return $unit_cost;
+    }
+
+    // True when the item was sold but has no "Cost" price in mf_salesitemprice (missing or 0).
+    // Purchases are NOT considered here.
+    function item_has_no_cost_sale($itmcde, $detail_rows, $cost_cache)
+    {
+        return !empty($detail_rows) && (!isset($cost_cache[$itmcde]) || (float)$cost_cache[$itmcde] == 0);
+    }
+
     function trim_str($string,$max_wid,$fsize)
     {
         global $pdf;
@@ -421,87 +460,6 @@
         $string = preg_replace('/\s{2,}/', ' ', $string);
 
         return trim($string);
-    }
-
-    function item_sales_cost_cache_key($itmcde, $unmcde)
-    {
-        return (string)$itmcde . '|' . ($unmcde === NULL ? '__NULL__' : (string)$unmcde);
-    }
-
-    function item_sales_cost_build_lookup_cache($cost_cache, $sales_cost_needs)
-    {
-        $lookup_cache = array();
-
-        foreach($sales_cost_needs as $cost_key => $needs){
-            if(!isset($cost_cache[$cost_key]) || empty($cost_cache[$cost_key])){
-                continue;
-            }
-
-            $costs = $cost_cache[$cost_key];
-            $lookup_cache[$cost_key] = array(
-                'latest' => $costs[0]['untprc'],
-                'date_map' => array(),
-                'recid_map' => array()
-            );
-
-            $cost_count = count($costs);
-            if(!empty($needs['dates'])){
-                $sale_dates = array_keys($needs['dates']);
-                rsort($sale_dates, SORT_STRING);
-                $cost_index = 0;
-
-                foreach($sale_dates as $sale_date){
-                    while($cost_index < $cost_count){
-                        if(!empty($costs[$cost_index]['trndte']) && $costs[$cost_index]['trndte'] <= $sale_date){
-                            $lookup_cache[$cost_key]['date_map'][$sale_date] = $costs[$cost_index]['untprc'];
-                            break;
-                        }
-                        $cost_index++;
-                    }
-                }
-            }
-
-            if(!empty($needs['recids'])){
-                $sale_recids = array_values($needs['recids']);
-                rsort($sale_recids, SORT_NUMERIC);
-                $cost_index = 0;
-
-                foreach($sale_recids as $sale_recid){
-                    while($cost_index < $cost_count){
-                        if($costs[$cost_index]['recid'] < $sale_recid){
-                            $lookup_cache[$cost_key]['recid_map'][(string)$sale_recid] = $costs[$cost_index]['untprc'];
-                            break;
-                        }
-                        $cost_index++;
-                    }
-                }
-            }
-        }
-
-        return $lookup_cache;
-    }
-
-    function item_sales_cost_get_cached_unitcost($itmcde, $unmcde, $trndte, $sal_recid, $cost_lookup_cache)
-    {
-        $cost_key = item_sales_cost_cache_key($itmcde, $unmcde);
-        if(!isset($cost_lookup_cache[$cost_key])){
-            return 0;
-        }
-
-        $lookup = $cost_lookup_cache[$cost_key];
-
-        if(!empty($trndte) && isset($lookup['date_map'][$trndte])){
-            return $lookup['date_map'][$trndte];
-        }
-
-        if(!empty($sal_recid)){
-            $sal_recid_key = (string)$sal_recid;
-            if(isset($lookup['recid_map'][$sal_recid_key])){
-                return $lookup['recid_map'][$sal_recid_key];
-            }
-        }
-
-        return $lookup['latest'];
     }
 
     //returns dynamic width

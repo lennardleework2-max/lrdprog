@@ -1,4 +1,5 @@
 nul
+/logs/
 /uploads/*.xlsx
 /uploads po/
 /uploads_sales_test/*.xlsx
@@ -12,3 +13,9 @@ purchases_order_upload_ajax_copy.php
 purchases_order_upload_copy.php
 trn_purchasefile2_ajax_copy10.php
 trn_purchasefile2_copy10.php
+
+# never commit dumps, logs, or uploaded data files
+*.sql
+*.log
+/*.xlsx
+/uploads_sales_test/**/*.xlsx

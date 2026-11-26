@@ -140,7 +140,7 @@
 	                $pdf->ezPlaceData($xleft,$xtop-9,"<b>Doc. Num.</b>",10,'left');
 	                $pdf->ezPlaceData($xleft+=70,$xtop-9,"<b>Vat Type</b>",10,'left');
 	                $pdf->ezPlaceData($xleft+=60,$xtop-9,"<b>Expense Type</b>",10,'left');
-	                $pdf->ezPlaceData($xleft+=80,$xtop-9,"<b>Remarks</b>",10,'left');
+	                $pdf->ezPlaceData($xleft+=140,$xtop-9,"<b>Remarks</b>",10,'left');
 	                $pdf->ezPlaceData(768,$xtop-9,"<b>Total</b>",10,'right');
 	        }
 
@@ -187,7 +187,7 @@
 	                $pdf->ezPlaceData($xleft,$xtop,$rs_main2["docnum"],9,"left");
 	                $pdf->ezPlaceData($xleft+=70,$xtop,$rs_main2["vat_dsc"],9,"left");
 	                $pdf->ezPlaceData($xleft+=60,$xtop,$rs_main2["expense_dsc"],9,"left");
-	                $pdf->ezPlaceData($xleft+=80,$xtop,$rs_main2["remarks"],9,"left");
+	                $pdf->ezPlaceData($xleft+=140,$xtop,$rs_main2["remarks"],9,"left");
 	                $pdf->ezPlaceData(768,$xtop,number_format($rs_main2["trntot"],"2"),9,"right");
 	            }
 
@@ -224,7 +224,7 @@
 	                    $pdf->ezPlaceData($xleft,$xtop-9,"<b>Doc. Num.</b>",10,'left');
 	                    $pdf->ezPlaceData($xleft+=70,$xtop-9,"<b>Vat Type</b>",10,'left');
 	                    $pdf->ezPlaceData($xleft+=60,$xtop-9,"<b>Expense Type</b>",10,'left');
-	                    $pdf->ezPlaceData($xleft+=80,$xtop-9,"<b>Remarks</b>",10,'left');
+	                    $pdf->ezPlaceData($xleft+=140,$xtop-9,"<b>Remarks</b>",10,'left');
 	                    $pdf->ezPlaceData(768,$xtop-9,"<b>Total</b>",10,'right');
                                    
                     

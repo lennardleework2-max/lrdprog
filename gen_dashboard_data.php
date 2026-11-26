@@ -592,19 +592,27 @@ try{
         $salesman_id = $best_salesman['salesman_id'];
         $total_sales = (float)$best_salesman['total_sales'];
         $commission_rate = (float)$best_salesman['commission_rate'];
-        $total_commission = $total_sales * ($commission_rate / 100);
+        // Commission = SUM(trntot) x rate (matches trndate_rep_sales_cost.php "Total Comm")
+        $q_start = microtime(true);
+        $commission_stmt = $link->prepare("
+            SELECT COALESCE(SUM(trntot), 0)
+            FROM tranfile1
+            WHERE trncde = 'SAL'
+              AND salesman_id = ?
+              AND trndte >= ?
+              AND trndte <= ?
+        ");
+        $commission_stmt->execute(array($salesman_id, $start_date, $end_date));
+        $total_commission = (float)$commission_stmt->fetchColumn() * ($commission_rate / 100);
+        beaver_data_query("func:commission [{$start_date} to {$end_date}]", $q_start, 1);
 
         // Get all sales items for this salesman in this period to calculate COGS
-        // COGS calculation follows trndate_rep_sales_cost.php logic
         $q_start = microtime(true);
         $sales_items_sql = "
             SELECT
-                tranfile2.recid,
                 tranfile2.itmcde,
                 tranfile2.unmcde,
-                tranfile2.itmqty,
-                tranfile2.extprc,
-                tranfile1.trndte
+                tranfile2.itmqty
             FROM tranfile1
             INNER JOIN tranfile2 ON tranfile1.docnum = tranfile2.docnum
             WHERE tranfile1.trncde = 'SAL'
@@ -625,87 +633,64 @@ try{
             }
         }
 
-        // Batch load purchase costs (matching trndate_rep_sales_cost.php logic)
+        // Unit cost (same as trndate_rep_sales_cost.php):
+        // 1) item's "Cost" price in mf_salesitemprice (price type from mf_salespricetype)
+        // 2) if missing/zero: untprc of the latest PUR line dated <= today with the same itmcde + unmcde
         $cost_cache = array();
+        $pur_cost_cache = array(); // "itmcde|unmcde" => latest purchase untprc
         if(!empty($unique_items)) {
             $item_list = array_keys($unique_items);
             $placeholders = implode(',', array_fill(0, count($item_list), '?'));
-            $cost_query_params = $item_list;
 
-            // Get the latest cost for each item by date (matching trndate_rep_sales_cost.php)
-            beaver_data_log("QUERY_START: func:cost_cache (may be slow with many items)", array('item_count' => count($item_list)));
             $q_start = microtime(true);
-            $cost_query = "
-                SELECT t2.itmcde, t2.unmcde, t2.untprc, t2.recid, t1.trndte
-                FROM tranfile2 t2
-                INNER JOIN tranfile1 t1 ON t1.docnum = t2.docnum
-                WHERE t2.itmcde IN ($placeholders)
-                  AND t1.trncde = 'PUR'
-                  AND t2.stkqty > 0
-                ORDER BY t1.trndte DESC, t2.recid DESC
-            ";
-            $cost_stmt = $link->prepare($cost_query);
-            $cost_stmt->execute($cost_query_params);
+            $cost_stmt = $link->prepare("
+                SELECT sip.itmcde, sip.price
+                FROM mf_salesitemprice sip
+                WHERE sip.salesprice_id = (SELECT salesprice_id FROM mf_salespricetype WHERE salesprice_desc = 'Cost' LIMIT 1)
+                  AND sip.itmcde IN ($placeholders)
+            ");
+            $cost_stmt->execute($item_list);
+            $cost_cache = $cost_stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+            beaver_data_query("func:cost_cache", $q_start, count($cost_cache));
 
-            $cost_row_count = 0;
-            while($cost_row = $cost_stmt->fetch(PDO::FETCH_ASSOC)) {
-                $cost_key = (string)$cost_row['itmcde'] . '|' . ($cost_row['unmcde'] === null ? '__NULL__' : (string)$cost_row['unmcde']);
-                if(!isset($cost_cache[$cost_key])) {
-                    $cost_cache[$cost_key] = array();
+            $no_cost_items = array();
+            foreach($item_list as $itm) {
+                if(empty($cost_cache[$itm]) || (float)$cost_cache[$itm] == 0) {
+                    $no_cost_items[] = $itm;
                 }
-                $cost_cache[$cost_key][] = $cost_row;
-                $cost_row_count++;
             }
-            beaver_data_query("func:cost_cache", $q_start, $cost_row_count);
+            if(!empty($no_cost_items)) {
+                $q_start = microtime(true);
+                $pur_placeholders = implode(',', array_fill(0, count($no_cost_items), '?'));
+                $pur_cost_stmt = $link->prepare("
+                    SELECT t2.itmcde, t2.unmcde, t2.untprc
+                    FROM tranfile2 t2
+                    INNER JOIN (
+                        SELECT MAX(x2.recid) AS recid
+                        FROM tranfile2 x2
+                        INNER JOIN tranfile1 x1 ON x1.docnum = x2.docnum
+                        WHERE x1.trncde = 'PUR' AND x1.trndte <= ? AND x2.itmcde IN ($pur_placeholders)
+                        GROUP BY x2.itmcde, x2.unmcde
+                    ) latest ON latest.recid = t2.recid
+                ");
+                $pur_cost_stmt->execute(array_merge(array(date('Y-m-d')), $no_cost_items));
+                while($pur_row = $pur_cost_stmt->fetch(PDO::FETCH_ASSOC)) {
+                    $pur_cost_cache[$pur_row['itmcde'].'|'.$pur_row['unmcde']] = (float)$pur_row['untprc'];
+                }
+                beaver_data_query("func:pur_cost_cache", $q_start, count($pur_cost_cache));
+            }
         }
 
         // Calculate total COGS
-        beaver_data_log("LOOP_START: COGS calculation", array('items' => count($sales_items)));
-        $cogs_loop_start = microtime(true);
         $total_cogs = 0;
         foreach($sales_items as $item) {
-            $itmcde = $item['itmcde'];
-            $unmcde = $item['unmcde'];
-            $itmqty = abs((float)$item['itmqty']);
-            $trndte = $item['trndte'];
-            $sal_recid = $item['recid'];
-
-            // Lookup unit cost from cache (matching trndate_rep_sales_cost.php logic)
-            $cost_key = (string)$itmcde . '|' . ($unmcde === null ? '__NULL__' : (string)$unmcde);
-            $unit_cost = 0;
-
-            if(isset($cost_cache[$cost_key]) && !empty($cost_cache[$cost_key])) {
-                $costs = $cost_cache[$cost_key];
-
-                // Find cost where trndte <= sale date
-                if(!empty($trndte)) {
-                    foreach($costs as $c) {
-                        if(!empty($c['trndte']) && $c['trndte'] <= $trndte) {
-                            $unit_cost = (float)$c['untprc'];
-                            break;
-                        }
-                    }
-                }
-
-                // Fallback: find cost where recid < sale recid
-                if($unit_cost == 0 && !empty($sal_recid)) {
-                    foreach($costs as $c) {
-                        if($c['recid'] < $sal_recid) {
-                            $unit_cost = (float)$c['untprc'];
-                            break;
-                        }
-                    }
-                }
-
-                // Last fallback: return latest cost
-                if($unit_cost == 0 && !empty($costs)) {
-                    $unit_cost = (float)$costs[0]['untprc'];
-                }
+            $unit_cost = isset($cost_cache[$item['itmcde']]) ? (float)$cost_cache[$item['itmcde']] : 0;
+            $pur_cost_key = $item['itmcde'].'|'.$item['unmcde'];
+            if($unit_cost == 0 && isset($pur_cost_cache[$pur_cost_key])) {
+                $unit_cost = $pur_cost_cache[$pur_cost_key];
             }
-
-            $total_cogs += $unit_cost * $itmqty;
+            $total_cogs += $unit_cost * $item['itmqty'];
         }
-        beaver_data_log("LOOP_END: COGS calculation", array('cogs_loop_ms' => round((microtime(true) - $cogs_loop_start) * 1000, 2)));
 
         $net_profit = $total_sales - $total_cogs - $total_commission;
 
