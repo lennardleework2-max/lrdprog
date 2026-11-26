@@ -444,6 +444,76 @@ check('platform whitelist: unknown platform rejected', payout_is_allowed_platfor
 check('platform whitelist: empty string rejected', payout_is_allowed_platform('') === false);
 check('platform whitelist: arbitrary injected column-name-like value rejected', payout_is_allowed_platform('untprc') === false);
 
+// ---------------------------------------------------------------------------
+// Scenario 8: Lazada/TikTok original logic - payout as-is (no qty division),
+// written to EVERY matching document that is not already uploaded.
+// ---------------------------------------------------------------------------
+// Mirrors the non-Shopee branch of sales_payout_ajax.php's per-order loop.
+function payout_build_prices_all_docnums($orderNumbers, $dividedPrice, $fakeTranfile1, $alreadyPaidDocnums = [])
+{
+    $orderToDocnums = [];
+    foreach ($fakeTranfile1 as $r) {
+        if (in_array($r['ordernum'], $orderNumbers, true)) {
+            $orderToDocnums[$r['ordernum']][] = $r['docnum'];
+        }
+    }
+
+    $unmatched = [];
+    $alreadyUploaded = [];
+    $docnumToPrice = [];
+    foreach ($orderNumbers as $ordernum) {
+        if (!isset($orderToDocnums[$ordernum])) {
+            $unmatched[] = $ordernum;
+            continue;
+        }
+        $docnums = array_filter(array_unique($orderToDocnums[$ordernum]), function ($d) use ($alreadyPaidDocnums) {
+            return !isset($alreadyPaidDocnums[$d]);
+        });
+        if (empty($docnums)) {
+            $alreadyUploaded[] = $ordernum;
+            continue;
+        }
+        foreach ($docnums as $docnum) {
+            $docnumToPrice[$docnum] = $dividedPrice[$ordernum];
+        }
+    }
+    return [$unmatched, $docnumToPrice, $alreadyUploaded];
+}
+
+// 8a: two file rows (100, 50) -> 75 on every line, no qty division
+[, $d8] = payout_group_and_divide([
+    ['ordernum' => '1', 'price' => 100.0],
+    ['ordernum' => '1', 'price' => 50.0],
+]);
+$t1_8 = [['ordernum' => '1', 'docnum' => 'SI-1']];
+$t2_8 = [
+    ['docnum' => 'SI-1', 'itmqty' => 2, 'untprc' => 40.0, 'untprc_before_payout' => null],
+    ['docnum' => 'SI-1', 'itmqty' => 1, 'untprc' => 60.0, 'untprc_before_payout' => null],
+];
+[$un8, $map8] = payout_build_prices_all_docnums(['1'], $d8, $t1_8);
+[$t2_8r, $tot8] = payout_recompute_extprc_and_trntot($t2_8, $map8);
+check('lazada/tiktok: (100+50)/2 = 75', $d8['1'] === 75.0);
+check('lazada/tiktok: every line untprc = 75 (no qty division)', $t2_8r[0]['untprc'] === 75.0 && $t2_8r[1]['untprc'] === 75.0);
+check('lazada/tiktok: trntot = 75 x 3 qty = 225', (float)$tot8['SI-1'] === 225.0);
+
+// 8b: ordernum in two documents -> both get 75
+$t1_8b = [['ordernum' => '1', 'docnum' => 'SI-3'], ['ordernum' => '1', 'docnum' => 'SI-7']];
+[, $map8b] = payout_build_prices_all_docnums(['1'], $d8, $t1_8b);
+check('lazada/tiktok: all matching documents updated', $map8b === ['SI-3' => 75.0, 'SI-7' => 75.0]);
+
+// 8c: one of the two already uploaded -> only the other one updated
+[, $map8c, $already8c] = payout_build_prices_all_docnums(['1'], $d8, $t1_8b, ['SI-3' => true]);
+check('lazada/tiktok: already-uploaded document skipped, other updated', $map8c === ['SI-7' => 75.0] && empty($already8c));
+
+// 8d: both already uploaded -> order counted as already uploaded
+[, $map8d, $already8d] = payout_build_prices_all_docnums(['1'], $d8, $t1_8b, ['SI-3' => true, 'SI-7' => true]);
+check('lazada/tiktok: all documents uploaded -> already uploaded', empty($map8d) && $already8d === ['1']);
+
+// 8e: ordernum with spaces in the file is trimmed (non-Shopee read step) and matches
+$fileOrdernum = trim('  1  ');
+[$un8e, $map8e] = payout_build_prices_all_docnums([$fileOrdernum], ['1' => 75.0], $t1_8);
+check('lazada/tiktok: spaced ordernum trimmed and matched', empty($un8e) && $map8e === ['SI-1' => 75.0]);
+
 if ($failures === 0) {
     echo "\nAll checks passed.\n";
     exit(0);

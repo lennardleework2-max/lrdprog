@@ -193,6 +193,10 @@ if (!in_array($platform_name, $allowed_platforms, true)) {
 
 payout_log_line('platform=' . $platform_name);
 
+// Shopee: payout divided by the document's total qty, earliest matching document only.
+// Lazada/TikTok: original logic - payout written as-is to every matching document.
+$isShopee = ($platform_name === 'SHOPEE');
+
 // --- validate uploaded file ---
 if (!isset($_FILES['xfile']) || $_FILES['xfile']['error'] !== 0) {
     $response['status'] = 0;
@@ -369,8 +373,12 @@ foreach ($sheetTargets as $target) {
             foreach ($dataRowObj->getCellIterator() as $cell) {
                 $col = $cell->getColumn();
                 if ($col === $orderCol) {
-                    // kept as-is (not trimmed): an exact match, spaces included, is tried first
+                    // Shopee: kept as-is (not trimmed) - an exact match, spaces included, is tried first.
+                    // Lazada/TikTok: trimmed, same as the original logic.
                     $ordernum = (string) payout_get_cell_value_as_string($cell);
+                    if (!$isShopee) {
+                        $ordernum = trim($ordernum);
+                    }
                 } elseif ($col === $priceCol) {
                     $rawPrice = payout_get_cell_value_as_string($cell);
                 }
@@ -427,30 +435,53 @@ foreach ($grouped as $ordernum => $prices) {
     $dividedPrice[$ordernum] = round(array_sum($prices) / count($prices), 2);
 }
 
-// --- batch match against tranfile1: one record per ordernum (earliest trndte, then lowest recid) ---
-// Exact match first (spaces included); trimmed match is only the fallback when there is no exact one.
+// --- batch match against tranfile1 ---
+// $orderToDocnums: ordernum => list of docnums to update.
 $orderNumbers = array_map('strval', array_keys($grouped));
-$searchValues = array_values(array_unique(array_merge($orderNumbers, array_map('trim', $orderNumbers))));
+$orderToDocnums = [];
 
-$dbRows = [];
-foreach (array_chunk($searchValues, 500) as $chunk) {
-    $placeholders = implode(',', array_fill(0, count($chunk), '?'));
-    $stmt = $link->prepare("SELECT ordernum, docnum, trndte, recid FROM tranfile1 WHERE ordernum IN ($placeholders)");
-    $stmt->execute($chunk);
-    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $dbRows[$row['recid']] = $row;
+if ($isShopee) {
+    // one record per ordernum (earliest trndte, then lowest recid).
+    // Exact match first (spaces included); trimmed match is only the fallback when there is no exact one.
+    $searchValues = array_values(array_unique(array_merge($orderNumbers, array_map('trim', $orderNumbers))));
+
+    $dbRows = [];
+    foreach (array_chunk($searchValues, 500) as $chunk) {
+        $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+        $stmt = $link->prepare("SELECT ordernum, docnum, trndte, recid FROM tranfile1 WHERE ordernum IN ($placeholders)");
+        $stmt->execute($chunk);
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $dbRows[$row['recid']] = $row;
+        }
+    }
+    foreach (payout_match_orders_to_docnums($orderNumbers, array_values($dbRows)) as $ordernum => $docnum) {
+        $orderToDocnums[$ordernum] = [$docnum];
+    }
+} else {
+    // Lazada/TikTok (original logic): every tranfile1 record with this ordernum.
+    foreach (array_chunk($orderNumbers, 500) as $chunk) {
+        $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+        $stmt = $link->prepare("SELECT ordernum, docnum FROM tranfile1 WHERE ordernum IN ($placeholders)");
+        $stmt->execute($chunk);
+        while ($row = $stmt->fetch()) {
+            $orderToDocnums[$row['ordernum']][] = $row['docnum'];
+        }
     }
 }
-$orderToDocnum = payout_match_orders_to_docnums($orderNumbers, array_values($dbRows));
 
 // a docnum whose tranfile2 lines already have a non-empty untprc_before_payout went through a payout once - it is locked
 // (empty string counts as not paid, so a live column with a '' default can't block every upload)
-$allDocnums = array_fill_keys(array_values($orderToDocnum), true);
-payout_beaver_log('B2 matched', ['orders_in_file' => count($orderNumbers), 'orders_found_in_tranfile1' => count($orderToDocnum), 'docnums' => count($allDocnums)]);
+$allDocnums = [];
+foreach ($orderToDocnums as $orderDocnums) {
+    foreach ($orderDocnums as $docnum) {
+        $allDocnums[$docnum] = true;
+    }
+}
+payout_beaver_log('B2 matched', ['orders_in_file' => count($orderNumbers), 'orders_found_in_tranfile1' => count($orderToDocnums), 'docnums' => count($allDocnums)]);
 
-// total item quantity per docnum - the order's payout is divided by this to get the per-unit price
+// Shopee only: total item quantity per docnum - the order's payout is divided by this to get the per-unit price
 $docnumQty = [];
-foreach (array_chunk(array_keys($allDocnums), 500) as $chunk) {
+foreach ($isShopee ? array_chunk(array_keys($allDocnums), 500) : [] as $chunk) {
     $placeholders = implode(',', array_fill(0, count($chunk), '?'));
     $stmt = $link->prepare("SELECT docnum, SUM(itmqty) qty FROM tranfile2 WHERE docnum IN ($placeholders) GROUP BY docnum");
     $stmt->execute($chunk);
@@ -494,13 +525,41 @@ $zeroQtyCount = 0;
 $docnumToPrice = [];
 
 foreach ($orderNumbers as $ordernum) {
-    if (!isset($orderToDocnum[$ordernum])) {
+    if (!isset($orderToDocnums[$ordernum])) {
         $unmatched[] = $ordernum;
         payout_add_result($response, $ordernum, false, "Order " . $ordernum . ": no matching record found - skipped.");
         continue;
     }
 
-    $docnum = $orderToDocnum[$ordernum];
+    $rowCountNote = count($grouped[$ordernum]) > 1
+        ? " - amount split evenly across " . count($grouped[$ordernum]) . " rows with this same order number in your file"
+        : "";
+
+    if (!$isShopee) {
+        // Lazada/TikTok (original logic): the payout goes as-is to every not-yet-uploaded matching document
+        $docnums = array_filter(array_unique($orderToDocnums[$ordernum]), function ($d) use ($alreadyPaidDocnums) {
+            return !isset($alreadyPaidDocnums[$d]);
+        });
+        if (empty($docnums)) {
+            $alreadyUploadedCount++;
+            payout_add_result($response, $ordernum, false, "Order " . $ordernum . ": already uploaded - skipped (price not changed).");
+            continue;
+        }
+
+        foreach ($docnums as $docnum) {
+            $docnumToPrice[$docnum] = $dividedPrice[$ordernum];
+        }
+
+        payout_add_result(
+            $response,
+            $ordernum,
+            true,
+            "Order " . $ordernum . ": price updated to " . number_format($dividedPrice[$ordernum], 2) . " (Document No. " . implode(', ', $docnums) . ")" . $rowCountNote
+        );
+        continue;
+    }
+
+    $docnum = $orderToDocnums[$ordernum][0];
     if (isset($alreadyPaidDocnums[$docnum])) {
         $alreadyUploadedCount++;
         payout_add_result($response, $ordernum, false, "Order " . $ordernum . ": already uploaded - skipped (price not changed).");
@@ -517,10 +576,6 @@ foreach ($orderNumbers as $ordernum) {
     $orderPayout = $dividedPrice[$ordernum];
     $unitPrice = round($orderPayout / $totalQty, 2);
     $docnumToPrice[$docnum] = $unitPrice;
-
-    $rowCountNote = count($grouped[$ordernum]) > 1
-        ? " - amount split evenly across " . count($grouped[$ordernum]) . " rows with this same order number in your file"
-        : "";
 
     payout_add_result(
         $response,
